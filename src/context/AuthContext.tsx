@@ -20,6 +20,10 @@ import {
   getAccessToken,
 } from "../api/apiClient";
 
+import {
+  DIAGNOSTIC_GUEST_TOKEN_STORAGE_KEY,
+} from "../utils/constants";
+
 import type {
   AuthUser,
   LoginPayload,
@@ -33,7 +37,9 @@ type AuthStatus =
 
 type AuthContextValue = {
   user: AuthUser | null;
+
   status: AuthStatus;
+
   isAuthenticated: boolean;
 
   login: (
@@ -46,63 +52,144 @@ type AuthContextValue = {
   ) => Promise<AuthUser>;
 
   logout: () => Promise<void>;
+
   refreshProfile: () => Promise<AuthUser>;
 };
 
 const AuthContext =
-  createContext<AuthContextValue | null>(null);
+  createContext<AuthContextValue | null>(
+    null,
+  );
 
 type AuthProviderProps = {
   children: ReactNode;
 };
 
+function getStoredDiagnosticGuestToken():
+  string | null {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return null;
+  }
+
+  const storedToken =
+    window.localStorage.getItem(
+      DIAGNOSTIC_GUEST_TOKEN_STORAGE_KEY,
+    );
+
+  return storedToken?.trim() ||
+    null;
+}
+
+function removeStoredDiagnosticGuestToken():
+  void {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  window.localStorage.removeItem(
+    DIAGNOSTIC_GUEST_TOKEN_STORAGE_KEY,
+  );
+}
+
 export function AuthProvider({
   children,
 }: AuthProviderProps) {
-  const [user, setUser] =
-    useState<AuthUser | null>(null);
+  const [
+    user,
+    setUser,
+  ] =
+    useState<AuthUser | null>(
+      null,
+    );
 
-  const [status, setStatus] =
-    useState<AuthStatus>("loading");
+  const [
+    status,
+    setStatus,
+  ] =
+    useState<AuthStatus>(
+      "loading",
+    );
 
   const refreshProfile =
-    useCallback(async (): Promise<AuthUser> => {
-      const profile = await getProfileApi();
+    useCallback(
+      async (): Promise<AuthUser> => {
+        const profile =
+          await getProfileApi();
 
-      setUser(profile);
-      setStatus("authenticated");
+        setUser(
+          profile,
+        );
 
-      return profile;
-    }, []);
+        setStatus(
+          "authenticated",
+        );
+
+        return profile;
+      },
+      [],
+    );
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled =
+      false;
 
-    async function restoreSession(): Promise<void> {
-      const token = getAccessToken();
+    async function restoreSession():
+      Promise<void> {
+      const token =
+        getAccessToken();
 
-      if (!token) {
-        if (!cancelled) {
-          setUser(null);
-          setStatus("guest");
+      if (
+        !token
+      ) {
+        if (
+          !cancelled
+        ) {
+          setUser(
+            null,
+          );
+
+          setStatus(
+            "guest",
+          );
         }
 
         return;
       }
 
       try {
-        const profile = await getProfileApi();
+        const profile =
+          await getProfileApi();
 
-        if (!cancelled) {
-          setUser(profile);
-          setStatus("authenticated");
+        if (
+          !cancelled
+        ) {
+          setUser(
+            profile,
+          );
+
+          setStatus(
+            "authenticated",
+          );
         }
       } catch {
         clearAccessToken();
 
-        if (!cancelled) {
-          setUser(null);
-          setStatus("guest");
+        if (
+          !cancelled
+        ) {
+          setUser(
+            null,
+          );
+
+          setStatus(
+            "guest",
+          );
         }
       }
     }
@@ -110,86 +197,209 @@ export function AuthProvider({
     void restoreSession();
 
     return () => {
-      cancelled = true;
+      cancelled =
+        true;
     };
   }, []);
 
-  const login = useCallback(
-    async (
-      payload: LoginPayload,
-      rememberMe: boolean,
-    ): Promise<AuthUser> => {
-      const session = await loginApi(
-        payload,
-        rememberMe,
-      );
+  const login =
+    useCallback(
+      async (
+        payload:
+          LoginPayload,
 
-      setUser(session.user);
-      setStatus("authenticated");
+        rememberMe:
+          boolean,
+      ): Promise<AuthUser> => {
+        const session =
+          await loginApi(
+            payload,
+            rememberMe,
+          );
 
-      return session.user;
-    },
-    [],
-  );
+        setUser(
+          session.user,
+        );
 
-  const register = useCallback(
-    async (
-      payload: RegisterPayload,
-    ): Promise<AuthUser> => {
-      const session = await registerApi(payload);
+        setStatus(
+          "authenticated",
+        );
 
-      setUser(session.user);
-      setStatus("authenticated");
+        return session.user;
+      },
+      [],
+    );
 
-      return session.user;
-    },
-    [],
-  );
+  const register =
+    useCallback(
+      async (
+        payload:
+          RegisterPayload,
+      ): Promise<AuthUser> => {
+        /*
+         * Retrieve the token created for the anonymous
+         * diagnostic assessment.
+         */
+        const guestToken =
+          getStoredDiagnosticGuestToken();
 
-  const logout = useCallback(
-    async (): Promise<void> => {
-      try {
-        await logoutApi();
-      } finally {
-        setUser(null);
-        setStatus("guest");
-      }
-    },
-    [],
-  );
+        /*
+         * Include guest_token in POST /api/register.
+         *
+         * When no assessment was completed, the property
+         * is omitted from the request.
+         */
+        const registrationPayload:
+          RegisterPayload = {
+          ...payload,
 
-  const contextValue = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      status,
-      isAuthenticated:
-        status === "authenticated",
-      login,
-      register,
-      logout,
-      refreshProfile,
-    }),
-    [
-      user,
-      status,
-      login,
-      register,
-      logout,
-      refreshProfile,
-    ],
-  );
+          ...(guestToken
+            ? {
+                guest_token:
+                  guestToken,
+              }
+            : {}),
+        };
+
+        /*
+         * registerApi must send registrationPayload directly
+         * to POST /api/register.
+         *
+         * It must also save the returned access token before
+         * this promise resolves.
+         */
+        const session =
+          await registerApi(
+            registrationPayload,
+          );
+
+        /*
+         * Registration succeeded. The backend should now
+         * have linked the anonymous diagnostic result to the
+         * newly created user.
+         */
+        if (
+          guestToken
+        ) {
+          removeStoredDiagnosticGuestToken();
+        }
+
+        /*
+         * Use the user returned during registration as a
+         * fallback.
+         */
+        let authenticatedUser =
+          session.user;
+
+        /*
+         * Reload the profile so readiness_score reflects
+         * the result linked during registration.
+         *
+         * This requires registerApi to save the access token
+         * before returning.
+         */
+        try {
+          authenticatedUser =
+            await getProfileApi();
+        } catch (
+          profileError
+        ) {
+          /*
+           * Registration was still successful. Retain the
+           * registration response when profile refreshing
+           * temporarily fails.
+           */
+          if (
+            import.meta.env.DEV
+          ) {
+            console.warn(
+              "[Auth] Account created, but the profile could not be refreshed.",
+              profileError,
+            );
+          }
+        }
+
+        setUser(
+          authenticatedUser,
+        );
+
+        setStatus(
+          "authenticated",
+        );
+
+        return authenticatedUser;
+      },
+      [],
+    );
+
+  const logout =
+    useCallback(
+      async (): Promise<void> => {
+        try {
+          await logoutApi();
+        } finally {
+          setUser(
+            null,
+          );
+
+          setStatus(
+            "guest",
+          );
+        }
+      },
+      [],
+    );
+
+  const contextValue =
+    useMemo<AuthContextValue>(
+      () => ({
+        user,
+
+        status,
+
+        isAuthenticated:
+          status ===
+          "authenticated",
+
+        login,
+
+        register,
+
+        logout,
+
+        refreshProfile,
+      }),
+      [
+        user,
+        status,
+        login,
+        register,
+        logout,
+        refreshProfile,
+      ],
+    );
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider
+      value={
+        contextValue
+      }
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
+export function useAuth():
+  AuthContextValue {
+  const context =
+    useContext(
+      AuthContext,
+    );
 
-  if (!context) {
+  if (
+    !context
+  ) {
     throw new Error(
       "useAuth must be used inside AuthProvider.",
     );

@@ -12,6 +12,7 @@ import {
   InitialAssessmentRouteElement,
 } from "./routes/assessment.routes";
 
+import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AuthPage from "./pages/AuthPage";
 import ChooseAdventurePage from "./pages/ChooseAdventurePage";
@@ -24,6 +25,7 @@ import MentorDashboardPage from "./pages/mentor/MentorDashboardPage";
 import ProfilePage from "./pages/user/ProfilePage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
 import VerificationPendingPage from "./pages/VerificationPendingPage";
+import { DIAGNOSTIC_RESULT_ROUTE } from "./utils/constants";
 
 export default function App() {
   return (
@@ -53,6 +55,13 @@ export default function App() {
         path={INITIAL_ASSESSMENT_ROUTE}
         element={
           <InitialAssessmentRouteElement />
+        }
+      />
+
+      <Route
+        path={DIAGNOSTIC_RESULT_ROUTE}
+        element={
+          <DiagnosticResultPage />
         }
       />
 

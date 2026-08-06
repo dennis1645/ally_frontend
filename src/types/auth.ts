@@ -59,6 +59,7 @@ export type RegisterPayload = {
   phone_number: string;
   password: string;
   password_confirmation: string;
+  guest_token?: string | null;
 };
 
 export type ForgotPasswordPayload = {

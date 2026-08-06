@@ -7,8 +7,8 @@ import {
 } from "react";
 
 import {
-  CheckCircle2,
-} from "lucide-react";
+  useNavigate,
+} from "react-router";
 
 import {
   useDiagnosticGuestToken,
@@ -41,6 +41,11 @@ import {
   useSubmitAssessment,
 } from "../hooks/useSubmitAssessment";
 
+import {
+  DIAGNOSTIC_RESULT_ROUTE,
+  INITIAL_DIAGNOSTIC_ASSESSMENT_TYPE,
+} from "../utils/constants";
+
 import type {
   DiagnosticQuestion,
   SubmitAssessmentPayload,
@@ -62,23 +67,20 @@ function AssessmentExperience({
       questions,
     });
 
+  const navigate =
+    useNavigate();
+
   const submission =
     useSubmitAssessment();
 
   const {
-    getOrCreateGuestToken,
+    getGuestToken,
   } =
     useDiagnosticGuestToken();
 
   const [
     submitDialogOpen,
     setSubmitDialogOpen,
-  ] =
-    useState(false);
-
-  const [
-    submissionComplete,
-    setSubmissionComplete,
   ] =
     useState(false);
 
@@ -117,12 +119,6 @@ function AssessmentExperience({
    * visible assessment page changes.
    */
   useEffect(() => {
-    if (
-      submissionComplete
-    ) {
-      return;
-    }
-
     const animationFrameId =
       window.requestAnimationFrame(
         () => {
@@ -146,7 +142,6 @@ function AssessmentExperience({
     };
   }, [
     assessment.currentStep,
-    submissionComplete,
   ]);
 
   const handleNext =
@@ -244,39 +239,55 @@ function AssessmentExperience({
 
         try {
           /*
-           * useAssessment only returns the selected answers.
+           * useAssessment returns only the answers selected
+           * during the current assessment attempt.
            */
           const answersPayload =
             assessment
               .buildSubmissionPayload();
 
           /*
-           * Add the assessment type and anonymous guest token
-           * required by POST /api/diagnostic/submit.
+           * The token was generated when the visitor clicked
+           * Start Free Assessment on ChooseAdventurePage.
+           *
+           * Read that token here instead of silently generating
+           * or replacing it during submission.
            */
+          const guestToken =
+            getGuestToken();
+
+          if (
+            !guestToken
+          ) {
+            throw new Error(
+              "No guest token was found for this assessment attempt. Please return to Choose Adventure and start the assessment again.",
+            );
+          }
+
           const payload:
             SubmitAssessmentPayload = {
             assessment_type:
-              "initial_diagnostic",
+              INITIAL_DIAGNOSTIC_ASSESSMENT_TYPE,
 
             guest_token:
-              getOrCreateGuestToken(),
+              guestToken,
 
             answers:
               answersPayload.answers,
           };
 
+          /*
+           * Wait for the backend to calculate and store the
+           * anonymous result under this guest token.
+           */
           await submission.submit(
             payload,
           );
 
           /*
-           * Clear the locally saved answers only after the
-           * backend confirms that submission succeeded.
-           *
-           * The guest token is intentionally kept because it
-           * will still be needed to retrieve the guest result
-           * and attach it to the user's account after registration.
+           * Clear only the saved answers and page progress.
+           * Keep the guest token because the result page needs
+           * the same token for GET /api/diagnostic/my-result.
            */
           assessment.clearAssessment();
 
@@ -284,17 +295,20 @@ function AssessmentExperience({
             false,
           );
 
-          setSubmissionComplete(
-            true,
+          /*
+           * Redirect immediately after successful submission.
+           * DiagnosticResultPage will use the existing token to
+           * retrieve and display the anonymous result.
+           */
+          navigate(
+            DIAGNOSTIC_RESULT_ROUTE,
+            {
+              replace:
+                true,
+            },
           );
-
-          window.scrollTo({
-            top: 0,
-            behavior:
-              "smooth",
-          });
         } catch (
-          submissionError
+          submissionError: unknown
         ) {
           setSubmissionErrorMessage(
             submissionError instanceof
@@ -306,82 +320,11 @@ function AssessmentExperience({
       },
       [
         assessment,
-        getOrCreateGuestToken,
+        getGuestToken,
+        navigate,
         submission,
       ],
     );
-
-  /* =======================================================
-     Submission success
-  ======================================================= */
-
-  if (
-    submissionComplete
-  ) {
-    return (
-      <div className="min-h-screen bg-[#fff8f5]">
-        <AssessmentHeader />
-
-        <main
-          className={[
-            "mx-auto grid min-h-[calc(100vh-5rem)]",
-            "w-full max-w-4xl place-items-center",
-            "px-4 py-16 sm:px-6 lg:px-8",
-          ].join(" ")}
-        >
-          <section
-            aria-labelledby="assessment-submitted-title"
-            className={[
-              "w-full max-w-lg rounded-3xl",
-              "border border-[#e8ddd7] bg-white",
-              "p-8 text-center",
-              "shadow-[0_8px_30px_rgba(67,36,22,0.07)]",
-              "sm:p-10",
-            ].join(" ")}
-          >
-            <div
-              className={[
-                "mx-auto grid h-16 w-16",
-                "place-items-center rounded-full",
-                "bg-[#e9f7ef] text-[#27865b]",
-              ].join(" ")}
-            >
-              <CheckCircle2
-                size={34}
-                strokeWidth={2.4}
-                aria-hidden="true"
-              />
-            </div>
-
-            <h1
-              id="assessment-submitted-title"
-              className={[
-                "mt-6 text-2xl font-bold",
-                "tracking-tight text-[#331a0e]",
-                "sm:text-3xl",
-              ].join(" ")}
-            >
-              Assessment Submitted
-            </h1>
-
-            <p
-              className={[
-                "mt-4 text-sm leading-7",
-                "text-[#6c5950]",
-                "sm:text-base",
-              ].join(" ")}
-            >
-              Your answers have been
-              submitted successfully.
-              Ally can now calculate
-              your scholarship
-              readiness.
-            </p>
-          </section>
-        </main>
-      </div>
-    );
-  }
 
   /* =======================================================
      Assessment pages
