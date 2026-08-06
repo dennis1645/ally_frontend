@@ -79,9 +79,27 @@ export default function LandingPage() {
         {/* Ally logo */}
 
         <header className="text-center">
-          <h1 className="text-5xl font-extrabold italic tracking-tight text-ally-primary sm:text-6xl">
-            Ally
-          </h1>
+<div>
+  <span
+    className="ally-logo text-[62px] leading-none"
+    role="img"
+    aria-label="Ally"
+  >
+    <span
+      aria-hidden="true"
+      className="ally-logo-a"
+    >
+      A
+    </span>
+
+    <span
+      aria-hidden="true"
+      className="ally-logo-lly"
+    >
+      lly
+    </span>
+  </span>
+</div>
 
           <p className="mt-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#7a582f] sm:text-sm">
             Scholarship Expedition

@@ -76,3 +76,20 @@ export type AuthSession = {
   token: string;
   user: AuthUser;
 };
+
+export type AuthBadgePivot = {
+  user_id: number | string;
+  badge_id: number | string;
+  earned_at: string;
+};
+
+export type AuthBadge = {
+  id: number | string;
+  name: string;
+  description: string;
+  icon_url: string | null;
+  required_xp: number;
+  created_at?: string;
+  updated_at?: string;
+  pivot?: AuthBadgePivot;
+};

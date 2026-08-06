@@ -5,7 +5,6 @@ import type {
 import {
   BookOpenCheck,
   Bot,
-//   CalendarDays,
   CreditCard,
   FileText,
   LayoutDashboard,
@@ -70,11 +69,6 @@ export const defaultUserSidebarItems: SidebarItem[] = [
     path: "/sessions",
     icon: UsersRound,
   },
-//   {
-//     label: "Calendar",
-//     path: "/timeline",
-//     icon: CalendarDays,
-//   },
   {
     label: "Billing",
     path: "/checkout",
@@ -120,25 +114,27 @@ export default function Sidebar({
       >
         <div className="flex items-center justify-between px-6 py-6">
           <div>
-            <span
-  className="ally-logo ally-logo-medium"
-  role="img"
-  aria-label="Ally"
->
+<div>
   <span
-    aria-hidden="true"
-    className="ally-logo-a"
+    className="ally-logo text-[40px] leading-none"
+    role="img"
+    aria-label="Ally"
   >
-    A
-  </span>
+    <span
+      aria-hidden="true"
+      className="ally-logo-a"
+    >
+      A
+    </span>
 
-  <span
-    aria-hidden="true"
-    className="ally-logo-lly"
-  >
+    <span
+      aria-hidden="true"
+      className="ally-logo-lly"
+    >
       lly
+    </span>
   </span>
-</span>
+</div>
 
             <p className="mt-1 text-xs text-slate-400">
               Explorer Portal
