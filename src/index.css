@@ -1,0 +1,1970 @@
+@import "tailwindcss";
+
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "@fontsource/sansita-swashed/700.css";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+
+  --color-ally-background: #fff8f5;
+  --color-ally-surface: #fff1ea;
+  --color-ally-surface-strong: #ffeade;
+
+  --color-ally-primary: #16629b;
+  --color-ally-blue: #6ba8e6;
+  --color-ally-blue-light: #d0e4ff;
+
+  --color-ally-brown: #e6d5bc;
+  --color-ally-brown-dark: #7a582f;
+
+  --color-ally-text: #2c1607;
+  --color-ally-muted: #667085;
+  --color-ally-border: #c1c7d1;
+
+  --color-ally-success: #35b978;
+  --color-ally-error: #ba1a1a;
+}
+
+:root {
+  font-family: var(--font-sans);
+  color: var(--color-ally-text);
+  background: var(--color-ally-background);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--color-ally-background);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* =========================================
+   Ally logo
+========================================= */
+
+.ally-logo {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--color-ally-primary);
+  line-height: 0.9;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ally-logo-a {
+  display: inline-block;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  transform: skewX(-7deg);
+  transform-origin: bottom center;
+}
+
+.ally-logo-lly {
+  display: inline-block;
+  margin-left: -0.015em;
+  font-family: "Sansita Swashed", cursive;
+  font-size: 1.08em;
+  font-weight: 700;
+  letter-spacing: -0.075em;
+  transform: translateY(0.015em);
+}
+
+/* =========================================
+   Ally mascot animation
+========================================= */
+
+.ally-mascot-float {
+  animation: ally-float 3.6s ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+
+.ally-mascot-float img,
+img.ally-mascot-float {
+  display: block;
+}
+
+@keyframes ally-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+
+  25% {
+    transform: translateY(-6px) rotate(-1deg) scale(1.01);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(0.8deg) scale(1.015);
+  }
+
+  75% {
+    transform: translateY(-5px) rotate(-0.6deg) scale(1.005);
+  }
+}
+
+/* Optional gentle glow/shadow feel */
+.ally-mascot-shadow {
+  filter: drop-shadow(0 10px 18px rgba(44, 22, 7, 0.18));
+}
+
+/* Respect accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Primary game-like button */
+.squishy-button {
+  box-shadow: 4px 4px 0 #d1c0aa;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease,
+    opacity 160ms ease;
+}
+
+.squishy-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.squishy-button:active:not(:disabled) {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+/* Dotted map texture used on authentication pages */
+.topographic-pattern {
+  background-image: radial-gradient(
+    circle at 2px 2px,
+    rgba(230, 213, 188, 0.85) 1px,
+    transparent 0
+  );
+  background-size: 32px 32px;
+}
+
+/* Authentication-page speech bubble triangle */
+.speech-bubble::after {
+  position: absolute;
+  bottom: -11px;
+  left: 30px;
+  width: 20px;
+  height: 20px;
+  content: "";
+  background: var(--color-ally-surface);
+  border-right: 1px solid var(--color-ally-border);
+  border-bottom: 1px solid var(--color-ally-border);
+  transform: rotate(45deg);
+}
+
+/* Authentication mascot animation */
+.ally-floating {
+  animation: ally-floating 3s ease-in-out infinite;
+}
+
+@keyframes ally-floating {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Animated authentication journey path */
+.route-line {
+  stroke-dasharray: 9 9;
+  animation: route-dash 20s linear infinite;
+}
+
+@keyframes route-dash {
+  to {
+    stroke-dashoffset: -120;
+  }
+}
+
+/* =========================================================
+   Public landing page
+========================================================= */
+
+/*
+ * The actual map image is supplied through LandingPage.tsx:
+ *
+ * style={{
+ *   backgroundImage: `url(${worldMap})`,
+ * }}
+ */
+.landing-map {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: #d8e8e5;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* Landing-page speech bubble */
+.landing-speech-bubble {
+  position: relative;
+  padding: 2rem;
+  background: var(--color-ally-surface-strong);
+  border: 3px solid var(--color-ally-brown-dark);
+  border-radius: 22px;
+  box-shadow: 0 8px 0 #d1c0aa;
+}
+
+/* Outer brown speech-bubble pointer */
+.landing-speech-bubble::after {
+  position: absolute;
+  bottom: -27px;
+  left: 20%;
+  width: 0;
+  height: 0;
+  content: "";
+  border-top: 27px solid var(--color-ally-brown-dark);
+  border-right: 22px solid transparent;
+  border-left: 22px solid transparent;
+}
+
+/* Inner cream speech-bubble pointer */
+.landing-speech-bubble::before {
+  position: absolute;
+  z-index: 1;
+  bottom: -20px;
+  left: calc(20% + 4px);
+  width: 0;
+  height: 0;
+  content: "";
+  border-top: 22px solid var(--color-ally-surface-strong);
+  border-right: 18px solid transparent;
+  border-left: 18px solid transparent;
+}
+
+/* Landing mascot animation */
+.landing-mascot-float {
+  animation: landing-mascot-floating 3s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes landing-mascot-floating {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* Optional class for the pixel-art mascot image */
+.landing-mascot-image {
+  object-fit: contain;
+  filter: drop-shadow(0 12px 10px rgb(44 22 7 / 18%));
+}
+
+/* =========================================================
+   Responsive landing-page adjustments
+========================================================= */
+
+@media (max-width: 640px) {
+  .landing-map {
+    /*
+     * Slightly shifts the map so the central region remains
+     * visible on narrow screens.
+     */
+    background-position: 53% center;
+  }
+
+  .landing-speech-bubble {
+    padding: 1.5rem;
+    border-radius: 18px;
+    box-shadow: 0 6px 0 #d1c0aa;
+  }
+
+  /* Center the bubble pointer on mobile */
+  .landing-speech-bubble::after {
+    left: calc(50% - 22px);
+  }
+
+  .landing-speech-bubble::before {
+    left: calc(50% - 18px);
+  }
+}
+
+/* =========================================================
+   Interactive Passport Book
+========================================================= */
+
+.passport-book-stage {
+  min-height: calc(100dvh - 78px);
+  padding: 2rem 1rem 7rem;
+  overflow-x: hidden;
+  background-color: #fff8f5;
+  background-image:
+    radial-gradient(
+      circle at 1px 1px,
+      rgb(255 220 198 / 55%) 1px,
+      transparent 0
+    ),
+    linear-gradient(
+      120deg,
+      transparent 0 48%,
+      rgb(22 98 155 / 3%) 48% 52%,
+      transparent 52%
+    );
+  background-size:
+    22px 22px,
+    180px 180px;
+}
+
+.passport-book-shell {
+  position: relative;
+  width: min(100%, 1080px);
+  margin-inline: auto;
+}
+
+.passport-book {
+  position: relative;
+  overflow: hidden;
+  background: #543b32;
+  border: 9px solid #543b32;
+  border-radius: 26px;
+  box-shadow:
+    -22px 24px 35px rgb(44 22 7 / 16%),
+    0 8px 0 rgb(122 88 47 / 22%),
+    0 0 0 1px rgb(44 22 7 / 12%);
+  perspective: 1800px;
+}
+
+.passport-book-spread {
+  position: relative;
+  display: grid;
+  min-height: 650px;
+  background: #fffaf2;
+}
+
+.passport-paper {
+  position: relative;
+  min-width: 0;
+  padding: 1.5rem;
+  overflow: hidden;
+  background-color: #fffaf2;
+  background-image:
+    radial-gradient(
+      circle at 20% 10%,
+      rgb(198 156 110 / 7%) 0 2px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 27px,
+      rgb(122 88 47 / 2%) 28px
+    );
+  background-size:
+    42px 42px,
+    100% 28px;
+}
+
+.passport-paper-left {
+  border-bottom: 1px dashed #d6bda8;
+}
+
+.passport-paper-right {
+  background-color: #fff8ef;
+}
+
+.passport-book-fold {
+  display: none;
+}
+
+.passport-page-heading {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #ffe3d2;
+}
+
+.passport-page-heading h2 {
+  margin-top: 0.15rem;
+  color: #2c1607;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.passport-page-heading > span {
+  flex-shrink: 0;
+  color: #9a8576;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.passport-page-kicker,
+.passport-field-label {
+  color: #7a582f;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.passport-valid-stamp {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  align-content: center;
+  color: #16629b;
+  background:
+    radial-gradient(
+      circle,
+      #ffffff 35%,
+      #e0f2fe 100%
+    );
+  border: 4px double #16629b;
+  border-radius: 9999px;
+  opacity: 0.9;
+}
+
+.passport-valid-stamp span {
+  margin-top: -3px;
+  font-size: 0.52rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.passport-handwritten {
+  color: #7a582f;
+  font-family:
+    "Comic Sans MS",
+    "Bradley Hand",
+    cursive;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.passport-compass-mark,
+.passport-map-mark {
+  position: absolute;
+  z-index: 0;
+  width: 150px;
+  height: 150px;
+  color: rgb(22 98 155 / 6%);
+  pointer-events: none;
+}
+
+.passport-compass-mark {
+  right: -30px;
+  bottom: -25px;
+}
+
+.passport-map-mark {
+  right: -20px;
+  bottom: -25px;
+  color: rgb(122 88 47 / 7%);
+}
+
+.passport-journal-lines {
+  background-image: repeating-linear-gradient(
+    transparent 0 31px,
+    rgb(107 168 230 / 18%) 31px 32px
+  );
+}
+
+/* Desktop bookmark navigation */
+.passport-bookmark-rail {
+  display: none;
+}
+
+.passport-bookmark-tab {
+  position: relative;
+  display: flex;
+  width: 132px;
+  min-height: 54px;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  color: #2c1607;
+  border: 2px solid rgb(44 22 7 / 12%);
+  border-left: 0;
+  border-radius: 0 15px 15px 0;
+  box-shadow: 5px 4px 0 rgb(122 88 47 / 15%);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: left;
+  transform: translateX(-8px);
+  transition:
+    transform 180ms ease,
+    filter 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.passport-bookmark-tab:hover {
+  filter: brightness(1.04);
+  transform: translateX(0);
+}
+
+.passport-bookmark-tab.is-active {
+  z-index: 5;
+  color: #ffffff;
+  box-shadow: 7px 6px 0 rgb(122 88 47 / 22%);
+  transform: translateX(8px) translateY(-2px);
+}
+
+
+.passport-mobile-tabs button.is-active {
+  color: #16629b;
+}
+
+.passport-mobile-tab-icon {
+  display: grid;
+  width: 44px;
+  height: 30px;
+  place-items: center;
+  color: inherit;
+  border-radius: 9999px;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.passport-mobile-tabs button.is-active
+  .passport-mobile-tab-icon {
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+/* Page-turn transitions */
+.book-page-turn-next {
+  transform-origin: left center;
+  animation: passport-turn-next 420ms
+    cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.book-page-turn-previous {
+  transform-origin: right center;
+  animation: passport-turn-previous 420ms
+    cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+@keyframes passport-turn-next {
+  0% {
+    opacity: 0.2;
+    transform:
+      rotateY(-10deg)
+      translateX(18px)
+      scale(0.985);
+  }
+
+  70% {
+    opacity: 1;
+    transform:
+      rotateY(1deg)
+      translateX(-2px)
+      scale(1);
+  }
+
+  100% {
+    transform:
+      rotateY(0)
+      translateX(0)
+      scale(1);
+  }
+}
+
+@keyframes passport-turn-previous {
+  0% {
+    opacity: 0.2;
+    transform:
+      rotateY(10deg)
+      translateX(-18px)
+      scale(0.985);
+  }
+
+  70% {
+    opacity: 1;
+    transform:
+      rotateY(-1deg)
+      translateX(2px)
+      scale(1);
+  }
+
+  100% {
+    transform:
+      rotateY(0)
+      translateX(0)
+      scale(1);
+  }
+}
+
+@media (min-width: 768px) {
+  .passport-book-stage {
+    padding: 3rem 2rem 6rem;
+  }
+
+  .passport-book-spread {
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(0, 1fr);
+  }
+
+  .passport-paper {
+    padding: 2.25rem;
+  }
+
+  .passport-paper-left {
+    border-right: 1px dashed #d6bda8;
+    border-bottom: 0;
+  }
+
+  .passport-book-fold {
+    position: absolute;
+    z-index: 20;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    display: block;
+    width: 34px;
+    pointer-events: none;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(44 22 7 / 4%) 35%,
+      rgb(44 22 7 / 13%) 50%,
+      rgb(44 22 7 / 4%) 65%,
+      transparent
+    );
+  }
+}
+
+@media (min-width: 1024px) {
+  .passport-book-shell {
+    width: min(calc(100% - 138px), 1080px);
+  }
+
+  .passport-bookmark-rail {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    right: -124px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    transform: translateY(-50%);
+  }
+
+  .passport-mobile-tabs {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-page-turn-next,
+  .book-page-turn-previous {
+    animation: none;
+  }
+
+  .passport-bookmark-tab {
+    transition: none;
+  }
+}
+
+/* =========================================================
+   Passport form controls
+========================================================= */
+
+.passport-form-control {
+  width: 100%;
+  border: 2px solid #eaded5;
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 75%);
+  padding: 0.75rem 1rem;
+  color: #2c1607;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.passport-form-control::placeholder {
+  color: #98a2b3;
+}
+
+.passport-form-control:focus {
+  border-color: #16629b;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgb(155 202 255 / 35%);
+}
+
+/* =========================================================
+   Journey Log calendar
+========================================================= */
+
+.journey-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.journey-weekday {
+  padding-block: 0.35rem;
+  color: #7a582f;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.journey-calendar-day {
+  position: relative;
+  min-height: 58px;
+  padding: 0.45rem;
+  border: 2px solid transparent;
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 45%);
+  color: #2c1607;
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.journey-calendar-day:hover {
+  border-color: #ffdcc6;
+  background: #ffffff;
+  transform: translateY(-2px);
+}
+
+.journey-calendar-day.is-outside {
+  opacity: 0.3;
+}
+
+.journey-calendar-day.has-entry {
+  border-color: #ffddba;
+  background: #fff8e8;
+  box-shadow: 0 3px 0 #ffddba;
+}
+
+.journey-calendar-day.is-today {
+  outline: 2px dashed #6ba8e6;
+  outline-offset: 2px;
+}
+
+.journey-calendar-day.is-selected {
+  border-color: #16629b;
+  background: #d0e4ff;
+  box-shadow:
+    0 4px 0 #9bcaff,
+    0 0 0 2px rgb(22 98 155 / 10%);
+  transform: translateY(-2px);
+}
+
+.journey-day-number {
+  position: relative;
+  z-index: 2;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.journey-calendar-stamp {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.25rem;
+  font-size: 1.35rem;
+  transform: rotate(7deg);
+}
+
+.journey-calendar-control {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid #eaded5;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #7a582f;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+
+.journey-calendar-control:hover {
+  background: #fff1ea;
+  transform: translateY(-2px);
+}
+
+.journey-detail-card {
+  border: 1px solid #ffddba;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 72%);
+  padding: 1rem;
+  box-shadow: 0 3px 0 #ffddba;
+}
+
+.journey-mood-label {
+  display: flex;
+  min-width: 100px;
+  align-items: center;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid #ffddba;
+  border-radius: 1rem;
+  background: #fff8e8;
+  color: #7a582f;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  transform: rotate(2deg);
+}
+
+.journey-detail-turn {
+  transform-origin: left center;
+  animation: journey-detail-turn 350ms
+    cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.journey-calendar-day.is-future {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.journey-calendar-day.is-future:hover {
+  border-color: transparent;
+  background: rgb(255 255 255 / 45%);
+  box-shadow: none;
+  transform: none;
+}
+
+@keyframes journey-detail-turn {
+  from {
+    opacity: 0;
+    transform:
+      rotateY(-6deg)
+      translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      rotateY(0)
+      translateX(0);
+  }
+}
+
+/* =========================================================
+   Security passport
+========================================================= */
+
+.security-passport-stamp {
+  display: flex;
+  width: min(100%, 270px);
+  min-height: 190px;
+  margin-inline: auto;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.55rem;
+  color: #16629b;
+  border: 6px double #16629b;
+  border-radius: 9999px;
+  background:
+    radial-gradient(
+      circle,
+      #ffffff 30%,
+      #e8f3ff 100%
+    );
+  opacity: 0.88;
+  text-align: center;
+  transform: rotate(-5deg);
+}
+
+.security-passport-stamp strong {
+  max-width: 190px;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+
+.security-passport-stamp span {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+/* =========================================================
+   Five mobile passport bookmarks
+========================================================= */
+
+.passport-mobile-tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.passport-mobile-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.passport-mobile-tabs button {
+  min-width: 82px;
+  flex: 1 0 82px;
+}
+
+@media (min-width: 1024px) {
+  .passport-mobile-tabs {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .journey-calendar {
+    gap: 0.25rem;
+  }
+
+  .journey-calendar-day {
+    min-height: 48px;
+    padding: 0.3rem;
+  }
+
+  .journey-calendar-stamp {
+    right: 0.15rem;
+    bottom: 0.1rem;
+    font-size: 1.05rem;
+  }
+}
+
+/* =========================================================
+   Explorer Passport — Edit Profile Insert
+========================================================= */
+
+.passport-edit-photo-card {
+  position: relative;
+  padding: 1.25rem;
+  background:
+    linear-gradient(
+      145deg,
+      rgb(255 255 255 / 86%),
+      rgb(255 248 232 / 78%)
+    );
+  border: 1px solid #eaded5;
+  border-radius: 1.35rem;
+  box-shadow:
+    0 4px 0 #ead5c4,
+    0 12px 22px rgb(44 22 7 / 6%);
+}
+
+.passport-edit-photo-frame {
+  width: 144px;
+  height: 180px;
+  overflow: hidden;
+  background: #d0e4ff;
+  border: 5px solid #ffffff;
+  border-radius: 0.85rem;
+  box-shadow:
+    0 5px 0 #e6d5bc,
+    0 12px 20px rgb(44 22 7 / 13%);
+  transform: rotate(-2deg);
+}
+
+.passport-edit-camera-badge {
+  position: absolute;
+  right: -12px;
+  bottom: -9px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  color: #ffffff;
+  background: #16629b;
+  border: 4px solid #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 4px 0 #9bcaff;
+}
+
+.passport-edit-verified-stamp {
+  position: absolute;
+  top: 6px;
+  left: -34px;
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  align-content: center;
+  color: #27865b;
+  background:
+    radial-gradient(
+      circle,
+      #ffffff 30%,
+      #e9fff4 100%
+    );
+  border: 4px double #27865b;
+  border-radius: 9999px;
+  opacity: 0.92;
+  transform: rotate(-12deg);
+}
+
+.passport-edit-verified-stamp span {
+  margin-top: -2px;
+  font-size: 0.42rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.passport-profile-upload {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 1.75rem;
+  padding: 0.8rem 1rem;
+  color: #7a582f;
+  background: #fff8e8;
+  border: 2px dashed #c69c6e;
+  border-radius: 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.passport-profile-upload:hover {
+  background: #fff1dc;
+  box-shadow: 0 4px 0 #e6d5bc;
+  transform: translateY(-2px);
+}
+
+.passport-selected-file {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding: 0.8rem;
+  background: rgb(255 255 255 / 78%);
+  border: 1px solid #eaded5;
+  border-radius: 0.85rem;
+}
+
+.passport-remove-file {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  place-items: center;
+  color: #667085;
+  background: #ffffff;
+  border-radius: 0.55rem;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.passport-remove-file:hover {
+  color: #ba1a1a;
+  background: #fff0f0;
+}
+
+.passport-edit-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: #fff8e8;
+  border: 2px dashed #c69c6e;
+  border-radius: 1rem;
+  transform: rotate(-0.5deg);
+}
+
+.passport-edit-note-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  color: #16629b;
+  background: #ffffff;
+  border-radius: 0.8rem;
+  box-shadow: 0 3px 0 #d0e4ff;
+}
+
+.passport-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed #d6bda8;
+}
+
+.passport-edit-footer-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.9rem;
+  color: #667085;
+  background: rgb(255 255 255 / 58%);
+  border: 1px solid #eaded5;
+  border-radius: 0.9rem;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.passport-edit-footer-note svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #27865b;
+}
+
+.passport-edit-insert-tab {
+  position: absolute;
+  z-index: 4;
+  top: 3rem;
+  right: -116px;
+  display: none;
+  width: 126px;
+  min-height: 52px;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 0.9rem;
+  color: #ffffff;
+  background: #d58a18;
+  border: 2px solid rgb(44 22 7 / 12%);
+  border-left: 0;
+  border-radius: 0 14px 14px 0;
+  box-shadow: 6px 5px 0 rgb(122 88 47 / 20%);
+  font-size: 0.78rem;
+  font-weight: 800;
+  transform: translateX(-5px);
+}
+
+@media (min-width: 1024px) {
+  .passport-edit-insert-tab {
+    display: flex;
+  }
+}
+
+@media (max-width: 767px) {
+  .passport-edit-photo-card {
+    max-width: 320px;
+    margin-inline: auto;
+  }
+
+  .passport-edit-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .passport-edit-actions button {
+    width: 100%;
+  }
+}
+/* =========================================================
+   Verification Pending Page
+========================================================= */
+
+.verification-pending-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  color: #2c1607;
+  background:
+    linear-gradient(
+      145deg,
+      #fff8f5 0%,
+      #fff1ea 48%,
+      #ffeade 100%
+    );
+}
+
+.verification-map-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      circle at 1px 1px,
+      rgb(193 199 209 / 55%)
+        1px,
+      transparent 0
+    ),
+    linear-gradient(
+      120deg,
+      transparent 0 47%,
+      rgb(22 98 155 / 3%)
+        47% 53%,
+      transparent 53%
+    );
+  background-size:
+    22px 22px,
+    190px 190px;
+  opacity: 0.55;
+}
+
+/* =========================================================
+   Verification header
+========================================================= */
+
+.verification-pending-header {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  width: min(100%, 1180px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-inline: auto;
+  padding:
+    1.15rem 1.5rem;
+}
+
+.verification-brand {
+  display: inline-flex;
+  align-items: flex-start;
+  flex-direction: column;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+.verification-brand-subtitle {
+  margin-top: 0.15rem;
+  color: #7a582f;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.verification-checkpoint-badge {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding:
+    0.65rem 0.9rem;
+  color: #16629b;
+  background:
+    rgb(255 255 255 / 82%);
+  border:
+    1px solid #d0e4ff;
+  border-radius: 9999px;
+  box-shadow:
+    0 3px 0 #d0e4ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* =========================================================
+   Verification main layout
+========================================================= */
+
+.verification-pending-content {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  width: min(100%, 1120px);
+  min-height:
+    calc(100dvh - 105px);
+  grid-template-columns:
+    minmax(250px, 0.8fr)
+    minmax(470px, 1.35fr);
+  align-items: center;
+  gap:
+    clamp(
+      2rem,
+      5vw,
+      4.75rem
+    );
+  margin-inline: auto;
+  padding:
+    0.5rem 2rem 1.5rem;
+}
+
+/* =========================================================
+   Verification mascot
+========================================================= */
+
+.verification-mascot-section {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin: 0;
+}
+
+.verification-speech-bubble {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 320px);
+  margin-bottom: 1rem;
+  padding:
+    0.85rem 1rem;
+  color: #7a582f;
+  background: #ffffff;
+  border:
+    2px solid #ffdcc6;
+  border-radius: 1rem;
+  box-shadow:
+    0 4px 0 #ead5c4,
+    0 10px 20px
+      rgb(44 22 7 / 6%);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.verification-speech-bubble::after {
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  content: "";
+  background: #ffffff;
+  border-right:
+    2px solid #ffdcc6;
+  border-bottom:
+    2px solid #ffdcc6;
+  transform:
+    translateX(-50%)
+    rotate(45deg);
+}
+
+.verification-ally-image {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width:
+    clamp(
+      210px,
+      23vw,
+      300px
+    );
+  max-height: 360px;
+  height: auto;
+  object-fit: contain;
+  filter:
+    drop-shadow(
+      0 14px 10px
+      rgb(44 22 7 / 18%)
+    );
+  transform-origin:
+    center bottom;
+  animation:
+    verification-ally-floating
+    3s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes verification-ally-floating {
+  0%,
+  100% {
+    transform:
+      translateY(0)
+      rotate(-0.5deg);
+  }
+
+  50% {
+    transform:
+      translateY(-9px)
+      rotate(0.5deg);
+  }
+}
+
+/* =========================================================
+   Verification card
+========================================================= */
+
+.verification-pending-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 650px;
+  justify-self: end;
+  padding:
+    clamp(
+      1.5rem,
+      2.8vw,
+      2.15rem
+    );
+  overflow: hidden;
+  background:
+    rgb(255 255 255 / 92%);
+  border:
+    1px solid #ffdcc6;
+  border-radius: 1.6rem;
+  box-shadow:
+    0 7px 0 #d1c0aa,
+    0 20px 38px
+      rgb(44 22 7 / 10%);
+}
+
+.verification-card-trail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background:
+    linear-gradient(
+      90deg,
+      #16629b,
+      #6ba8e6,
+      #c69c6e
+    );
+}
+
+.verification-card-decoration {
+  position: absolute;
+  color:
+    rgb(22 98 155 / 6%);
+  pointer-events: none;
+}
+
+.verification-card-decoration svg {
+  width: 115px;
+  height: 115px;
+}
+
+.verification-card-decoration-left {
+  bottom: -30px;
+  left: -30px;
+  transform:
+    rotate(-15deg);
+}
+
+.verification-card-decoration-right {
+  top: 20px;
+  right: -40px;
+  color:
+    rgb(122 88 47 / 7%);
+  transform:
+    rotate(12deg);
+}
+
+/* =========================================================
+   Verification card heading
+========================================================= */
+
+.verification-card-heading {
+  position: relative;
+  z-index: 2;
+  max-width: 520px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.verification-mail-icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  margin-inline: auto;
+  color: #16629b;
+  background: #d0e4ff;
+  border:
+    2px solid #9bcaff;
+  border-radius: 1.1rem;
+  box-shadow:
+    0 5px 0 #9bcaff;
+  transform:
+    rotate(-3deg);
+}
+
+.verification-card-heading h1 {
+  margin-top: 1rem;
+  color: #16629b;
+  font-size:
+    clamp(
+      1.55rem,
+      4vw,
+      2.1rem
+    );
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.verification-card-heading p {
+  margin-top: 0.65rem;
+  color: #667085;
+  font-size: 0.87rem;
+  line-height: 1.6;
+}
+
+.verification-card-heading strong {
+  color: #2c1607;
+  overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   Registration progress
+========================================================= */
+
+.verification-progress {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  max-width: 430px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin:
+    1.7rem auto 1.4rem;
+}
+
+.verification-progress-background,
+.verification-progress-completed {
+  position: absolute;
+  z-index: 0;
+  top: 18px;
+  left: 12%;
+  height: 4px;
+  border-radius: 9999px;
+}
+
+.verification-progress-background {
+  right: 12%;
+  background: #ffdcc6;
+}
+
+.verification-progress-completed {
+  width: 38%;
+  background: #16629b;
+}
+
+.verification-step {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  width: 92px;
+  align-items: center;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #98a2b3;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.verification-step-circle {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #98a2b3;
+  background: #fff1ea;
+  border:
+    2px solid #ffdcc6;
+  border-radius: 9999px;
+}
+
+.verification-step.is-complete
+  .verification-step-circle {
+  color: #ffffff;
+  background: #16629b;
+  border-color: #16629b;
+}
+
+.verification-step.is-active {
+  color: #16629b;
+}
+
+.verification-step.is-active
+  .verification-step-circle {
+  width: 42px;
+  height: 42px;
+  color: #16629b;
+  background: #ffffff;
+  border:
+    4px solid #16629b;
+  box-shadow:
+    0 4px 0 #d0e4ff;
+  transform:
+    translateY(-3px);
+}
+
+/* =========================================================
+   Verification waiting state
+========================================================= */
+
+.verification-waiting-note {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  width: 100%;
+  max-width: 500px;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin:
+    0 auto 1.1rem;
+  padding:
+    0.85rem 1rem;
+  color: #667085;
+  background: #fff8e8;
+  border:
+    2px dashed #c69c6e;
+  border-radius: 1rem;
+  line-height: 1.55;
+}
+
+.verification-waiting-note
+  > svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: #16629b;
+}
+
+.verification-waiting-note
+  strong {
+  color: #2c1607;
+  font-size: 0.82rem;
+}
+
+.verification-waiting-note p {
+  margin-top: 0.2rem;
+  font-size: 0.73rem;
+}
+
+/* =========================================================
+   Verification action
+========================================================= */
+
+.verification-actions {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verification-login-primary {
+  display: flex;
+  width: 100%;
+  max-width: 245px;
+  min-height: 47px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding:
+    0.7rem 1.2rem;
+  color: #ffffff;
+  background: #16629b;
+  border: 0;
+  border-bottom:
+    5px solid #004b6f;
+  border-radius: 0.85rem;
+  box-shadow:
+    0 4px 0 #d1c0aa;
+  font-size: 0.8rem;
+  font-weight: 800;
+  transition:
+    transform 150ms ease,
+    filter 150ms ease,
+    border-width 150ms ease;
+}
+
+.verification-login-primary:hover {
+  filter: brightness(1.05);
+  transform:
+    translateY(-2px);
+}
+
+.verification-login-primary:active {
+  border-bottom-width: 0;
+  transform:
+    translateY(5px);
+}
+
+.verification-login-primary:focus-visible {
+  outline:
+    3px solid
+    rgb(22 98 155 / 28%);
+  outline-offset: 3px;
+}
+
+/* =========================================================
+   Verification footer
+========================================================= */
+
+.verification-footer-note {
+  grid-column: 1 / -1;
+  max-width: 480px;
+  margin:
+    -0.25rem auto 0;
+  color: #667085;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* =========================================================
+   Medium-height desktop screens
+========================================================= */
+
+@media (
+  min-width: 900px
+) and (
+  max-height: 760px
+) {
+  .verification-pending-header {
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+
+  .verification-pending-content {
+    min-height:
+      calc(100dvh - 78px);
+    padding-top: 0.25rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .verification-speech-bubble {
+    margin-bottom: 0.65rem;
+    padding:
+      0.65rem 0.85rem;
+    font-size: 0.78rem;
+  }
+
+  .verification-ally-image {
+    width:
+      clamp(
+        180px,
+        19vw,
+        230px
+      );
+    max-height: 270px;
+  }
+
+  .verification-pending-card {
+    padding:
+      1.25rem 1.65rem;
+  }
+
+  .verification-mail-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .verification-card-heading h1 {
+    margin-top: 0.7rem;
+    font-size: 1.65rem;
+  }
+
+  .verification-card-heading p {
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .verification-progress {
+    margin:
+      1.2rem auto 1rem;
+  }
+
+  .verification-waiting-note {
+    margin-bottom: 0.85rem;
+    padding:
+      0.65rem 0.8rem;
+  }
+
+  .verification-footer-note {
+    margin-top: -0.5rem;
+  }
+}
+
+/* =========================================================
+   Tablet and mobile
+========================================================= */
+
+@media (max-width: 899px) {
+  .verification-pending-content {
+    display: flex;
+    width: min(100%, 720px);
+    min-height: auto;
+    align-items: center;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding:
+      1rem 1rem 3rem;
+  }
+
+  .verification-mascot-section {
+    margin-bottom: 0;
+  }
+
+  .verification-ally-image {
+    width:
+      min(
+        225px,
+        65vw
+      );
+    max-height: none;
+  }
+
+  .verification-pending-card {
+    max-width: 680px;
+    justify-self: auto;
+  }
+
+  .verification-footer-note {
+    grid-column: auto;
+    margin-top: 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .verification-checkpoint-badge {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .verification-pending-header {
+    align-items: flex-start;
+    padding-inline: 1rem;
+  }
+
+  .verification-pending-content {
+    gap: 1.25rem;
+  }
+
+  .verification-speech-bubble {
+    width: min(100%, 290px);
+  }
+
+  .verification-ally-image {
+    width:
+      min(
+        205px,
+        68vw
+      );
+  }
+
+  .verification-pending-card {
+    padding:
+      1.5rem 1rem;
+  }
+
+  .verification-progress {
+    margin-top: 1.65rem;
+  }
+
+  .verification-step {
+    width: 78px;
+    font-size: 0.59rem;
+  }
+
+  .verification-progress-background {
+    right: 14%;
+    left: 14%;
+  }
+
+  .verification-progress-completed {
+    left: 14%;
+    width: 36%;
+  }
+}
+
+/* =========================================================
+   Verification reduced motion
+========================================================= */
+
+@media (
+  prefers-reduced-motion:
+    reduce
+) {
+  .verification-ally-image {
+    animation: none;
+  }
+
+  .verification-login-primary,
+  .verification-step-circle {
+    transition: none;
+  }
+}
+
+/* =========================================================
+   Accessibility
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ally-floating,
+  .landing-mascot-float,
+  .route-line {
+    animation: none;
+  }
+}
