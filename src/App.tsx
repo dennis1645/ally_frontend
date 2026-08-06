@@ -14,6 +14,7 @@ import {
 
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AuthPage from "./pages/AuthPage";
+import ChooseAdventurePage from "./pages/ChooseAdventurePage";
 import DashboardPage from "./pages/user/DashboardPage";
 import EditProfilePage from "./pages/user/EditProfilePage";
 import EmptyPage from "./pages/EmptyPage";
@@ -23,7 +24,6 @@ import MentorDashboardPage from "./pages/mentor/MentorDashboardPage";
 import ProfilePage from "./pages/user/ProfilePage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
 import VerificationPendingPage from "./pages/VerificationPendingPage";
-import ChooseAdventurePage from "./pages/ChooseAdventurePage.tsx";
 
 export default function App() {
   return (
@@ -40,6 +40,20 @@ export default function App() {
       <Route
         path="/choose-adventure"
         element={<ChooseAdventurePage />}
+      />
+
+      {/*
+       * Public free assessment.
+       *
+       * This route must remain outside ProtectedRoute and
+       * RoleRoute so visitors can take the assessment before
+       * registering or logging in.
+       */}
+      <Route
+        path={INITIAL_ASSESSMENT_ROUTE}
+        element={
+          <InitialAssessmentRouteElement />
+        }
       />
 
       <Route
@@ -69,19 +83,25 @@ export default function App() {
 
       <Route
         path="/forgot-password"
-        element={<ForgotPasswordPage />}
+        element={
+          <ForgotPasswordPage />
+        }
       />
 
       <Route
         path="/reset-password"
-        element={<ResetPasswordPage />}
+        element={
+          <ResetPasswordPage />
+        }
       />
 
       {/* =====================================================
           AUTHENTICATED ROUTES
       ====================================================== */}
 
-      <Route element={<ProtectedRoute />}>
+      <Route
+        element={<ProtectedRoute />}
+      >
         {/* =================================================
             USER / EXPLORER ROUTES
         ================================================== */}
@@ -99,7 +119,9 @@ export default function App() {
 
           <Route
             path="/verify-email"
-            element={<VerificationPendingPage />}
+            element={
+              <VerificationPendingPage />
+            }
           />
 
           <Route
@@ -116,31 +138,41 @@ export default function App() {
 
           <Route
             path="/dashboard"
-            element={<DashboardPage />}
+            element={
+              <DashboardPage />
+            }
           />
 
           <Route
             path="/profile"
-            element={<ProfilePage />}
+            element={
+              <ProfilePage />
+            }
           />
 
           <Route
             path="/profile/journey-log"
-            element={<ProfilePage />}
+            element={
+              <ProfilePage />
+            }
           />
 
           <Route
             path="/profile/security"
-            element={<ProfilePage />}
+            element={
+              <ProfilePage />
+            }
           />
 
           <Route
             path="/profile/edit"
-            element={<EditProfilePage />}
+            element={
+              <EditProfilePage />
+            }
           />
 
           {/* ===============================================
-              ONBOARDING ROUTES
+              AUTHENTICATED ONBOARDING ROUTES
           ================================================ */}
 
           <Route
@@ -163,14 +195,10 @@ export default function App() {
             }
           />
 
-          {/* Initial Scholarship Readiness Assessment */}
-
-          <Route
-            path={INITIAL_ASSESSMENT_ROUTE}
-            element={
-              <InitialAssessmentRouteElement />
-            }
-          />
+          {/*
+           * The initial assessment route is intentionally not
+           * included here because it is public.
+           */}
 
           <Route
             path="/onboarding/readiness"
@@ -292,7 +320,9 @@ export default function App() {
 
           <Route
             path="/mentor/dashboard"
-            element={<MentorDashboardPage />}
+            element={
+              <MentorDashboardPage />
+            }
           />
 
           <Route
@@ -401,7 +431,9 @@ export default function App() {
 
           <Route
             path="/admin/dashboard"
-            element={<AdminDashboardPage />}
+            element={
+              <AdminDashboardPage />
+            }
           />
 
           <Route

@@ -1,12 +1,33 @@
 import {
   ASSESSMENT_STORAGE_VERSION,
-  REVIEW_STEP_INDEX,
+  INITIAL_ASSESSMENT_PAGE_COUNT,
 } from "./constants";
 
 import type {
   AssessmentAnswers,
   PersistedAssessmentState,
 } from "../types/diagnostic";
+
+/* =========================================================
+   Page limits
+========================================================= */
+
+/*
+ * The assessment currently contains four frontend pages.
+ *
+ * Because page indexes are zero-based:
+ *
+ * Page 1 → index 0
+ * Page 2 → index 1
+ * Page 3 → index 2
+ * Page 4 → index 3
+ */
+const MAXIMUM_ASSESSMENT_PAGE_INDEX =
+  Math.max(
+    INITIAL_ASSESSMENT_PAGE_COUNT -
+      1,
+    0,
+  );
 
 /* =========================================================
    Runtime helpers
@@ -22,7 +43,9 @@ function isRecord(
     typeof value ===
       "object" &&
     value !== null &&
-    !Array.isArray(value)
+    !Array.isArray(
+      value,
+    )
   );
 }
 
@@ -32,12 +55,27 @@ function isPositiveInteger(
   return (
     typeof value ===
       "number" &&
-    Number.isInteger(value) &&
+    Number.isInteger(
+      value,
+    ) &&
     value > 0
   );
 }
 
-function clampStep(
+function isNonNegativeInteger(
+  value: unknown,
+): value is number {
+  return (
+    typeof value ===
+      "number" &&
+    Number.isInteger(
+      value,
+    ) &&
+    value >= 0
+  );
+}
+
+function clampPageIndex(
   value: number,
 ): number {
   return Math.min(
@@ -45,7 +83,7 @@ function clampStep(
       value,
       0,
     ),
-    REVIEW_STEP_INDEX,
+    MAXIMUM_ASSESSMENT_PAGE_INDEX,
   );
 }
 
@@ -69,7 +107,8 @@ export function createEmptyAssessmentState():
       [],
 
     updatedAt:
-      new Date().toISOString(),
+      new Date()
+        .toISOString(),
   };
 }
 
@@ -80,7 +119,11 @@ export function createEmptyAssessmentState():
 function normalizeAnswers(
   value: unknown,
 ): AssessmentAnswers {
-  if (!isRecord(value)) {
+  if (
+    !isRecord(
+      value,
+    )
+  ) {
     return {};
   }
 
@@ -92,10 +135,14 @@ function normalizeAnswers(
     const [
       questionIdKey,
       optionId,
-    ] of Object.entries(value)
+    ] of Object.entries(
+      value,
+    )
   ) {
     const questionId =
-      Number(questionIdKey);
+      Number(
+        questionIdKey,
+      );
 
     if (
       !isPositiveInteger(
@@ -109,39 +156,46 @@ function normalizeAnswers(
     }
 
     answers[
-      String(questionId)
-    ] = optionId;
+      String(
+        questionId,
+      )
+    ] =
+      optionId;
   }
 
   return answers;
 }
 
 /* =========================================================
-   Completed-step normalization
+   Completed-page normalization
 ========================================================= */
 
 function normalizeCompletedSteps(
   value: unknown,
 ): number[] {
-  if (!Array.isArray(value)) {
+  if (
+    !Array.isArray(
+      value,
+    )
+  ) {
     return [];
   }
 
+  const validSteps =
+    value.filter(
+      (
+        step,
+      ): step is number =>
+        isNonNegativeInteger(
+          step,
+        ) &&
+        step <=
+          MAXIMUM_ASSESSMENT_PAGE_INDEX,
+    );
+
   return [
     ...new Set(
-      value.filter(
-        (
-          step,
-        ): step is number =>
-          typeof step ===
-            "number" &&
-          Number.isInteger(
-            step,
-          ) &&
-          step >= 0 &&
-          step <
-            REVIEW_STEP_INDEX,
-      ),
+      validSteps,
     ),
   ].sort(
     (
@@ -154,6 +208,40 @@ function normalizeCompletedSteps(
 }
 
 /* =========================================================
+   Updated-at normalization
+========================================================= */
+
+function normalizeUpdatedAt(
+  value: unknown,
+): string {
+  if (
+    typeof value !==
+      "string"
+  ) {
+    return new Date()
+      .toISOString();
+  }
+
+  const normalizedValue =
+    value.trim();
+
+  if (
+    normalizedValue.length ===
+      0 ||
+    Number.isNaN(
+      Date.parse(
+        normalizedValue,
+      ),
+    )
+  ) {
+    return new Date()
+      .toISOString();
+  }
+
+  return normalizedValue;
+}
+
+/* =========================================================
    State normalization
 ========================================================= */
 
@@ -163,10 +251,18 @@ export function normalizeAssessmentState(
   const fallback =
     createEmptyAssessmentState();
 
-  if (!isRecord(value)) {
+  if (
+    !isRecord(
+      value,
+    )
+  ) {
     return fallback;
   }
 
+  /*
+   * Discard local-storage data from the old section-based
+   * assessment when the storage version does not match.
+   */
   if (
     value.version !==
     ASSESSMENT_STORAGE_VERSION
@@ -175,26 +271,13 @@ export function normalizeAssessmentState(
   }
 
   const currentStep =
-    typeof value.currentStep ===
-      "number" &&
-    Number.isInteger(
+    isNonNegativeInteger(
       value.currentStep,
     )
-      ? clampStep(
+      ? clampPageIndex(
           value.currentStep,
         )
       : 0;
-
-  const updatedAt =
-    typeof value.updatedAt ===
-      "string" &&
-    !Number.isNaN(
-      Date.parse(
-        value.updatedAt,
-      ),
-    )
-      ? value.updatedAt
-      : new Date().toISOString();
 
   return {
     version:
@@ -212,7 +295,10 @@ export function normalizeAssessmentState(
         value.completedSteps,
       ),
 
-    updatedAt,
+    updatedAt:
+      normalizeUpdatedAt(
+        value.updatedAt,
+      ),
   };
 }
 

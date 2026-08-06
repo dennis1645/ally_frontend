@@ -17,9 +17,55 @@ import {
   AdventureOptionCard,
 } from "../components/adventure/AdventureOptionCard";
 
+import {
+  useDiagnosticGuestToken,
+} from "../hooks/useDiagnosticGuestToken";
+
+import {
+  INITIAL_ASSESSMENT_ROUTE,
+} from "../routes/assessment.routes";
+
+import {
+  ASSESSMENT_STORAGE_KEY,
+} from "../utils/constants";
+
 export default function ChooseAdventurePage() {
   const navigate =
     useNavigate();
+
+  const {
+    createNewGuestToken,
+  } =
+    useDiagnosticGuestToken();
+
+  function handleStartExpedition(): void {
+    navigate(
+      "/auth?mode=register",
+    );
+  }
+
+  function handleStartFreeAssessment(): void {
+    /*
+     * Remove answers and navigation progress from any
+     * previous assessment attempt.
+     */
+    window.localStorage.removeItem(
+      ASSESSMENT_STORAGE_KEY,
+    );
+
+    /*
+     * Generate and store a new anonymous identity for
+     * this assessment attempt.
+     */
+    createNewGuestToken();
+
+    /*
+     * Open the public initial assessment page.
+     */
+    navigate(
+      INITIAL_ASSESSMENT_ROUTE,
+    );
+  }
 
   return (
     <div
@@ -33,7 +79,7 @@ export default function ChooseAdventurePage() {
           `url(${mapBackground})`,
       }}
     >
-      {/* Soft overlay */}
+      {/* Soft background overlay */}
 
       <div
         aria-hidden="true"
@@ -50,19 +96,29 @@ export default function ChooseAdventurePage() {
             "linear-gradient(rgba(255,255,255,0.55) 2px, transparent 2px)",
             "linear-gradient(90deg, rgba(255,255,255,0.55) 2px, transparent 2px)",
           ].join(", "),
+
           backgroundSize:
             "120px 120px",
         }}
       />
 
-      <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-20 pt-12 sm:px-6 sm:pt-16 lg:px-8">
+      <main
+        className={[
+          "relative z-10 mx-auto",
+          "flex w-full max-w-6xl flex-col items-center",
+          "px-4 pb-20 pt-12",
+          "sm:px-6 sm:pt-16",
+          "lg:px-8",
+        ].join(" ")}
+      >
         {/* Expedition badge */}
 
         <div
           className={[
             "inline-flex items-center gap-2 rounded-full",
             "border border-white/70 bg-[#fae8dd]",
-            "px-4 py-2 text-xs font-semibold uppercase",
+            "px-4 py-2",
+            "text-xs font-semibold uppercase",
             "tracking-[0.08em] text-[#6a5a4a]",
             "shadow-sm sm:text-sm",
           ].join(" ")}
@@ -76,19 +132,22 @@ export default function ChooseAdventurePage() {
           New Expedition Awaits
         </div>
 
-        {/* Main heading */}
+        {/* Main title */}
 
         <h1
           className={[
-            "mt-5 text-center text-4xl font-extrabold",
-            "tracking-[-0.04em] text-[#3d2514]",
-            "drop-shadow-sm sm:text-5xl lg:text-6xl",
+            "mt-5 text-center",
+            "text-4xl font-extrabold",
+            "tracking-[-0.04em]",
+            "text-[#3d2514]",
+            "drop-shadow-sm",
+            "sm:text-5xl lg:text-6xl",
           ].join(" ")}
         >
           Choose Your Adventure
         </h1>
 
-        {/* Speech bubble */}
+        {/* Ally message */}
 
         <section
           aria-label="Message from Ally"
@@ -96,51 +155,87 @@ export default function ChooseAdventurePage() {
         >
           <div
             className={[
-              "relative rounded-[28px] border-[3px]",
-              "border-[#6c513e] bg-[#fae8dd]",
+              "relative rounded-[28px]",
+              "border-[3px] border-[#6c513e]",
+              "bg-[#fae8dd]",
               "px-6 py-7 text-center",
               "shadow-[0_6px_14px_rgba(61,37,20,0.14)]",
               "sm:px-10 sm:py-8",
             ].join(" ")}
           >
-            <p className="text-base leading-7 text-[#5a4332] sm:text-xl sm:leading-8">
+            <p
+              className={[
+                "text-base leading-7",
+                "text-[#5a4332]",
+                "sm:text-xl sm:leading-8",
+              ].join(" ")}
+            >
               Ready to begin your
               expedition? Or do you want
               to discover your
               scholarship readiness?
             </p>
 
-            <p className="mt-5 text-lg font-bold text-[#3d2514] sm:text-xl">
-              <span className="italic text-[#2a5aa3]">
-                Ally
+            <p
+              className={[
+                "mt-5 text-lg font-bold",
+                "text-[#3d2514]",
+                "sm:text-xl",
+              ].join(" ")}
+            >
+              <span
+                aria-label="Ally"
+                className="ally-logo"
+              >
+                <span
+                  aria-hidden="true"
+                  className="ally-logo-a"
+                >
+                  A
+                </span>
+
+                <span
+                  aria-hidden="true"
+                  className="ally-logo-lly"
+                >
+                  lly
+                </span>
               </span>{" "}
               is here to guide you every
               step of the way.
             </p>
 
-            {/* Speech bubble tail */}
+            {/* Speech-bubble tail */}
 
             <div
               aria-hidden="true"
-              className="absolute left-1/2 top-full -translate-x-1/2"
+              className={[
+                "absolute left-1/2 top-full",
+                "-translate-x-1/2",
+              ].join(" ")}
             >
               <div
                 className={[
                   "h-0 w-0",
-                  "border-l-[19px] border-r-[19px]",
+                  "border-l-[19px]",
+                  "border-r-[19px]",
                   "border-t-[20px]",
-                  "border-l-transparent border-r-transparent",
+                  "border-l-transparent",
+                  "border-r-transparent",
                   "border-t-[#6c513e]",
                 ].join(" ")}
               />
 
               <div
                 className={[
-                  "absolute left-1/2 top-[-20px] h-0 w-0",
+                  "absolute left-1/2 top-[-20px]",
+                  "h-0 w-0",
                   "-translate-x-1/2",
-                  "border-l-[14px] border-r-[14px]",
+                  "border-l-[14px]",
+                  "border-r-[14px]",
                   "border-t-[15px]",
-                  "border-l-transparent border-r-transparent",
+                  "border-l-transparent",
+                  "border-r-transparent",
                   "border-t-[#fae8dd]",
                 ].join(" ")}
               />
@@ -150,20 +245,35 @@ export default function ChooseAdventurePage() {
 
         {/* Ally mascot */}
 
-        <div className="relative mt-7 flex h-52 w-full items-end justify-center sm:h-60">
-          <img
-            src={allyMascot}
-            alt="Ally the explorer mascot"
-            className="h-full max-w-full object-contain drop-shadow-[0_10px_8px_rgba(61,37,20,0.2)]"
-          />
+        <div
+          className={[
+            "relative mt-7",
+            "flex h-52 w-full",
+            "items-end justify-center",
+            "sm:h-60",
+          ].join(" ")}
+        >
+          <div className="ally-mascot-float ally-mascot-shadow h-full">
+            <img
+              src={allyMascot}
+              alt="Ally the explorer mascot"
+              className="h-full max-w-full object-contain"
+            />
+          </div>
         </div>
 
-        {/* Adventure options */}
+        {/* Adventure choices */}
 
         <section
           aria-label="Choose how to continue"
-          className="mt-10 grid w-full max-w-5xl grid-cols-1 gap-8 md:grid-cols-2"
+          className={[
+            "mt-10 grid w-full max-w-5xl",
+            "grid-cols-1 gap-8",
+            "md:grid-cols-2",
+          ].join(" ")}
         >
+          {/* Registration choice */}
+
           <AdventureOptionCard
             icon={
               <Mountain
@@ -196,12 +306,12 @@ export default function ChooseAdventurePage() {
               />
             }
             variant="primary"
-            onClick={() =>
-              navigate(
-                "/auth?mode=register",
-              )
+            onClick={
+              handleStartExpedition
             }
           />
+
+          {/* Free assessment choice */}
 
           <AdventureOptionCard
             icon={
@@ -230,10 +340,8 @@ export default function ChooseAdventurePage() {
               />
             }
             variant="outline"
-            onClick={() =>
-              navigate(
-                "/onboarding/diagnostic",
-              )
+            onClick={
+              handleStartFreeAssessment
             }
           />
         </section>

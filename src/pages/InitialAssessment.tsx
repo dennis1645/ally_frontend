@@ -10,6 +10,10 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+import {
+  useDiagnosticGuestToken,
+} from "../hooks/useDiagnosticGuestToken";
+
 import allyMascot from "../assets/ally-assessment-mascot.png";
 
 import {
@@ -39,6 +43,7 @@ import {
 
 import type {
   DiagnosticQuestion,
+  SubmitAssessmentPayload,
 } from "../types/diagnostic";
 
 /* =========================================================
@@ -59,6 +64,11 @@ function AssessmentExperience({
 
   const submission =
     useSubmitAssessment();
+
+  const {
+    getOrCreateGuestToken,
+  } =
+    useDiagnosticGuestToken();
 
   const [
     submitDialogOpen,
@@ -171,8 +181,8 @@ function AssessmentExperience({
     useCallback(
       (): void => {
         /*
-         * Page four must also be valid before the confirmation
-         * dialog can open.
+         * The final assessment page must be valid before
+         * the confirmation dialog can open.
          */
         const pageIsValid =
           assessment.validateCurrentPage();
@@ -233,17 +243,40 @@ function AssessmentExperience({
         );
 
         try {
-          const payload =
+          /*
+           * useAssessment only returns the selected answers.
+           */
+          const answersPayload =
             assessment
               .buildSubmissionPayload();
+
+          /*
+           * Add the assessment type and anonymous guest token
+           * required by POST /api/diagnostic/submit.
+           */
+          const payload:
+            SubmitAssessmentPayload = {
+            assessment_type:
+              "initial_diagnostic",
+
+            guest_token:
+              getOrCreateGuestToken(),
+
+            answers:
+              answersPayload.answers,
+          };
 
           await submission.submit(
             payload,
           );
 
           /*
-           * Clear saved answers only after the backend confirms
-           * that submission succeeded.
+           * Clear the locally saved answers only after the
+           * backend confirms that submission succeeded.
+           *
+           * The guest token is intentionally kept because it
+           * will still be needed to retrieve the guest result
+           * and attach it to the user's account after registration.
            */
           assessment.clearAssessment();
 
@@ -273,6 +306,7 @@ function AssessmentExperience({
       },
       [
         assessment,
+        getOrCreateGuestToken,
         submission,
       ],
     );
@@ -288,7 +322,13 @@ function AssessmentExperience({
       <div className="min-h-screen bg-[#fff8f5]">
         <AssessmentHeader />
 
-        <main className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-4xl place-items-center px-4 py-16 sm:px-6 lg:px-8">
+        <main
+          className={[
+            "mx-auto grid min-h-[calc(100vh-5rem)]",
+            "w-full max-w-4xl place-items-center",
+            "px-4 py-16 sm:px-6 lg:px-8",
+          ].join(" ")}
+        >
           <section
             aria-labelledby="assessment-submitted-title"
             className={[
@@ -299,24 +339,38 @@ function AssessmentExperience({
               "sm:p-10",
             ].join(" ")}
           >
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#e9f7ef] text-[#27865b]">
+            <div
+              className={[
+                "mx-auto grid h-16 w-16",
+                "place-items-center rounded-full",
+                "bg-[#e9f7ef] text-[#27865b]",
+              ].join(" ")}
+            >
               <CheckCircle2
                 size={34}
-                strokeWidth={
-                  2.4
-                }
+                strokeWidth={2.4}
                 aria-hidden="true"
               />
             </div>
 
             <h1
               id="assessment-submitted-title"
-              className="mt-6 text-2xl font-bold tracking-tight text-[#331a0e] sm:text-3xl"
+              className={[
+                "mt-6 text-2xl font-bold",
+                "tracking-tight text-[#331a0e]",
+                "sm:text-3xl",
+              ].join(" ")}
             >
               Assessment Submitted
             </h1>
 
-            <p className="mt-4 text-sm leading-7 text-[#6c5950] sm:text-base">
+            <p
+              className={[
+                "mt-4 text-sm leading-7",
+                "text-[#6c5950]",
+                "sm:text-base",
+              ].join(" ")}
+            >
               Your answers have been
               submitted successfully.
               Ally can now calculate
@@ -337,7 +391,14 @@ function AssessmentExperience({
     <div className="min-h-screen bg-[#fff8f5]">
       <AssessmentHeader />
 
-      <main className="mx-auto w-full max-w-4xl px-4 pb-56 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+      <main
+        className={[
+          "mx-auto w-full max-w-4xl",
+          "px-4 pb-56 pt-8",
+          "sm:px-6 sm:pt-10",
+          "lg:px-8",
+        ].join(" ")}
+      >
         <AllySpeechBubble
           message={
             assessment

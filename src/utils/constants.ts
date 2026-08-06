@@ -1,219 +1,87 @@
-import type {
-  AssessmentSectionDefinition,
-  AssessmentSectionKey,
-} from "../types/diagnostic";
+/* =========================================================
+   Diagnostic configuration
+========================================================= */
+
+/*
+ * Temporary identifier for an anonymous assessment user.
+ *
+ * This token remains stored after assessment submission
+ * because it is required to:
+ *
+ * 1. Retrieve the anonymous result.
+ * 2. Attach the result to the user's account after registration.
+ */
+export const DIAGNOSTIC_GUEST_TOKEN_STORAGE_KEY =
+  "ally_diagnostic_guest_token";
+
+/*
+ * Assessment type expected by:
+ *
+ * POST /api/diagnostic/submit
+ */
+export const INITIAL_DIAGNOSTIC_ASSESSMENT_TYPE =
+  "initial_diagnostic" as const;
 
 /* =========================================================
-   Assessment route
+   Assessment routes
 ========================================================= */
 
 export const INITIAL_ASSESSMENT_ROUTE =
   "/onboarding/diagnostic";
 
+export const DIAGNOSTIC_RESULT_ROUTE =
+  "/assessment/result";
+
 /* =========================================================
    Local-storage configuration
 ========================================================= */
 
-export const ASSESSMENT_STORAGE_KEY =
-  "ally.initial-assessment.v1";
-
-export const ASSESSMENT_STORAGE_VERSION =
-  1 as const;
-
-/* =========================================================
-   Step configuration
-========================================================= */
-
-export const QUESTION_SECTION_COUNT =
-  7;
-
-export const REVIEW_STEP_INDEX =
-  7;
-
-export const TOTAL_ASSESSMENT_STEPS =
-  8;
-
-/* =========================================================
-   Section definitions
-========================================================= */
-
-export const ASSESSMENT_SECTION_DEFINITIONS:
-  readonly AssessmentSectionDefinition[] =
-  [
-    {
-      key: "academic",
-      title: "Academic Background",
-      description:
-        "Tell us about your current academic journey and performance.",
-      speech:
-        "Let's start with your academic journey.",
-      questionRange: [1, 4],
-    },
-    {
-      key: "scholarship",
-      title: "Scholarship Planning",
-      description:
-        "Share your scholarship goals and current preparation.",
-      speech:
-        "Great! Now let's discover where you're headed.",
-      questionRange: [5, 6],
-    },
-    {
-      key: "leadership",
-      title: "Leadership",
-      description:
-        "Help us understand your leadership and community impact.",
-      speech:
-        "Every explorer leaves footprints. Tell me about yours.",
-      questionRange: [7, 8],
-    },
-    {
-      key: "experience",
-      title: "Experience",
-      description:
-        "Share the experiences and skills that support your journey.",
-      speech:
-        "Experience makes every expedition stronger.",
-      questionRange: [9, 12],
-    },
-    {
-      key: "language",
-      title: "Language",
-      description:
-        "Tell us about your communication and language readiness.",
-      speech:
-        "Communication is your passport to the world.",
-      questionRange: [13, 14],
-    },
-    {
-      key: "motivation",
-      title: "Motivation",
-      description:
-        "Describe the purpose and motivation behind your goals.",
-      speech:
-        "Your destination begins with a clear purpose.",
-      questionRange: [15, 16],
-    },
-    {
-      key: "documents",
-      title: "Documents",
-      description:
-        "Check the readiness of your scholarship documents.",
-      speech:
-        "Almost there! Let's prepare your expedition gear.",
-      questionRange: [17, 18],
-    },
-    {
-      key: "review",
-      title: "Final Review",
-      description:
-        "Review your answers before calculating your readiness.",
-      speech:
-        "Everything looks ready. Let's calculate your readiness!",
-      questionRange: null,
-    },
-  ] as const;
-
-/* =========================================================
-   Category aliases
-========================================================= */
-
-/**
- * The backend should ideally return:
+/*
+ * Stores:
  *
- * academic
- * scholarship
- * leadership
- * experience
- * language
- * motivation
- * documents
- *
- * These aliases allow the frontend to remain compatible with
- * slightly different backend naming conventions.
+ * - Current assessment page
+ * - Selected answers
+ * - Completed pages
+ * - Last update time
  */
-export const ASSESSMENT_CATEGORY_ALIASES:
-  Readonly<
-    Record<
-      Exclude<
-        AssessmentSectionKey,
-        "review"
-      >,
-      readonly string[]
-    >
-  > = {
-  academic: [
-    "academic",
-    "academics",
-    "academic_background",
-    "academic background",
-    "education",
-    "education_background",
-  ],
+export const ASSESSMENT_STORAGE_KEY =
+  "ally.initial-assessment";
 
-  scholarship: [
-    "scholarship",
-    "scholarship_planning",
-    "scholarship planning",
-    "scholarship_goals",
-    "scholarship goals",
-    "planning",
-  ],
+/*
+ * Version 2 represents the current page-based assessment:
+ *
+ * - 5 questions per page
+ * - 4 frontend pages
+ * - No separate review page
+ *
+ * Changing from version 1 to version 2 prevents old
+ * seven-section assessment progress from being restored.
+ */
+export const ASSESSMENT_STORAGE_VERSION =
+  2 as const;
 
-  leadership: [
-    "leadership",
-    "leadership_impact",
-    "leadership impact",
-    "community_impact",
-    "community impact",
-  ],
+/* =========================================================
+   Frontend pagination
+========================================================= */
 
-  experience: [
-    "experience",
-    "experiences",
-    "skills",
-    "achievements",
-    "achievements_skills",
-    "achievements and skills",
-    "professional_experience",
-  ],
+export const ASSESSMENT_QUESTIONS_PER_PAGE =
+  5;
 
-  language: [
-    "language",
-    "english",
-    "english_language",
-    "english_communication",
-    "english communication",
-    "communication",
-  ],
+export const INITIAL_ASSESSMENT_QUESTION_COUNT =
+  20;
 
-  motivation: [
-    "motivation",
-    "application_readiness",
-    "application readiness",
-    "readiness",
-    "purpose",
-    "goals",
-  ],
-
-  documents: [
-    "documents",
-    "document",
-    "application_documents",
-    "application documents",
-    "document_readiness",
-    "document readiness",
-    "cv",
-    "resume",
-  ],
-} as const;
+export const INITIAL_ASSESSMENT_PAGE_COUNT =
+  Math.ceil(
+    INITIAL_ASSESSMENT_QUESTION_COUNT /
+      ASSESSMENT_QUESTIONS_PER_PAGE,
+  );
 
 /* =========================================================
    Shared interface messages
 ========================================================= */
 
 export const ASSESSMENT_MESSAGES = {
-  incompleteSection:
+  incompletePage:
     "Please answer all questions before continuing.",
 
   emptyAssessment:
@@ -230,4 +98,10 @@ export const ASSESSMENT_MESSAGES = {
 
   successfulSubmission:
     "Your assessment has been submitted successfully.",
+
+  missingGuestToken:
+    "A guest token is required to continue.",
+
+  resultLoadingError:
+    "Unable to load your assessment result.",
 } as const;
