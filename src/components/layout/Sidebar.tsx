@@ -12,6 +12,8 @@ import {
   Map,
   UsersRound,
   X,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 
 import {
@@ -36,6 +38,8 @@ export type SidebarProps = {
   level?: number;
   progress?: number;
   items?: SidebarItem[];
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 };
 
 export const defaultUserSidebarItems: SidebarItem[] = [
@@ -90,6 +94,8 @@ export default function Sidebar({
   level,
   progress,
   items = defaultUserSidebarItems,
+  collapsed = false,
+  onToggleCollapse,
 }: SidebarProps) {
   const normalizedProgress = Math.min(
     100,
@@ -110,52 +116,52 @@ export default function Sidebar({
       <aside
         className={[
           "fixed inset-y-0 left-0 z-50",
-          "flex w-64 flex-col border-r border-slate-200 bg-white",
-          "transition-transform duration-200",
+          "flex flex-col border-r border-slate-200 bg-white",
+          "transition-all duration-200",
           "lg:translate-x-0",
-          isOpen
-            ? "translate-x-0"
-            : "-translate-x-full",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          // width: collapsed => w-12 (3rem), expanded => w-64
+          collapsed ? "w-12" : "w-64",
+          // ensure on large screens we use the same widths
+          collapsed ? "lg:w-12" : "lg:w-64",
         ].join(" ")}
       >
-        <div className="flex items-center justify-between px-6 py-6">
+        <div className="flex items-center justify-between px-3 py-6">
           <div>
-            <span
-  className="ally-logo ally-logo-medium"
-  role="img"
-  aria-label="Ally"
->
-  <span
-    aria-hidden="true"
-    className="ally-logo-a"
-  >
-    A
-  </span>
-
-  <span
-    aria-hidden="true"
-    className="ally-logo-lly"
-  >
-      lly
-  </span>
-</span>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Explorer Portal
-            </p>
+            <span className="ally-logo ally-logo-medium" role="img" aria-label="Ally">
+              <span aria-hidden="true" className="ally-logo-a">A</span>
+              <span aria-hidden="true" className="ally-logo-lly">lly</span>
+            </span>
+            {!collapsed && (
+              <p className="mt-1 text-xs text-slate-400">
+                Explorer Portal
+              </p>
+            )}
           </div>
 
-          <button
-            type="button"
-            aria-label="Close sidebar"
-            onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* collapse toggle - visible on lg screens */}
+            <button
+              type="button"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={onToggleCollapse}
+              className="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:flex"
+            >
+              {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+            </button>
+
+            <button
+              type="button"
+              aria-label="Close sidebar"
+              onClick={onClose}
+              className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-4 pb-5">
+        <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-2 pb-5">
           {items.map((item) => {
             const Icon = item.icon;
 
@@ -163,10 +169,13 @@ export default function Sidebar({
               return (
                 <div
                   key={item.path}
-                  className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300"
+                  className={[
+                    "flex cursor-not-allowed items-center gap-3 rounded-xl text-sm font-semibold text-slate-300",
+                    collapsed ? "px-3 py-3 justify-center" : "px-4 py-3",
+                  ].join(" ")}
                 >
                   <Icon size={20} />
-                  <span>{item.label}</span>
+                  {!collapsed && <span>{item.label}</span>}
                 </div>
               );
             }
@@ -179,16 +188,15 @@ export default function Sidebar({
                 onClick={onClose}
                 className={({ isActive }) =>
                   [
-                    "flex items-center gap-3 rounded-xl px-4 py-3",
-                    "text-sm font-semibold transition",
-                    isActive
-                      ? "bg-blue-50 text-ally-primary"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                    "flex items-center gap-3 rounded-xl text-sm font-semibold transition",
+                    collapsed ? "justify-center" : "px-4 py-3",
+                    isActive ? "bg-blue-50 text-ally-primary" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                   ].join(" ")
                 }
+                title={item.label}
               >
                 <Icon size={20} />
-                <span>{item.label}</span>
+                {!collapsed && <span>{item.label}</span>}
               </NavLink>
             );
           })}

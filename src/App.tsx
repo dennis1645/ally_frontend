@@ -13,6 +13,14 @@ import {
 } from "./routes/assessment.routes";
 
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import FinancePage from "./pages/admin/Finance";
+import UserManagement from "./pages/admin/UserManagement";
+import UniversityAdmin from "./pages/admin/UniversityAdmin";
+import ScholarshipAdmin from "./pages/admin/ScholarshipAdmin";
+import InitialAssessmentAdmin from "./pages/admin/InitialAssessmentAdmin";
+import ItemShopAdmin from "./pages/admin/ItemShopAdmin";
+import QuizAdmin from "./pages/admin/QuizAdmin";
+import BadgeAdmin from "./pages/admin/BadgeAdmin";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/user/DashboardPage";
 import EditProfilePage from "./pages/user/EditProfilePage";
@@ -406,12 +414,7 @@ export default function App() {
 
           <Route
             path="/admin/users"
-            element={
-              <EmptyPage
-                title="User Management"
-                description="Manage Explorer, Mentor, and Admin accounts."
-              />
-            }
+            element={<UserManagement />}
           />
 
           <Route
@@ -425,13 +428,33 @@ export default function App() {
           />
 
           <Route
+            path="/admin/university"
+            element={<UniversityAdmin />}
+          />
+
+          <Route
             path="/admin/scholarships"
-            element={
-              <EmptyPage
-                title="Scholarship Management"
-                description="Create, edit, publish, and archive scholarship data."
-              />
-            }
+            element={<ScholarshipAdmin />}
+          />
+
+          <Route
+            path="/admin/assessment"
+            element={<InitialAssessmentAdmin />}
+          />
+
+          <Route
+            path="/admin/shop"
+            element={<ItemShopAdmin />}
+          />
+
+          <Route
+            path="/admin/quiz"
+            element={<QuizAdmin />}
+          />
+
+          <Route
+            path="/admin/badges"
+            element={<BadgeAdmin />}
           />
 
           <Route
@@ -476,12 +499,7 @@ export default function App() {
 
           <Route
             path="/admin/payments"
-            element={
-              <EmptyPage
-                title="Payment Management"
-                description="Review payment transactions and package activation."
-              />
-            }
+            element={<FinancePage />}
           />
 
           <Route

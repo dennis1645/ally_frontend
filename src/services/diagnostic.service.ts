@@ -40,8 +40,6 @@ const DIAGNOSTIC_ENDPOINTS = {
  *   }
  * }
  */
-const QUESTIONS_PER_REQUEST =
-  100;
 
 /* =========================================================
    Service error
