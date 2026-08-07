@@ -19,7 +19,19 @@ import EditProfilePage from "./pages/user/EditProfilePage";
 import EmptyPage from "./pages/EmptyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LandingPage from "./pages/LandingPage";
-import MentorDashboardPage from "./pages/mentor/MentorDashboardPage";
+import MentorDashboardPage, {
+  ActionItemsPage,
+  MentorActionPlansPage,
+  MentorAvailabilityPage,
+  MentorBookingsPage,
+  MentorDossierPage,
+  MentorDocumentsPage,
+  MentorSettingsPage,
+  MentorSupportPage,
+  MentorSessionsPage,
+  MenteeManagementPage,
+} from "./pages/mentor/MentorDashboardPage";
+import MentorProfilePage from "./pages/mentor/MentorProfilePage";
 import ProfilePage from "./pages/user/ProfilePage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
 import VerificationPendingPage from "./pages/VerificationPendingPage";
@@ -297,12 +309,7 @@ export default function App() {
 
           <Route
             path="/mentor/mentees"
-            element={
-              <EmptyPage
-                title="My Mentees"
-                description="The mentor mentee-management page will be implemented later."
-              />
-            }
+            element={<MenteeManagementPage />}
           />
 
           <Route
@@ -316,33 +323,33 @@ export default function App() {
           />
 
           <Route
-            path="/mentor/mentees/:menteeId/dossier"
-            element={
-              <EmptyPage
-                title="Pre-Session Dossier"
-                description="The mentee's pre-session preparation summary will be displayed here."
-              />
-            }
+            path="/mentor/dossier"
+            element={<MentorDossierPage />}
           />
 
           <Route
             path="/mentor/availability"
-            element={
-              <EmptyPage
-                title="Mentor Availability"
-                description="The mentor scheduling page will be implemented later."
-              />
-            }
+            element={<MentorAvailabilityPage />}
+          />
+
+          <Route
+            path="/mentor/bookings"
+            element={<MentorBookingsPage />}
+          />
+
+          <Route
+            path="/mentor/action-plans"
+            element={<MentorActionPlansPage />}
+          />
+
+          <Route
+            path="/mentor/documents"
+            element={<MentorDocumentsPage />}
           />
 
           <Route
             path="/mentor/sessions"
-            element={
-              <EmptyPage
-                title="Mentor Sessions"
-                description="The mentor session-management page will be implemented later."
-              />
-            }
+            element={<MentorSessionsPage />}
           />
 
           <Route
@@ -357,22 +364,22 @@ export default function App() {
 
           <Route
             path="/mentor/action-items"
-            element={
-              <EmptyPage
-                title="Mentee Action Items"
-                description="The post-session action-item page will be implemented later."
-              />
-            }
+            element={<ActionItemsPage />}
+          />
+
+          <Route
+            path="/mentor/settings"
+            element={<MentorSettingsPage />}
+          />
+
+          <Route
+            path="/mentor/support"
+            element={<MentorSupportPage />}
           />
 
           <Route
             path="/mentor/profile"
-            element={
-              <EmptyPage
-                title="Mentor Profile"
-                description="The mentor profile page will be implemented later."
-              />
-            }
+            element={<MentorProfilePage />}
           />
         </Route>
 
