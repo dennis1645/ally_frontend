@@ -17,9 +17,69 @@ import {
   AdventureOptionCard,
 } from "../components/adventure/AdventureOptionCard";
 
+import {
+  INITIAL_ASSESSMENT_ROUTE,
+} from "../routes/assessment.routes";
+
+import {
+  useDiagnosticGuestToken,
+} from "../hooks/useDiagnosticGuestToken";
+
+import {
+  resetAssessmentProgress,
+} from "../utils/resetAssessmentProgress";
+
 export default function ChooseAdventurePage() {
   const navigate =
     useNavigate();
+
+  const {
+    createNewGuestToken,
+  } =
+    useDiagnosticGuestToken();
+
+  function handleStartExpedition(): void {
+    navigate(
+      "/auth?mode=register",
+    );
+  }
+
+  function handleStartFreeAssessment(): void {
+    /*
+     * Starting from this button always begins a completely
+     * new anonymous assessment attempt.
+     *
+     * 1. Clear any saved answers/page progress from an older
+     *    attempt.
+     * 2. Replace any existing diagnostic guest token with a
+     *    freshly generated token.
+     * 3. Navigate to the assessment.
+     *
+     * The new token must then remain unchanged throughout:
+     *
+     * assessment -> submit -> result -> registration
+     */
+    resetAssessmentProgress();
+
+    const guestToken =
+      createNewGuestToken();
+
+    if (import.meta.env.DEV) {
+      console.info(
+        "[Diagnostic] New assessment attempt created.",
+        {
+          has_guest_token:
+            Boolean(
+              guestToken,
+            ),
+        },
+      );
+    }
+
+    navigate(
+      INITIAL_ASSESSMENT_ROUTE,
+    );
+  }
 
   return (
     <div
@@ -33,7 +93,7 @@ export default function ChooseAdventurePage() {
           `url(${mapBackground})`,
       }}
     >
-      {/* Soft overlay */}
+      {/* Soft background overlay */}
 
       <div
         aria-hidden="true"
@@ -50,6 +110,7 @@ export default function ChooseAdventurePage() {
             "linear-gradient(rgba(255,255,255,0.55) 2px, transparent 2px)",
             "linear-gradient(90deg, rgba(255,255,255,0.55) 2px, transparent 2px)",
           ].join(", "),
+
           backgroundSize:
             "120px 120px",
         }}
@@ -76,7 +137,7 @@ export default function ChooseAdventurePage() {
           New Expedition Awaits
         </div>
 
-        {/* Main heading */}
+        {/* Main title */}
 
         <h1
           className={[
@@ -88,7 +149,7 @@ export default function ChooseAdventurePage() {
           Choose Your Adventure
         </h1>
 
-        {/* Speech bubble */}
+        {/* Ally message */}
 
         <section
           aria-label="Message from Ally"
@@ -111,14 +172,26 @@ export default function ChooseAdventurePage() {
             </p>
 
             <p className="mt-5 text-lg font-bold text-[#3d2514] sm:text-xl">
-              <span className="italic text-[#2a5aa3]">
-                Ally
+              <span className="ally-logo">
+                <span
+                  aria-hidden="true"
+                  className="ally-logo-a"
+                >
+                  A
+                </span>
+
+                <span
+                  aria-hidden="true"
+                  className="ally-logo-lly"
+                >
+                  lly
+                </span>
               </span>{" "}
               is here to guide you every
               step of the way.
             </p>
 
-            {/* Speech bubble tail */}
+            {/* Speech-bubble tail */}
 
             <div
               aria-hidden="true"
@@ -151,14 +224,16 @@ export default function ChooseAdventurePage() {
         {/* Ally mascot */}
 
         <div className="relative mt-7 flex h-52 w-full items-end justify-center sm:h-60">
-          <img
-            src={allyMascot}
-            alt="Ally the explorer mascot"
-            className="h-full max-w-full object-contain drop-shadow-[0_10px_8px_rgba(61,37,20,0.2)]"
-          />
+          <div className="ally-mascot-float ally-mascot-shadow h-full">
+            <img
+              src={allyMascot}
+              alt="Ally the explorer mascot"
+              className="h-full max-w-full object-contain"
+            />
+          </div>
         </div>
 
-        {/* Adventure options */}
+        {/* Choices */}
 
         <section
           aria-label="Choose how to continue"
@@ -196,10 +271,8 @@ export default function ChooseAdventurePage() {
               />
             }
             variant="primary"
-            onClick={() =>
-              navigate(
-                "/auth?mode=register",
-              )
+            onClick={
+              handleStartExpedition
             }
           />
 
@@ -230,10 +303,8 @@ export default function ChooseAdventurePage() {
               />
             }
             variant="outline"
-            onClick={() =>
-              navigate(
-                "/onboarding/diagnostic",
-              )
+            onClick={
+              handleStartFreeAssessment
             }
           />
         </section>

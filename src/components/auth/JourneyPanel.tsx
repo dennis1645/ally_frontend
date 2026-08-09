@@ -20,9 +20,25 @@ export default function JourneyPanel() {
           <Compass size={24} />
         </div>
 
-        <span className="text-3xl font-bold text-ally-primary">
-          Ally
-        </span>
+        <span
+  className="ally-logo text-3xl text-ally-primary"
+  role="img"
+  aria-label="Ally"
+>
+  <span
+    aria-hidden="true"
+    className="ally-logo-a"
+  >
+    A
+  </span>
+
+  <span
+    aria-hidden="true"
+    className="ally-logo-lly"
+  >
+    lly
+  </span>
+</span>
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col justify-center">

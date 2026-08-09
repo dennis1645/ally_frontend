@@ -41,8 +41,6 @@ export default function UserLayout({
   subtitle,
   sidebarItems,
   topbarProps,
-  level,
-  progress,
 }: UserLayoutProps) {
   const navigate = useNavigate();
 
@@ -55,6 +53,8 @@ export default function UserLayout({
     isSidebarOpen,
     setIsSidebarOpen,
   ] = useState(false);
+
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const [
     isLoggingOut,
@@ -91,18 +91,18 @@ export default function UserLayout({
         onClose={() =>
           setIsSidebarOpen(false)
         }
+        collapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed((v) => !v)}
         onLogout={() => {
           void handleLogout();
         }}
         isLoggingOut={isLoggingOut}
         userName={user?.name}
         userEmail={user?.email}
-        level={level}
-        progress={progress}
         items={sidebarItems}
       />
 
-      <div className="min-h-screen lg:pl-64">
+      <div className={"min-h-screen " + (isCollapsed ? "lg:pl-12" : "lg:pl-64") }>
         <Topbar
           title={title}
           subtitle={subtitle}

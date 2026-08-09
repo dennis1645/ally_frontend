@@ -1,3 +1,7 @@
+/* =========================================================
+   User roles
+========================================================= */
+
 export type UserRole =
   | "user"
   | "mentor"
@@ -9,70 +13,315 @@ export type UserRoleObject = {
   slug?: string;
 };
 
+/* =========================================================
+   Badge types
+========================================================= */
+
+export type AuthBadgePivot = {
+  user_id:
+    | number
+    | string;
+
+  badge_id:
+    | number
+    | string;
+
+  earned_at:
+    string;
+};
+
+export type AuthBadge = {
+  id:
+    | number
+    | string;
+
+  name:
+    string;
+
+  description:
+    string;
+
+  icon_url:
+    | string
+    | null;
+
+  required_xp:
+    number;
+
+  created_at?:
+    string;
+
+  updated_at?:
+    string;
+
+  pivot?:
+    AuthBadgePivot;
+};
+
+/* =========================================================
+   Authenticated user
+========================================================= */
+
 export type AuthUser = {
-  id: number | string;
-  name: string;
-  email: string;
+  id:
+    | number
+    | string;
 
-  phone_number?: string | null;
-  gender?: string | null;
-  headline?: string | null;
-  bio?: string | null;
-  linkedin_id?: string | null;
-  profile_picture?: string | null;
-  profile_picture_url?: string | null;
+  name:
+    string;
 
+  email:
+    string;
 
-  is_premium?: boolean;
-  role?: UserRole | UserRoleObject;
+  phone_number?:
+    | string
+    | null;
+
+  email_verified_at?:
+    | string
+    | null;
+
+  gender?:
+    | string
+    | null;
+
+  role?:
+    | UserRole
+    | UserRoleObject;
+
+  status?:
+    | string
+    | null;
+
+  assigned_mentor_id?:
+    | number
+    | string
+    | null;
+
+  is_premium?:
+    boolean;
+
+  premium_until?:
+    | string
+    | null;
+
+  token_balance?:
+    number;
+
+  /* =======================================================
+     Profile
+  ======================================================= */
+
+  profile_picture?:
+    | string
+    | null;
+
+  profile_picture_url?:
+    | string
+    | null;
+
+  headline?:
+    | string
+    | null;
+
+  bio?:
+    | string
+    | null;
+
+  linkedin_id?:
+    | string
+    | null;
+
+  /* =======================================================
+     Academic information
+  ======================================================= */
+
+  institution_name?:
+    | string
+    | null;
+
+  education_level?:
+    | string
+    | null;
+
+  gpa?:
+    | string
+    | number
+    | null;
+
+  undergraduate_major?:
+    | string
+    | null;
+
+  /* =======================================================
+     Scholarship target
+  ======================================================= */
+
+  target_degree?:
+    | string
+    | null;
+
+  target_major?:
+    | string
+    | null;
+
+  target_country?:
+    | string
+    | null;
+
+  target_scholarship?:
+    | string
+    | null;
+
+  primary_scholarship_target?:
+    | string
+    | null;
+
+  /* =======================================================
+     Language
+  ======================================================= */
+
+  language_test_name?:
+    | string
+    | null;
+
+  language_test_score?:
+    | string
+    | number
+    | null;
+
+  /* =======================================================
+     Diagnostic readiness
+  ======================================================= */
+
+  readiness_score?:
+    | number
+    | null;
+
+  /* =======================================================
+     Expedition / gamification
+  ======================================================= */
+
+  expedition_level?:
+    | string
+    | number
+    | null;
+
+  xp_points?:
+    number;
+
+  level?:
+    number;
+
+  current_streak?:
+    number;
+
+  longest_streak?:
+    number;
+
+  badges?:
+    AuthBadge[];
+
+  /* =======================================================
+     Timestamps
+  ======================================================= */
+
+  created_at?:
+    string;
+
+  updated_at?:
+    string;
+
+  deleted_at?:
+    | string
+    | null;
 
   /*
-   * These fields are optional because they may be added
-   * through onboarding or later backend development.
+   * Allows additional backend fields without breaking
+   * the frontend while the profile API continues evolving.
    */
-  institution_name?: string | null;
-  education_level?: string | null;
-  gpa?: string | number | null;
-
-  target_degree?: string | null;
-  target_major?: string | null;
-  target_country?: string | null;
-  target_scholarship?: string | null;
-
-  language_test_name?: string | null;
-  language_test_score?: string | number | null;
-
-  expedition_level?: string | number | null;
-  readiness_score?: number | null;
-
-  [key: string]: unknown;
+  [key: string]:
+    unknown;
 };
+
+/* =========================================================
+   Login
+========================================================= */
 
 export type LoginPayload = {
-  email: string;
-  password: string;
+  email:
+    string;
+
+  password:
+    string;
 };
+
+/* =========================================================
+   Registration
+========================================================= */
 
 export type RegisterPayload = {
-  name: string;
-  email: string;
-  phone_number: string;
-  password: string;
-  password_confirmation: string;
+  name:
+    string;
+
+  email:
+    string;
+
+  phone_number:
+    string;
+
+  password:
+    string;
+
+  password_confirmation:
+    string;
+
+  /*
+   * Anonymous diagnostic token.
+   *
+   * When present, the backend can link the diagnostic result
+   * completed before registration to the newly created user.
+   */
+  guest_token?:
+    | string
+    | null;
 };
+
+/* =========================================================
+   Forgot password
+========================================================= */
 
 export type ForgotPasswordPayload = {
-  email: string;
+  email:
+    string;
 };
+
+/* =========================================================
+   Reset password
+========================================================= */
 
 export type ResetPasswordPayload = {
-  email: string;
-  token: string;
-  password: string;
-  password_confirmation: string;
+  email:
+    string;
+
+  token:
+    string;
+
+  password:
+    string;
+
+  password_confirmation:
+    string;
 };
 
+/* =========================================================
+   Auth session
+========================================================= */
+
 export type AuthSession = {
-  token: string;
-  user: AuthUser;
+  token:
+    string;
+
+  user:
+    AuthUser;
 };

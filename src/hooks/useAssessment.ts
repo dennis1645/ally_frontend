@@ -24,19 +24,16 @@ import {
   paginateQuestions,
 } from "../utils/paginateQuestions";
 
-import type {
-  AssessmentQuestionPage,
-} from "../utils/paginateQuestions";
-
 import {
   validateSectionAnswers,
 } from "../utils/validation";
 
 import type {
   AssessmentAnswers,
+  AssessmentAnswersPayload,
+  AssessmentPage,
   DiagnosticQuestion,
   PersistedAssessmentState,
-  SubmitAssessmentPayload,
 } from "../types/diagnostic";
 
 /* =========================================================
@@ -44,31 +41,64 @@ import type {
 ========================================================= */
 
 export type UseAssessmentOptions = {
-  questions: DiagnosticQuestion[];
+  questions:
+    DiagnosticQuestion[];
 };
 
 export type UseAssessmentReturn = {
-  pages: AssessmentQuestionPage[];
+  /*
+   * Frontend assessment pages.
+   *
+   * Twenty questions become four pages containing
+   * five questions each.
+   */
+  pages:
+    AssessmentPage[];
 
-  currentPage: AssessmentQuestionPage;
+  /*
+   * Currently visible page.
+   */
+  currentPage:
+    AssessmentPage;
 
+  /*
+   * Zero-based page index.
+   */
   currentStep: number;
 
-  answers: AssessmentAnswers;
+  /*
+   * Selected options keyed by question ID.
+   *
+   * Example:
+   * {
+   *   "1": 5,
+   *   "2": 10
+   * }
+   */
+  answers:
+    AssessmentAnswers;
 
-  completedSteps: number[];
+  /*
+   * Zero-based indexes of completed pages.
+   */
+  completedSteps:
+    number[];
 
   isLastPage: boolean;
 
   canGoPrevious: boolean;
 
-  validationMessage: string | null;
+  validationMessage:
+    string | null;
 
-  unansweredQuestionIds: number[];
+  unansweredQuestionIds:
+    number[];
 
-  answeredQuestionCount: number;
+  answeredQuestionCount:
+    number;
 
-  totalQuestionCount: number;
+  totalQuestionCount:
+    number;
 
   setAnswer: (
     questionId: number,
@@ -86,43 +116,73 @@ export type UseAssessmentReturn = {
   validateCurrentPage:
     () => boolean;
 
+  /*
+   * Returns only the answers.
+   *
+   * InitialAssessment.tsx adds:
+   * - assessment_type
+   * - guest_token
+   */
   buildSubmissionPayload:
-    () => SubmitAssessmentPayload;
+    () => AssessmentAnswersPayload;
 
-  clearAssessment:
-    () => void;
+  clearAssessment: () => void;
 };
 
 /* =========================================================
-   Empty-page fallback
+   Empty page fallback
 ========================================================= */
 
-const EMPTY_PAGE:
-  AssessmentQuestionPage = {
-  key: "empty-assessment-page",
-  pageNumber: 1,
-  title: "Initial Assessment",
-  description:
-    "No questions are available.",
-  speech:
-    "The assessment questions are currently unavailable.",
-  questions: [],
-};
+const EMPTY_ASSESSMENT_PAGE:
+  AssessmentPage = {
+    key:
+      "empty",
+
+    title:
+      "Initial Assessment",
+
+    description:
+      "No assessment questions are available.",
+
+    speech:
+      "The assessment is not available right now.",
+
+    questions:
+      [],
+  };
 
 /* =========================================================
    Internal helpers
 ========================================================= */
 
+function clampNumber(
+  value: number,
+  minimum: number,
+  maximum: number,
+): number {
+  return Math.min(
+    Math.max(
+      value,
+      minimum,
+    ),
+    maximum,
+  );
+}
+
 function uniqueSortedNumbers(
   values: number[],
 ): number[] {
   return [
-    ...new Set(values),
+    ...new Set(
+      values,
+    ),
   ].sort(
     (
       first,
       second,
-    ) => first - second,
+    ) =>
+      first -
+      second,
   );
 }
 
@@ -145,14 +205,20 @@ function areNumberArraysEqual(
 }
 
 function areAnswerMapsEqual(
-  first: AssessmentAnswers,
-  second: AssessmentAnswers,
+  first:
+    AssessmentAnswers,
+  second:
+    AssessmentAnswers,
 ): boolean {
   const firstEntries =
-    Object.entries(first);
+    Object.entries(
+      first,
+    );
 
   const secondEntries =
-    Object.entries(second);
+    Object.entries(
+      second,
+    );
 
   if (
     firstEntries.length !==
@@ -166,8 +232,131 @@ function areAnswerMapsEqual(
       questionId,
       optionId,
     ]) =>
-      second[questionId] ===
+      second[
+        questionId
+      ] ===
       optionId,
+  );
+}
+
+/**
+ * Verify that an answer belongs to a real question and that
+ * its selected option belongs to that question.
+ */
+function sanitizeAnswers(
+  answers:
+    AssessmentAnswers,
+  questionById:
+    Map<
+      number,
+      DiagnosticQuestion
+    >,
+): AssessmentAnswers {
+  const sanitizedAnswers:
+    AssessmentAnswers = {};
+
+  for (
+    const [
+      questionIdKey,
+      optionId,
+    ] of Object.entries(
+      answers,
+    )
+  ) {
+    const questionId =
+      Number(
+        questionIdKey,
+      );
+
+    if (
+      !Number.isInteger(
+        questionId,
+      ) ||
+      questionId <= 0 ||
+      !Number.isInteger(
+        optionId,
+      ) ||
+      optionId <= 0
+    ) {
+      continue;
+    }
+
+    const question =
+      questionById.get(
+        questionId,
+      );
+
+    if (!question) {
+      continue;
+    }
+
+    const optionExists =
+      question.options.some(
+        (option) =>
+          option.id ===
+          optionId,
+      );
+
+    if (!optionExists) {
+      continue;
+    }
+
+    sanitizedAnswers[
+      String(
+        questionId,
+      )
+    ] =
+      optionId;
+  }
+
+  return sanitizedAnswers;
+}
+
+/**
+ * Keep only valid completed-page indexes.
+ *
+ * A page remains completed only when all questions on that
+ * page still have valid answers.
+ */
+function sanitizeCompletedSteps(
+  completedSteps: number[],
+  pages:
+    AssessmentPage[],
+  answers:
+    AssessmentAnswers,
+): number[] {
+  const validSteps =
+    completedSteps.filter(
+      (stepIndex) => {
+        if (
+          !Number.isInteger(
+            stepIndex,
+          ) ||
+          stepIndex < 0 ||
+          stepIndex >=
+            pages.length
+        ) {
+          return false;
+        }
+
+        const page =
+          pages[
+            stepIndex
+          ];
+
+        if (!page) {
+          return false;
+        }
+
+        return validateSectionAnswers(
+          page.questions,
+          answers,
+        ).valid;
+      },
+    );
+
+  return uniqueSortedNumbers(
+    validSteps,
   );
 }
 
@@ -179,8 +368,12 @@ export function useAssessment({
   questions,
 }: UseAssessmentOptions): UseAssessmentReturn {
   const {
-    value: persistedState,
-    setValue: setPersistedState,
+    value:
+      persistedState,
+
+    setValue:
+      setPersistedState,
+
     removeValue:
       removePersistedState,
   } =
@@ -218,7 +411,7 @@ export function useAssessment({
     );
 
   /* =======================================================
-     Create pages of five questions
+     Create frontend pages
   ======================================================= */
 
   const pages =
@@ -227,35 +420,42 @@ export function useAssessment({
         paginateQuestions(
           questions,
         ),
-      [questions],
+      [
+        questions,
+      ],
     );
 
   const maximumStepIndex =
     Math.max(
-      pages.length - 1,
+      pages.length -
+        1,
       0,
     );
 
   const currentStep =
-    Math.min(
-      Math.max(
-        persistedState.currentStep,
-        0,
-      ),
+    clampNumber(
+      persistedState
+        .currentStep,
+      0,
       maximumStepIndex,
     );
 
   const currentPage =
-    pages[currentStep] ??
-    EMPTY_PAGE;
+    pages[
+      currentStep
+    ] ??
+    EMPTY_ASSESSMENT_PAGE;
 
   const isLastPage =
-    pages.length > 0 &&
+    pages.length >
+      0 &&
     currentStep ===
-      pages.length - 1;
+      pages.length -
+        1;
 
   const canGoPrevious =
-    currentStep > 0;
+    currentStep >
+    0;
 
   /* =======================================================
      Question lookup
@@ -269,13 +469,17 @@ export function useAssessment({
           DiagnosticQuestion
         >(
           questions.map(
-            (question) => [
+            (
+              question,
+            ) => [
               question.id,
               question,
             ],
           ),
         ),
-      [questions],
+      [
+        questions,
+      ],
     );
 
   /* =======================================================
@@ -286,18 +490,26 @@ export function useAssessment({
     useMemo(
       () =>
         validateSectionAnswers(
-          currentPage.questions,
-          persistedState.answers,
+          currentPage
+            .questions,
+          persistedState
+            .answers,
         ),
       [
-        currentPage.questions,
-        persistedState.answers,
+        currentPage
+          .questions,
+        persistedState
+          .answers,
       ],
     );
 
   const unansweredQuestionIds =
     validationResult
       .unansweredQuestionIds;
+
+  /* =======================================================
+     Assessment statistics
+  ======================================================= */
 
   const answeredQuestionCount =
     useMemo(
@@ -308,14 +520,23 @@ export function useAssessment({
             question,
           ) => {
             const selectedOptionId =
-              persistedState.answers[
+              persistedState
+                .answers[
                 String(
                   question.id,
                 )
               ];
 
-            return selectedOptionId !==
-              undefined
+            const selectedOptionIsValid =
+              question.options.some(
+                (
+                  option,
+                ) =>
+                  option.id ===
+                  selectedOptionId,
+              );
+
+            return selectedOptionIsValid
               ? total + 1
               : total;
           },
@@ -323,18 +544,24 @@ export function useAssessment({
         ),
       [
         questions,
-        persistedState.answers,
+        persistedState
+          .answers,
       ],
     );
 
+  const totalQuestionCount =
+    questions.length;
+
   /* =======================================================
-     Restore and sanitize saved progress
+     Restore and sanitize local state
   ======================================================= */
 
   useEffect(() => {
     if (
-      questions.length === 0 ||
-      pages.length === 0
+      questions.length ===
+        0 ||
+      pages.length ===
+        0
     ) {
       return;
     }
@@ -343,106 +570,61 @@ export function useAssessment({
       (
         currentState,
       ) => {
-        const validAnswers:
-          AssessmentAnswers =
-          {};
-
-        for (
-          const [
-            questionIdKey,
-            optionId,
-          ] of Object.entries(
-            currentState.answers,
-          )
-        ) {
-          const questionId =
-            Number(
-              questionIdKey,
-            );
-
-          if (
-            !Number.isInteger(
-              questionId,
-            ) ||
-            questionId <= 0
-          ) {
-            continue;
-          }
-
-          const question =
-            questionById.get(
-              questionId,
-            );
-
-          if (!question) {
-            continue;
-          }
-
-          const optionExists =
-            question.options.some(
-              (option) =>
-                option.id ===
-                optionId,
-            );
-
-          if (!optionExists) {
-            continue;
-          }
-
-          validAnswers[
-            String(questionId)
-          ] = optionId;
-        }
+        const validAnswers =
+          sanitizeAnswers(
+            currentState
+              .answers,
+            questionById,
+          );
 
         /*
-         * A version change means the assessment page structure
-         * changed. Preserve valid answers, but restart page
-         * navigation from page one.
+         * A storage-version change resets the page navigation
+         * while preserving answers that are still valid.
          */
-        const usesCurrentVersion =
-          currentState.version ===
+        const versionMatches =
+          currentState
+            .version ===
           ASSESSMENT_STORAGE_VERSION;
 
         const validCompletedSteps =
-          usesCurrentVersion
-            ? uniqueSortedNumbers(
-                currentState.completedSteps.filter(
-                  (
-                    stepIndex,
-                  ) =>
-                    Number.isInteger(
-                      stepIndex,
-                    ) &&
-                    stepIndex >=
-                      0 &&
-                    stepIndex <
-                      pages.length,
-                ),
+          versionMatches
+            ? sanitizeCompletedSteps(
+                currentState
+                  .completedSteps,
+                pages,
+                validAnswers,
               )
             : [];
 
         const sanitizedStep =
-          usesCurrentVersion
-            ? Math.min(
+          versionMatches
+            ? clampNumber(
+                currentState
+                  .currentStep,
+                0,
                 Math.max(
-                  currentState.currentStep,
+                  pages.length -
+                    1,
                   0,
                 ),
-                maximumStepIndex,
               )
             : 0;
 
         const stateIsUnchanged =
-          currentState.version ===
+          currentState
+            .version ===
             ASSESSMENT_STORAGE_VERSION &&
-          currentState.currentStep ===
+          currentState
+            .currentStep ===
             sanitizedStep &&
           areAnswerMapsEqual(
-            currentState.answers,
+            currentState
+              .answers,
             validAnswers,
           ) &&
           areNumberArraysEqual(
-            currentState.completedSteps,
+            currentState
+              .completedSteps,
             validCompletedSteps,
           );
 
@@ -466,27 +648,29 @@ export function useAssessment({
             validCompletedSteps,
 
           updatedAt:
-            new Date().toISOString(),
+            new Date()
+              .toISOString(),
         };
       },
     );
   }, [
-    maximumStepIndex,
-    pages.length,
+    pages,
     questionById,
     questions.length,
     setPersistedState,
   ]);
 
   /* =======================================================
-     Answer selection
+     Select an answer
   ======================================================= */
 
   const setAnswer =
     useCallback(
       (
-        questionId: number,
-        optionId: number,
+        questionId:
+          number,
+        optionId:
+          number,
       ): void => {
         const question =
           questionById.get(
@@ -494,17 +678,37 @@ export function useAssessment({
           );
 
         if (!question) {
+          if (
+            import.meta.env.DEV
+          ) {
+            console.warn(
+              `[Assessment] Question ${questionId} does not exist.`,
+            );
+          }
+
           return;
         }
 
         const optionExists =
           question.options.some(
-            (option) =>
+            (
+              option,
+            ) =>
               option.id ===
               optionId,
           );
 
-        if (!optionExists) {
+        if (
+          !optionExists
+        ) {
+          if (
+            import.meta.env.DEV
+          ) {
+            console.warn(
+              `[Assessment] Option ${optionId} does not belong to question ${questionId}.`,
+            );
+          }
+
           return;
         }
 
@@ -514,16 +718,22 @@ export function useAssessment({
           ) => ({
             ...currentState,
 
+            version:
+              ASSESSMENT_STORAGE_VERSION,
+
             answers: {
-              ...currentState.answers,
+              ...currentState
+                .answers,
 
               [String(
                 questionId,
-              )]: optionId,
+              )]:
+                optionId,
             },
 
             updatedAt:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
           }),
         );
 
@@ -538,7 +748,7 @@ export function useAssessment({
     );
 
   /* =======================================================
-     Validation method
+     Validate current page
   ======================================================= */
 
   const validateCurrentPage =
@@ -546,22 +756,17 @@ export function useAssessment({
       (): boolean => {
         const validation =
           validateSectionAnswers(
-            currentPage.questions,
-            persistedState.answers,
+            currentPage
+              .questions,
+            persistedState
+              .answers,
           );
 
         if (
           !validation.valid
         ) {
-          const missingCount =
-            validation
-              .unansweredQuestionIds
-              .length;
-
           setValidationMessage(
-            missingCount === 1
-              ? "Please answer the remaining question before continuing."
-              : `Please answer the remaining ${missingCount} questions before continuing.`,
+            "Please answer all questions before continuing.",
           );
 
           return false;
@@ -574,27 +779,47 @@ export function useAssessment({
         return true;
       },
       [
-        currentPage.questions,
-        persistedState.answers,
+        currentPage
+          .questions,
+        persistedState
+          .answers,
       ],
     );
 
   /* =======================================================
-     Next-page navigation
+     Move to next page
   ======================================================= */
 
   const next =
     useCallback(
       (): boolean => {
-        if (isLastPage) {
-          return false;
-        }
-
         if (
-          !validateCurrentPage()
+          isLastPage
         ) {
           return false;
         }
+
+        const validation =
+          validateSectionAnswers(
+            currentPage
+              .questions,
+            persistedState
+              .answers,
+          );
+
+        if (
+          !validation.valid
+        ) {
+          setValidationMessage(
+            "Please answer all questions before continuing.",
+          );
+
+          return false;
+        }
+
+        setValidationMessage(
+          null,
+        );
 
         setPersistedState(
           (
@@ -602,9 +827,13 @@ export function useAssessment({
           ) => ({
             ...currentState,
 
+            version:
+              ASSESSMENT_STORAGE_VERSION,
+
             currentStep:
               Math.min(
-                currentStep + 1,
+                currentStep +
+                  1,
                 maximumStepIndex,
               ),
 
@@ -616,30 +845,35 @@ export function useAssessment({
               ]),
 
             updatedAt:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
           }),
         );
 
         return true;
       },
       [
+        currentPage
+          .questions,
         currentStep,
         isLastPage,
         maximumStepIndex,
+        persistedState
+          .answers,
         setPersistedState,
-        validateCurrentPage,
       ],
     );
 
   /* =======================================================
-     Previous-page navigation
+     Move to previous page
   ======================================================= */
 
   const previous =
     useCallback(
       (): void => {
         if (
-          currentStep <= 0
+          currentStep <=
+          0
         ) {
           return;
         }
@@ -654,14 +888,19 @@ export function useAssessment({
           ) => ({
             ...currentState,
 
+            version:
+              ASSESSMENT_STORAGE_VERSION,
+
             currentStep:
               Math.max(
-                currentStep - 1,
+                currentStep -
+                  1,
                 0,
               ),
 
             updatedAt:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
           }),
         );
       },
@@ -672,29 +911,22 @@ export function useAssessment({
     );
 
   /* =======================================================
-     Step navigation
+     Navigate through completed page indicators
   ======================================================= */
 
   const goToCompletedStep =
     useCallback(
       (
-        stepIndex: number,
+        stepIndex:
+          number,
       ): void => {
-        const isValidStep =
-          Number.isInteger(
-            stepIndex,
-          ) &&
-          stepIndex >= 0 &&
-          stepIndex <
-            pages.length;
-
-        if (!isValidStep) {
-          return;
-        }
-
         if (
-          stepIndex ===
-          currentStep
+          !Number.isInteger(
+            stepIndex,
+          ) ||
+          stepIndex < 0 ||
+          stepIndex >=
+            pages.length
         ) {
           return;
         }
@@ -706,7 +938,9 @@ export function useAssessment({
               stepIndex,
             );
 
-        if (!isCompleted) {
+        if (
+          !isCompleted
+        ) {
           return;
         }
 
@@ -720,16 +954,19 @@ export function useAssessment({
           ) => ({
             ...currentState,
 
+            version:
+              ASSESSMENT_STORAGE_VERSION,
+
             currentStep:
               stepIndex,
 
             updatedAt:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
           }),
         );
       },
       [
-        currentStep,
         pages.length,
         persistedState
           .completedSteps,
@@ -738,41 +975,20 @@ export function useAssessment({
     );
 
   /* =======================================================
-     Submission payload
+     Build answer-only payload
   ======================================================= */
 
   const buildSubmissionPayload =
     useCallback(
-      (): SubmitAssessmentPayload => {
-        const sortedQuestions =
-          [...questions].sort(
-            (
-              first,
-              second,
-            ): number => {
-              const orderDifference =
-                first.order_number -
-                second.order_number;
-
-              if (
-                orderDifference !==
-                0
-              ) {
-                return orderDifference;
-              }
-
-              return (
-                first.id -
-                second.id
-              );
-            },
-          );
-
+      (): AssessmentAnswersPayload => {
         const answers =
-          sortedQuestions.map(
-            (question) => {
+          questions.map(
+            (
+              question,
+            ) => {
               const optionId =
-                persistedState.answers[
+                persistedState
+                  .answers[
                   String(
                     question.id,
                   )
@@ -789,7 +1005,9 @@ export function useAssessment({
 
               const optionExists =
                 question.options.some(
-                  (option) =>
+                  (
+                    option,
+                  ) =>
                     option.id ===
                     optionId,
                 );
@@ -817,13 +1035,14 @@ export function useAssessment({
         };
       },
       [
-        persistedState.answers,
+        persistedState
+          .answers,
         questions,
       ],
     );
 
   /* =======================================================
-     Reset assessment
+     Clear locally persisted answers
   ======================================================= */
 
   const clearAssessment =
@@ -840,6 +1059,10 @@ export function useAssessment({
       ],
     );
 
+  /* =======================================================
+     Public hook result
+  ======================================================= */
+
   return {
     pages,
 
@@ -848,7 +1071,8 @@ export function useAssessment({
     currentStep,
 
     answers:
-      persistedState.answers,
+      persistedState
+        .answers,
 
     completedSteps:
       persistedState
@@ -864,8 +1088,7 @@ export function useAssessment({
 
     answeredQuestionCount,
 
-    totalQuestionCount:
-      questions.length,
+    totalQuestionCount,
 
     setAnswer,
 

@@ -207,33 +207,52 @@ export async function loginApi(
 export async function registerApi(
   payload: RegisterPayload,
 ): Promise<AuthSession> {
+  const guestToken =
+    payload.guest_token
+      ?.trim() ||
+    null;
+
   const response =
     await apiRequest<AuthSessionResponse>(
       "/api/register",
       {
-        method: "POST",
+        method:
+          "POST",
 
-        /**
-         * Registration also occurs before authentication.
+        /*
+         * Registration occurs before authentication.
          */
-        authenticated: false,
+        authenticated:
+          false,
 
-        body: JSON.stringify({
-          name:
-            payload.name.trim(),
+        body:
+          JSON.stringify({
+            name:
+              payload.name.trim(),
 
-          email:
-            payload.email.trim(),
+            email:
+              payload.email.trim(),
 
-          phone_number:
-            payload.phone_number.trim(),
+            phone_number:
+              payload.phone_number.trim(),
 
-          password:
-            payload.password,
+            password:
+              payload.password,
 
-          password_confirmation:
-            payload.password_confirmation,
-        }),
+            password_confirmation:
+              payload.password_confirmation,
+
+            /*
+             * Include the anonymous assessment token only
+             * when the user completed an assessment.
+             */
+            ...(guestToken
+              ? {
+                  guest_token:
+                    guestToken,
+                }
+              : {}),
+          }),
       },
     );
 
@@ -242,10 +261,9 @@ export async function registerApi(
       response,
     );
 
-  /**
-   * Your AuthContext register() does not currently
-   * accept rememberMe, so registration uses
-   * sessionStorage by default.
+  /*
+   * Registration uses sessionStorage by default because
+   * AuthContext.register() does not receive rememberMe.
    */
   storeAuthToken(
     session.accessToken,
