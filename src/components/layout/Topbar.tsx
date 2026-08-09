@@ -1,75 +1,68 @@
 import type {
-  ChangeEvent,
   ReactNode,
 } from "react";
 
 import {
-  Bell,
   LogOut,
   Menu,
-  Search,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 
-import { useNavigate } from "react-router";
+import {
+  useNavigate,
+} from "react-router";
 
 export type TopbarProps = {
-  title: string;
-  subtitle?: string;
-  onMenuClick?: () => void;
+  title:
+    string;
 
-  searchValue?: string;
-  onSearchChange?: (
-    value: string,
-  ) => void;
-  searchPlaceholder?: string;
-  showSearch?: boolean;
+  subtitle?:
+    string;
 
-  notificationCount?: number;
+  onMenuClick?:
+    () => void;
 
-  onNotificationClick?: () => void;
-  onSparkleClick?: () => void;
-  onLogout?: () => void;
+  onLogout?:
+    () => void;
 
-  isLoggingOut?: boolean;
-  actions?: ReactNode;
+  isLoggingOut?:
+    boolean;
+
+  actions?:
+    ReactNode;
 };
 
 export default function Topbar({
   title,
   subtitle,
   onMenuClick,
-  searchValue = "",
-  onSearchChange,
-  searchPlaceholder = "Search...",
-  showSearch = true,
-  notificationCount = 0,
-  onNotificationClick,
-  onSparkleClick,
   onLogout,
   isLoggingOut = false,
   actions,
 }: TopbarProps) {
-  const navigate = useNavigate();
-
-  function handleSearchChange(
-    event: ChangeEvent<HTMLInputElement>,
-  ): void {
-    onSearchChange?.(event.target.value);
-  }
+  const navigate =
+    useNavigate();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="flex min-h-20 items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-10">
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+      <div className="flex min-h-20 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+
+        {/* ===============================================
+            Left
+        ================================================ */}
+
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            aria-label="Open navigation"
-            onClick={onMenuClick}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden"
+            aria-label="Open sidebar"
+            onClick={
+              onMenuClick
+            }
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-ally-primary lg:hidden"
           >
-            <Menu size={21} />
+            <Menu
+              size={22}
+            />
           </button>
 
           <div className="min-w-0">
@@ -85,76 +78,50 @@ export default function Topbar({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4">
-          {showSearch && (
-            <div className="relative hidden md:block">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+        {/* ===============================================
+            Right
+        ================================================ */}
 
-              <input
-                type="search"
-                value={searchValue}
-                onChange={handleSearchChange}
-                placeholder={searchPlaceholder}
-                className="w-52 rounded-full border border-transparent bg-orange-50 py-2.5 pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-200 focus:ring-4 focus:ring-orange-100 lg:w-64"
-              />
-            </div>
-          )}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+
+          {/* Optional page-specific actions */}
 
           {actions}
 
-          {onSparkleClick && (
-            <button
-              type="button"
-              aria-label="Open daily activity"
-              onClick={onSparkleClick}
-              className="grid h-10 w-10 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-ally-primary"
-            >
-              <Sparkles size={21} />
-            </button>
-          )}
-
-          {onNotificationClick && (
-            <button
-              type="button"
-              aria-label="Open notifications"
-              onClick={onNotificationClick}
-              className="relative grid h-10 w-10 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-ally-primary"
-            >
-              <Bell size={21} />
-
-              {notificationCount > 0 && (
-                <span className="absolute right-1.5 top-1.5 grid min-h-4 min-w-4 place-items-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-bold text-white">
-                  {notificationCount > 9
-                    ? "9+"
-                    : notificationCount}
-                </span>
-              )}
-            </button>
-          )}
+          {/* Profile */}
 
           <button
             type="button"
             aria-label="Open profile"
-            onClick={() =>
-              navigate("/profile")
-            }
+            onClick={() => {
+              navigate(
+                "/profile",
+              );
+            }}
             className="grid h-10 w-10 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-ally-primary"
           >
-            <UserRound size={21} />
+            <UserRound
+              size={21}
+            />
           </button>
+
+          {/* Logout */}
 
           {onLogout && (
             <button
               type="button"
               aria-label="Log out"
-              disabled={isLoggingOut}
-              onClick={onLogout}
-              className="hidden h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:flex"
+              disabled={
+                isLoggingOut
+              }
+              onClick={
+                onLogout
+              }
+              className="flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
             >
-              <LogOut size={19} />
+              <LogOut
+                size={19}
+              />
 
               <span className="hidden xl:inline">
                 {isLoggingOut

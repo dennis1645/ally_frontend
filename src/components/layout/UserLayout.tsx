@@ -41,8 +41,6 @@ export default function UserLayout({
   subtitle,
   sidebarItems,
   topbarProps,
-  level,
-  progress,
 }: UserLayoutProps) {
   const navigate = useNavigate();
 
@@ -97,8 +95,6 @@ export default function UserLayout({
         isLoggingOut={isLoggingOut}
         userName={user?.name}
         userEmail={user?.email}
-        level={level}
-        progress={progress}
         items={sidebarItems}
       />
 

@@ -1,9 +1,9 @@
 import type {
   AssessmentAnswers,
+  AssessmentAnswersPayload,
   AssessmentValidationResult,
   DiagnosticOption,
   DiagnosticQuestion,
-  SubmitAssessmentPayload,
 } from "../types/diagnostic";
 
 /* =========================================================
@@ -58,9 +58,16 @@ export function isQuestionAnswered(
 }
 
 /* =========================================================
-   Section validation
+   Page validation
 ========================================================= */
 
+/*
+ * The original function name is retained because
+ * useAssessment.ts currently imports validateSectionAnswers.
+ *
+ * In the current architecture, this validates one frontend
+ * assessment page rather than an old category section.
+ */
 export function validateSectionAnswers(
   questions:
     DiagnosticQuestion[],
@@ -90,6 +97,21 @@ export function validateSectionAnswers(
   };
 }
 
+/*
+ * Preferred page-based function name.
+ */
+export function validatePageAnswers(
+  questions:
+    DiagnosticQuestion[],
+  answers:
+    AssessmentAnswers,
+): AssessmentValidationResult {
+  return validateSectionAnswers(
+    questions,
+    answers,
+  );
+}
+
 /* =========================================================
    Full assessment validation
 ========================================================= */
@@ -107,64 +129,106 @@ export function validateAllAnswers(
 }
 
 /* =========================================================
-   Submission payload creation
+   Submission-answer validation
 ========================================================= */
 
+function assertValidSelectedOption(
+  question: DiagnosticQuestion,
+  optionId: number,
+): void {
+  const optionExists =
+    question.options.some(
+      (option) =>
+        option.id ===
+        optionId,
+    );
+
+  if (
+    !optionExists
+  ) {
+    throw new Error(
+      `Option ${optionId} is not valid for question ${question.id}.`,
+    );
+  }
+}
+
+/* =========================================================
+   Answer-only payload creation
+========================================================= */
+
+/*
+ * This helper creates only:
+ *
+ * {
+ *   answers: [...]
+ * }
+ *
+ * InitialAssessment.tsx is responsible for adding:
+ *
+ * - assessment_type
+ * - guest_token
+ */
 export function createSubmissionPayload(
   questions:
     DiagnosticQuestion[],
   answers:
     AssessmentAnswers,
-): SubmitAssessmentPayload {
+): AssessmentAnswersPayload {
   const validation =
     validateAllAnswers(
       questions,
       answers,
     );
 
-  if (!validation.valid) {
+  if (
+    !validation.valid
+  ) {
     throw new Error(
       "Cannot create the submission payload because some questions are unanswered.",
     );
   }
 
-  const sortedQuestions =
-    [...questions].sort(
-      (
-        firstQuestion,
-        secondQuestion,
-      ) =>
-        firstQuestion.order_number -
-        secondQuestion.order_number,
+  /*
+   * Preserve the question order supplied by the service.
+   * The backend may restart order_number within categories,
+   * so globally sorting only by order_number could reorder
+   * questions incorrectly.
+   */
+  const payloadAnswers =
+    questions.map(
+      (question) => {
+        const optionId =
+          getAnswerForQuestion(
+            answers,
+            question.id,
+          );
+
+        if (
+          optionId ===
+          undefined
+        ) {
+          throw new Error(
+            `Question ${question.id} does not have an answer.`,
+          );
+        }
+
+        assertValidSelectedOption(
+          question,
+          optionId,
+        );
+
+        return {
+          question_id:
+            question.id,
+
+          option_id:
+            optionId,
+        };
+      },
     );
 
   return {
     answers:
-      sortedQuestions.map(
-        (question) => {
-          const optionId =
-            getAnswerForQuestion(
-              answers,
-              question.id,
-            );
-
-          if (
-            optionId ===
-            undefined
-          ) {
-            throw new Error(
-              `Question ${question.id} does not have an answer.`,
-            );
-          }
-
-          return {
-            question_id:
-              question.id,
-
-            option_id:
-              optionId,
-          };
-        },
-      ),
+      payloadAnswers,
   };
 }

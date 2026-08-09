@@ -3,10 +3,10 @@ import type {
 } from "lucide-react";
 
 import {
-  BookOpenCheck,
+  // BookOpenCheck,
   Bot,
   CreditCard,
-  FileText,
+  // FileText,
   LayoutDashboard,
   Map,
   UsersRound,
@@ -32,8 +32,6 @@ export type SidebarProps = {
   isLoggingOut?: boolean;
   userName?: string;
   userEmail?: string;
-  level?: number;
-  progress?: number;
   items?: SidebarItem[];
 };
 
@@ -49,16 +47,16 @@ export const defaultUserSidebarItems: SidebarItem[] = [
     path: "/quests",
     icon: Map,
   },
-  {
-    label: "Scholarships",
-    path: "/scholarships",
-    icon: BookOpenCheck,
-  },
-  {
-    label: "Documents",
-    path: "/documents",
-    icon: FileText,
-  },
+  // {
+  //   label: "Scholarships",
+  //   path: "/scholarships",
+  //   icon: BookOpenCheck,
+  // },
+  // {
+  //   label: "Documents",
+  //   path: "/documents",
+  //   icon: FileText,
+  // },
   {
     label: "AI Mentor",
     path: "/ally",
@@ -71,7 +69,7 @@ export const defaultUserSidebarItems: SidebarItem[] = [
   },
   {
     label: "Billing",
-    path: "/checkout",
+    path: "/billing",
     icon: CreditCard,
   },
 ];
@@ -81,23 +79,16 @@ export default function Sidebar({
   onClose,
   userName,
   userEmail,
-  level,
-  progress,
   items = defaultUserSidebarItems,
 }: SidebarProps) {
-  const normalizedProgress = Math.min(
-    100,
-    Math.max(0, progress ?? 0),
-  );
-
   return (
     <>
       {isOpen && (
         <button
           type="button"
-          aria-label="Close navigation"
+          aria-label="Close sidebar overlay"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
         />
       )}
 
@@ -114,27 +105,27 @@ export default function Sidebar({
       >
         <div className="flex items-center justify-between px-6 py-6">
           <div>
-<div>
-  <span
-    className="ally-logo text-[40px] leading-none"
-    role="img"
-    aria-label="Ally"
-  >
-    <span
-      aria-hidden="true"
-      className="ally-logo-a"
-    >
-      A
-    </span>
+            <div>
+              <span
+                className="ally-logo text-[40px] leading-none"
+                role="img"
+                aria-label="Ally"
+              >
+                <span
+                  aria-hidden="true"
+                  className="ally-logo-a"
+                >
+                  A
+                </span>
 
-    <span
-      aria-hidden="true"
-      className="ally-logo-lly"
-    >
-      lly
-    </span>
-  </span>
-</div>
+                <span
+                  aria-hidden="true"
+                  className="ally-logo-lly"
+                >
+                  lly
+                </span>
+              </span>
+            </div>
 
             <p className="mt-1 text-xs text-slate-400">
               Explorer Portal
@@ -153,74 +144,75 @@ export default function Sidebar({
 
         <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-4 pb-5">
           {items.map((item) => {
-            const Icon = item.icon;
+            const Icon =
+              item.icon;
 
-            if (item.disabled) {
+            if (
+              item.disabled
+            ) {
               return (
                 <div
-                  key={item.path}
+                  key={
+                    item.path
+                  }
                   className="flex cursor-not-allowed items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300"
                 >
-                  <Icon size={20} />
-                  <span>{item.label}</span>
+                  <Icon
+                    size={20}
+                  />
+
+                  <span>
+                    {item.label}
+                  </span>
                 </div>
               );
             }
 
             return (
               <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                onClick={onClose}
-                className={({ isActive }) =>
+                key={
+                  item.path
+                }
+                to={
+                  item.path
+                }
+                end={
+                  item.end
+                }
+                onClick={
+                  onClose
+                }
+                className={({
+                  isActive,
+                }) =>
                   [
                     "flex items-center gap-3 rounded-xl px-4 py-3",
                     "text-sm font-semibold transition",
+
                     isActive
                       ? "bg-blue-50 text-ally-primary"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
-                  ].join(" ")
+                  ].join(
+                    " ",
+                  )
                 }
               >
-                <Icon size={20} />
-                <span>{item.label}</span>
+                <Icon
+                  size={20}
+                />
+
+                <span>
+                  {item.label}
+                </span>
               </NavLink>
             );
           })}
         </nav>
 
-        <div className="border-t border-slate-100 p-4">
-          {level !== undefined &&
-            progress !== undefined && (
-              <div className="mb-4 rounded-2xl bg-slate-50 p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-bold text-ally-primary">
-                    Level {level}
-                  </span>
-
-                  <span className="text-xs font-semibold text-slate-500">
-                    {normalizedProgress}%
-                  </span>
-                </div>
-
-                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full bg-ally-primary transition-all"
-                    style={{
-                      width: `${normalizedProgress}%`,
-                    }}
-                  />
-                </div>
-
-                <p className="mt-2 text-xs text-slate-500">
-                  {normalizedProgress}% to Summit
-                </p>
-              </div>
-            )}
-
-          {(userName || userEmail) && (
-            <div className="mb-3 rounded-xl bg-slate-50 p-3">
+        {(userName ||
+          userEmail) && (
+          <div className="border-t border-slate-100 p-4">
+            <div className="rounded-xl bg-slate-50 p-3">
               {userName && (
                 <p className="truncate text-sm font-semibold text-slate-800">
                   {userName}
@@ -233,8 +225,8 @@ export default function Sidebar({
                 </p>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
     </>
   );

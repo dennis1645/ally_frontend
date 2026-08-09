@@ -6,7 +6,7 @@ import {
   Link,
 } from "react-router";
 
-import documentValleyImage from "../../assets/document-valley.png";
+import researchTrailImage from "../../assets/research-trail.png";
 
 export default function ExpeditionTrailCard() {
   return (
@@ -28,7 +28,7 @@ export default function ExpeditionTrailCard() {
         </h2>
 
         <p className="mt-1 text-sm text-slate-600">
-          Document Valley
+          Research Trail
         </p>
       </div>
 
@@ -39,8 +39,8 @@ export default function ExpeditionTrailCard() {
         ].join(" ")}
       >
         <img
-          src={documentValleyImage}
-          alt="Document Valley expedition trail"
+          src={researchTrailImage}
+          alt="Research Trail expedition trail"
           className="h-full w-full object-contain"
         />
       </div>

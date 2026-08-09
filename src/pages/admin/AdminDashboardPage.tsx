@@ -64,11 +64,7 @@ export default function AdminDashboardPage() {
     <UserLayout
       title="Admin Control Center"
       subtitle="Cartographer Dashboard"
-      sidebarItems={adminSidebarItems}
-      topbarProps={{
-        showSearch: false,
-      }}
-    >
+      sidebarItems={adminSidebarItems}>
       <section
         aria-label="Admin dashboard content"
         className="min-h-[calc(100vh-80px)] bg-ally-background"

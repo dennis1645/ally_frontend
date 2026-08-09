@@ -87,12 +87,7 @@ export default function DashboardPage() {
   return (
     <UserLayout
       title="Expedition Headquarters"
-      subtitle="Explorer Dashboard"
-      topbarProps={{
-        showSearch:
-          false,
-      }}
-    >
+      subtitle="Explorer Dashboard">
       <section
         aria-label="Dashboard content"
         className={[

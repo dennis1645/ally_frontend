@@ -51,11 +51,7 @@ export default function MentorDashboardPage() {
     <UserLayout
       title="Mentor Headquarters"
       subtitle="Lantern Guide Dashboard"
-      sidebarItems={mentorSidebarItems}
-      topbarProps={{
-        showSearch: false,
-      }}
-    >
+      sidebarItems={mentorSidebarItems}>
       <section
         aria-label="Mentor dashboard content"
         className="min-h-[calc(100vh-80px)] bg-ally-background"

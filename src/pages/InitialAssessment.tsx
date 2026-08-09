@@ -7,8 +7,12 @@ import {
 } from "react";
 
 import {
-  CheckCircle2,
-} from "lucide-react";
+  useNavigate,
+} from "react-router";
+
+import {
+  useDiagnosticGuestToken,
+} from "../hooks/useDiagnosticGuestToken";
 
 import allyMascot from "../assets/ally-assessment-mascot.png";
 
@@ -37,8 +41,14 @@ import {
   useSubmitAssessment,
 } from "../hooks/useSubmitAssessment";
 
+import {
+  DIAGNOSTIC_RESULT_ROUTE,
+  INITIAL_DIAGNOSTIC_ASSESSMENT_TYPE,
+} from "../utils/constants";
+
 import type {
   DiagnosticQuestion,
+  SubmitAssessmentPayload,
 } from "../types/diagnostic";
 
 /* =========================================================
@@ -46,7 +56,8 @@ import type {
 ========================================================= */
 
 type AssessmentExperienceProps = {
-  questions: DiagnosticQuestion[];
+  questions:
+    DiagnosticQuestion[];
 };
 
 function AssessmentExperience({
@@ -57,32 +68,53 @@ function AssessmentExperience({
       questions,
     });
 
+  const navigate =
+    useNavigate();
+
   const submission =
     useSubmitAssessment();
+
+  const {
+    getGuestToken,
+    getOrCreateGuestToken,
+  } =
+    useDiagnosticGuestToken();
 
   const [
     submitDialogOpen,
     setSubmitDialogOpen,
   ] =
-    useState(false);
-
-  const [
-    submissionComplete,
-    setSubmissionComplete,
-  ] =
-    useState(false);
+    useState(
+      false,
+    );
 
   const [
     submissionErrorMessage,
     setSubmissionErrorMessage,
   ] =
-    useState<string | null>(
+    useState<
+      string | null
+    >(
       null,
     );
 
   const stepContainerRef =
-    useRef<HTMLDivElement | null>(
+    useRef<
+      HTMLDivElement | null
+    >(
       null,
+    );
+
+  /*
+   * Synchronous submit lock.
+   *
+   * React state updates are asynchronous, so a rapid second
+   * confirmation event can arrive before isSubmitting has
+   * re-rendered the dialog. This ref changes immediately.
+   */
+  const submissionLockRef =
+    useRef(
+      false,
     );
 
   const unansweredQuestionSet =
@@ -102,77 +134,140 @@ function AssessmentExperience({
     assessment.validationMessage !==
     null;
 
-  /*
-   * Focus and scroll to the beginning whenever the
-   * visible assessment page changes.
-   */
-  useEffect(() => {
-    if (
-      submissionComplete
-    ) {
-      return;
-    }
+  /* =======================================================
+     Ensure anonymous assessment identity exists
+  ======================================================= */
 
-    const animationFrameId =
-      window.requestAnimationFrame(
-        () => {
-          stepContainerRef.current?.focus({
-            preventScroll:
-              true,
-          });
+  useEffect(
+    () => {
+      /*
+       * Guarantee that every anonymous assessment attempt
+       * has a guest token.
+       *
+       * Existing token:
+       *   reuse it.
+       *
+       * Missing token:
+       *   generate a new token and save it to localStorage.
+       *
+       * This means users can safely enter the assessment
+       * directly without relying on ChooseAdventurePage to
+       * create the token first.
+       */
+      const guestToken =
+        getOrCreateGuestToken();
 
-          window.scrollTo({
-            top: 0,
-            behavior:
-              "smooth",
-          });
-        },
-      );
+      if (
+        import.meta.env.DEV
+      ) {
+        console.info(
+          "[Diagnostic] Assessment guest token ready:",
+          {
+            has_guest_token:
+              Boolean(
+                guestToken,
+              ),
+          },
+        );
+      }
+    },
+    [
+      getOrCreateGuestToken,
+    ],
+  );
 
-    return () => {
-      window.cancelAnimationFrame(
-        animationFrameId,
-      );
-    };
-  }, [
-    assessment.currentStep,
-    submissionComplete,
-  ]);
+  /* =======================================================
+     Focus current assessment page
+  ======================================================= */
+
+  useEffect(
+    () => {
+      const animationFrameId =
+        window.requestAnimationFrame(
+          () => {
+            stepContainerRef.current?.focus({
+              preventScroll:
+                true,
+            });
+
+            window.scrollTo({
+              top:
+                0,
+
+              behavior:
+                "smooth",
+            });
+          },
+        );
+
+      return () => {
+        window.cancelAnimationFrame(
+          animationFrameId,
+        );
+      };
+    },
+    [
+      assessment.currentStep,
+    ],
+  );
+
+  /* =======================================================
+     Next page
+  ======================================================= */
 
   const handleNext =
     useCallback(
       (): void => {
         assessment.next();
       },
-      [assessment],
+      [
+        assessment,
+      ],
     );
+
+  /* =======================================================
+     Previous page
+  ======================================================= */
 
   const handlePrevious =
     useCallback(
       (): void => {
         assessment.previous();
       },
-      [assessment],
+      [
+        assessment,
+      ],
     );
+
+  /* =======================================================
+     Jump to completed page
+  ======================================================= */
 
   const handleStepSelect =
     useCallback(
       (
-        stepIndex: number,
+        stepIndex:
+          number,
       ): void => {
         assessment.goToCompletedStep(
           stepIndex,
         );
       },
-      [assessment],
+      [
+        assessment,
+      ],
     );
+
+  /* =======================================================
+     Open submission confirmation
+  ======================================================= */
 
   const handleSubmitRequest =
     useCallback(
       (): void => {
         /*
-         * Page four must also be valid before the confirmation
-         * dialog can open.
+         * The final assessment page must be valid before
+         * the confirmation dialog can open.
          */
         const pageIsValid =
           assessment.validateCurrentPage();
@@ -199,10 +294,15 @@ function AssessmentExperience({
       ],
     );
 
+  /* =======================================================
+     Submission-dialog state
+  ======================================================= */
+
   const handleDialogOpenChange =
     useCallback(
       (
-        open: boolean,
+        open:
+          boolean,
       ): void => {
         if (
           submission.isSubmitting
@@ -214,7 +314,9 @@ function AssessmentExperience({
           open,
         );
 
-        if (!open) {
+        if (
+          !open
+        ) {
           setSubmissionErrorMessage(
             null,
           );
@@ -222,112 +324,177 @@ function AssessmentExperience({
           submission.reset();
         }
       },
-      [submission],
+      [
+        submission,
+      ],
     );
+
+  /* =======================================================
+     Submit anonymous assessment
+  ======================================================= */
 
   const handleConfirmSubmission =
     useCallback(
       async (): Promise<void> => {
+        /*
+         * Block duplicate confirmation synchronously.
+         */
+        if (
+          submissionLockRef.current
+        ) {
+          if (
+            import.meta.env.DEV
+          ) {
+            console.info(
+              "[Diagnostic] Duplicate assessment submission blocked.",
+            );
+          }
+
+          return;
+        }
+
+        submissionLockRef.current =
+          true;
+
         setSubmissionErrorMessage(
           null,
         );
 
         try {
-          const payload =
+          const answersPayload =
             assessment
               .buildSubmissionPayload();
 
+          /*
+           * The assessment attempt should already have a token.
+           * Never generate a different token during submission.
+           */
+          const guestToken =
+            getGuestToken();
+
+          if (
+            !guestToken
+          ) {
+            throw new Error(
+              "No guest token was found for this assessment attempt. Please return to Choose Adventure and start the assessment again.",
+            );
+          }
+
+          const payload:
+            SubmitAssessmentPayload = {
+            assessment_type:
+              INITIAL_DIAGNOSTIC_ASSESSMENT_TYPE,
+
+            guest_token:
+              guestToken,
+
+            answers:
+              answersPayload.answers,
+          };
+
+          if (
+            import.meta.env.DEV
+          ) {
+            console.info(
+              "[Diagnostic] Submitting anonymous assessment:",
+              {
+                assessment_type:
+                  payload
+                    .assessment_type,
+
+                has_guest_token:
+                  Boolean(
+                    payload
+                      .guest_token,
+                  ),
+
+                answer_count:
+                  payload
+                    .answers
+                    .length,
+              },
+            );
+          }
+
+          /*
+           * POST is status-only on the frontend.
+           *
+           * Once it succeeds, navigate immediately. Do not clear
+           * local assessment progress before the route transition.
+           */
           await submission.submit(
             payload,
           );
 
+          if (
+            import.meta.env.DEV
+          ) {
+            console.info(
+              "[Diagnostic] POST succeeded. Navigating to result.",
+              {
+                target:
+                  DIAGNOSTIC_RESULT_ROUTE,
+
+                has_guest_token:
+                  true,
+
+                current_path:
+                  window.location.pathname,
+              },
+            );
+          }
+
           /*
-           * Clear saved answers only after the backend confirms
-           * that submission succeeded.
+           * Keep localStorage as the primary token source, and
+           * also pass the same token in route state as a fallback.
            */
-          assessment.clearAssessment();
+          navigate(
+            DIAGNOSTIC_RESULT_ROUTE,
+            {
+              replace:
+                true,
 
-          setSubmitDialogOpen(
-            false,
+              state: {
+                guestToken,
+              },
+            },
           );
 
-          setSubmissionComplete(
-            true,
-          );
-
-          window.scrollTo({
-            top: 0,
-            behavior:
-              "smooth",
-          });
+          /*
+           * Keep the synchronous lock engaged after success.
+           * This component is leaving the assessment route.
+           */
         } catch (
-          submissionError
+          submissionError:
+            unknown
         ) {
+          submissionLockRef.current =
+            false;
+
           setSubmissionErrorMessage(
             submissionError instanceof
               Error
               ? submissionError.message
               : "Unable to submit the assessment. Please try again.",
           );
+
+          if (
+            import.meta.env.DEV
+          ) {
+            console.error(
+              "[Diagnostic] Assessment submission failed.",
+              submissionError,
+            );
+          }
         }
       },
       [
         assessment,
+        getGuestToken,
+        navigate,
         submission,
       ],
     );
-
-  /* =======================================================
-     Submission success
-  ======================================================= */
-
-  if (
-    submissionComplete
-  ) {
-    return (
-      <div className="min-h-screen bg-[#fff8f5]">
-        <AssessmentHeader />
-
-        <main className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-4xl place-items-center px-4 py-16 sm:px-6 lg:px-8">
-          <section
-            aria-labelledby="assessment-submitted-title"
-            className={[
-              "w-full max-w-lg rounded-3xl",
-              "border border-[#e8ddd7] bg-white",
-              "p-8 text-center",
-              "shadow-[0_8px_30px_rgba(67,36,22,0.07)]",
-              "sm:p-10",
-            ].join(" ")}
-          >
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#e9f7ef] text-[#27865b]">
-              <CheckCircle2
-                size={34}
-                strokeWidth={
-                  2.4
-                }
-                aria-hidden="true"
-              />
-            </div>
-
-            <h1
-              id="assessment-submitted-title"
-              className="mt-6 text-2xl font-bold tracking-tight text-[#331a0e] sm:text-3xl"
-            >
-              Assessment Submitted
-            </h1>
-
-            <p className="mt-4 text-sm leading-7 text-[#6c5950] sm:text-base">
-              Your answers have been
-              submitted successfully.
-              Ally can now calculate
-              your scholarship
-              readiness.
-            </p>
-          </section>
-        </main>
-      </div>
-    );
-  }
 
   /* =======================================================
      Assessment pages
@@ -337,7 +504,16 @@ function AssessmentExperience({
     <div className="min-h-screen bg-[#fff8f5]">
       <AssessmentHeader />
 
-      <main className="mx-auto w-full max-w-4xl px-4 pb-56 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+      <main
+        className={[
+          "mx-auto w-full max-w-4xl",
+          "px-4 pb-56 pt-8",
+          "sm:px-6 sm:pt-10",
+          "lg:px-8",
+        ].join(
+          " ",
+        )}
+      >
         <AllySpeechBubble
           message={
             assessment
@@ -353,7 +529,9 @@ function AssessmentExperience({
           ref={
             stepContainerRef
           }
-          tabIndex={-1}
+          tabIndex={
+            -1
+          }
           aria-label={`Assessment page ${
             assessment.currentStep +
             1
@@ -388,7 +566,8 @@ function AssessmentExperience({
           <QuestionCard>
             {assessment
               .currentPage
-              .questions.length >
+              .questions
+              .length >
             0 ? (
               <div className="divide-y divide-[#eee4df]">
                 {assessment.currentPage.questions.map(
@@ -545,13 +724,17 @@ export default function InitialAssessment() {
   } =
     useDiagnosticQuestions();
 
-  if (isLoading) {
+  if (
+    isLoading
+  ) {
     return (
       <LoadingSkeleton />
     );
   }
 
-  if (error) {
+  if (
+    error
+  ) {
     return (
       <div className="min-h-screen bg-[#fff8f5]">
         <AssessmentHeader />
@@ -570,7 +753,9 @@ export default function InitialAssessment() {
     );
   }
 
-  if (isEmpty) {
+  if (
+    isEmpty
+  ) {
     return (
       <div className="min-h-screen bg-[#fff8f5]">
         <AssessmentHeader />
