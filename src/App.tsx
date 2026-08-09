@@ -14,6 +14,14 @@ import {
 
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import FinancePage from "./pages/admin/Finance";
+import UserManagement from "./pages/admin/UserManagement";
+import UniversityAdmin from "./pages/admin/UniversityAdmin";
+import ScholarshipAdmin from "./pages/admin/ScholarshipAdmin";
+import InitialAssessmentAdmin from "./pages/admin/InitialAssessmentAdmin";
+import ItemShopAdmin from "./pages/admin/ItemShopAdmin";
+import QuizAdmin from "./pages/admin/QuizAdmin";
+import BadgeAdmin from "./pages/admin/BadgeAdmin";
 import AuthPage from "./pages/AuthPage";
 import ChooseAdventurePage from "./pages/ChooseAdventurePage";
 import DashboardPage from "./pages/user/DashboardPage";
@@ -326,6 +334,15 @@ export default function App() {
           {/* =================================================
               MENTOR ROUTES
           ================================================== */}
+          <Route
+            path="/admin/dashboard"
+            element={<AdminDashboardPage />}
+          />
+
+          <Route
+            path="/admin/users"
+            element={<UserManagement />}
+          />
 
           <Route
             element={
@@ -456,6 +473,35 @@ export default function App() {
                 />
               }
             />
+            <Route
+              path="/admin/university"
+              element={<UniversityAdmin />}
+            />
+
+          <Route
+            path="/admin/scholarships"
+            element={<ScholarshipAdmin />}
+          />
+
+          <Route
+            path="/admin/assessment"
+            element={<InitialAssessmentAdmin />}
+          />
+
+          <Route
+            path="/admin/shop"
+            element={<ItemShopAdmin />}
+          />
+
+          <Route
+            path="/admin/quiz"
+            element={<QuizAdmin />}
+          />
+
+          <Route
+            path="/admin/badges"
+            element={<BadgeAdmin />}
+          />
 
             <Route
               path="/admin/dashboard"
@@ -494,15 +540,10 @@ export default function App() {
               }
             />
 
-            <Route
-              path="/admin/scholarships/new"
-              element={
-                <EmptyPage
-                  title="Add Scholarship"
-                  description="Create a new scholarship entry."
-                />
-              }
-            />
+          <Route
+            path="/admin/payments"
+            element={<FinancePage />}
+          />
 
             <Route
               path="/admin/scholarships/:scholarshipId/edit"

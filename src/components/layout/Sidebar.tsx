@@ -11,6 +11,8 @@ import {
   Map,
   UsersRound,
   X,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 
 import {
@@ -33,6 +35,8 @@ export type SidebarProps = {
   userName?: string;
   userEmail?: string;
   items?: SidebarItem[];
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 };
 
 export const defaultUserSidebarItems: SidebarItem[] = [
@@ -80,6 +84,8 @@ export default function Sidebar({
   userName,
   userEmail,
   items = defaultUserSidebarItems,
+  collapsed = false,
+  onToggleCollapse,
 }: SidebarProps) {
   return (
     <>
@@ -95,15 +101,17 @@ export default function Sidebar({
       <aside
         className={[
           "fixed inset-y-0 left-0 z-50",
-          "flex w-64 flex-col border-r border-slate-200 bg-white",
-          "transition-transform duration-200",
+          "flex flex-col border-r border-slate-200 bg-white",
+          "transition-all duration-200",
           "lg:translate-x-0",
-          isOpen
-            ? "translate-x-0"
-            : "-translate-x-full",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          // width: collapsed => w-12 (3rem), expanded => w-64
+          collapsed ? "w-12" : "w-64",
+          // ensure on large screens we use the same widths
+          collapsed ? "lg:w-12" : "lg:w-64",
         ].join(" ")}
       >
-        <div className="flex items-center justify-between px-6 py-6">
+        <div className="flex items-center justify-between px-3 py-6">
           <div>
             <div>
               <span
@@ -132,17 +140,29 @@ export default function Sidebar({
             </p>
           </div>
 
-          <button
-            type="button"
-            aria-label="Close sidebar"
-            onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* collapse toggle - visible on lg screens */}
+            <button
+              type="button"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={onToggleCollapse}
+              className="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:flex"
+            >
+              {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+            </button>
+
+            <button
+              type="button"
+              aria-label="Close sidebar"
+              onClick={onClose}
+              className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-4 pb-5">
+        <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-2 pb-5">
           {items.map((item) => {
             const Icon =
               item.icon;
@@ -196,6 +216,7 @@ export default function Sidebar({
                     " ",
                   )
                 }
+                title={item.label}
               >
                 <Icon
                   size={20}

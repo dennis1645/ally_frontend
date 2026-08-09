@@ -54,6 +54,8 @@ export default function UserLayout({
     setIsSidebarOpen,
   ] = useState(false);
 
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const [
     isLoggingOut,
     setIsLoggingOut,
@@ -89,6 +91,8 @@ export default function UserLayout({
         onClose={() =>
           setIsSidebarOpen(false)
         }
+        collapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed((v) => !v)}
         onLogout={() => {
           void handleLogout();
         }}
@@ -98,7 +102,7 @@ export default function UserLayout({
         items={sidebarItems}
       />
 
-      <div className="min-h-screen lg:pl-64">
+      <div className={"min-h-screen " + (isCollapsed ? "lg:pl-12" : "lg:pl-64") }>
         <Topbar
           title={title}
           subtitle={subtitle}
