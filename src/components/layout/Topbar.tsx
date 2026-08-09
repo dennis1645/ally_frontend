@@ -31,6 +31,11 @@ export type TopbarProps = {
 
   actions?:
     ReactNode;
+
+  // Kept for compatibility with pages that configure the topbar.
+  // The current Topbar does not render a search control.
+  showSearch?:
+    boolean;
 };
 
 export default function Topbar({
