@@ -7,8 +7,7 @@ import {
   ClipboardCheck,
   Store,
   FileQuestion,
-  Award,
-  CreditCard, // icon untuk Finance
+  CreditCard,
 } from "lucide-react";
 
 export const adminSidebarItems: SidebarItem[] = [
@@ -44,7 +43,7 @@ export const adminSidebarItems: SidebarItem[] = [
     icon: ClipboardCheck,
   },
   {
-    label: "Item Shop",
+    label: "Rewards Hub",
     path: "/admin/shop",
     icon: Store,
   },
@@ -52,10 +51,5 @@ export const adminSidebarItems: SidebarItem[] = [
     label: "Quiz & Exercises",
     path: "/admin/quiz",
     icon: FileQuestion,
-  },
-  {
-    label: "Badges",
-    path: "/admin/badges",
-    icon: Award,
   },
 ];

@@ -1,7 +1,7 @@
 import { apiRequest, ApiError } from "./apiClient";
 
 export type AdminUser = {
-  id: number;
+  id: string | number;
   name: string;
   email?: string;
   role?: string;

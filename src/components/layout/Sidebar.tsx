@@ -116,7 +116,7 @@ export default function Sidebar({
       <aside
         className={[
           "fixed inset-y-0 left-0 z-50",
-          "flex flex-col border-r border-slate-200 bg-white",
+          "flex flex-col overflow-hidden border-r border-slate-200 bg-white",
           "transition-all duration-200",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
@@ -161,7 +161,7 @@ export default function Sidebar({
           </div>
         </div>
 
-        <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-2 pb-5">
+        <nav className="mt-3 flex-1 space-y-1 overflow-hidden px-2 pb-3">
           {items.map((item) => {
             const Icon = item.icon;
 

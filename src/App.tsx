@@ -17,10 +17,11 @@ import FinancePage from "./pages/admin/Finance";
 import UserManagement from "./pages/admin/UserManagement";
 import UniversityAdmin from "./pages/admin/UniversityAdmin";
 import ScholarshipAdmin from "./pages/admin/ScholarshipAdmin";
-import InitialAssessmentAdmin from "./pages/admin/InitialAssessmentAdmin";
+import InitialAssessmentAdmin from "./pages/admin/AssessmentAdmin.tsx";
 import ItemShopAdmin from "./pages/admin/ItemShopAdmin";
+
 import QuizAdmin from "./pages/admin/QuizAdmin";
-import BadgeAdmin from "./pages/admin/BadgeAdmin";
+import BadgeAdmin from "./pages/admin/ItemShopAdmin";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/user/DashboardPage";
 import EditProfilePage from "./pages/user/EditProfilePage";
@@ -32,6 +33,9 @@ import ProfilePage from "./pages/user/ProfilePage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
 import VerificationPendingPage from "./pages/VerificationPendingPage";
 import ChooseAdventurePage from "./pages/ChooseAdventurePage.tsx";
+import "leaflet/dist/leaflet.css";
+import AdminProfile from "./pages/admin/AdminProfile.tsx";
+
 
 export default function App() {
   return (
@@ -426,6 +430,10 @@ export default function App() {
               />
             }
           />
+
+            <Route 
+            path="/admin/profile" 
+            element={<AdminProfile />} />
 
           <Route
             path="/admin/university"
