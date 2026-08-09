@@ -15,7 +15,7 @@ import {
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import FinancePage from "./pages/admin/Finance";
-// import UserManagement from "./pages/admin/UserManagement.tsx";
+import UserManagement from "./pages/admin/UserManagement";
 import UniversityAdmin from "./pages/admin/UniversityAdmin";
 import ScholarshipAdmin from "./pages/admin/ScholarshipAdmin";
 import InitialAssessmentAdmin from "./pages/admin/InitialAssessmentAdmin";
@@ -508,11 +508,7 @@ export default function App() {
 
             <Route
               path="/admin/users"
-              element={
-                <EmptyPage
-                  title="User Management"
-                  description="Manage Explorer, Mentor, and Admin accounts."
-                />
+              element={<UserManagement />
               }
             />
 
