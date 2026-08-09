@@ -1,4 +1,4 @@
-import {
+import { 
   CreditCard,
   GraduationCap,
   TrendingUp,
@@ -9,10 +9,12 @@ import {
   X,
   Send,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
+} from "recharts";
 import UserLayout from "../../components/layout/UserLayout";
 import Card from "../../components/ui/Card";
-import { useEffect, useState } from "react";
-// import { getDashboardMetrics, getActionTasks, updateTaskStatus } from "../../api/adminApi";
 import { adminSidebarItems } from "./adminSidebarItems";
 
 // --- Types ---
@@ -34,10 +36,19 @@ interface ActionTask {
   status: TaskStatus;
 }
 
+// Tambahan Data Chart
+interface ChartData {
+  month: string;
+  Free: number;
+  Medium: number;
+  Premium: number;
+}
+
 interface DashboardMetrics {
   activeUsers: { total: number; freePct: number; medPct: number; premPct: number; growth: number };
   conversion: { rate: number; growth: number };
   scholarships: { total: number; closingSoon: number };
+  chartData: ChartData[];
   features: {
     mostUsed: FeatureUsage[];
     leastUsed: FeatureUsage[];
@@ -63,21 +74,49 @@ export default function AdminDashboardPage() {
     (async () => {
       try {
         setIsLoading(true);
+        // Simulasi delay jaringan (loading)
         await new Promise((resolve) => setTimeout(resolve, 600)); 
 
+        // --- DYNAMIC MOCK GENERATOR (Simulasi Backend berdasarkan filter) ---
+        // Angka akan berubah-ubah sesuai bulan & tahun yang dipilih
+        const baseUsers = 10000 + (selectedMonth * 450) + ((selectedYear - 2025) * 2000);
+        const userGrowth = selectedMonth % 2 === 0 ? 8.2 : 5.4;
+        const convRate = (3.0 + (selectedMonth * 0.15)).toFixed(1);
+        const closingSoon = 5 + (selectedMonth % 3) * 4;
+
+        // Data full 1 tahun (nanti dipotong sesuai bulan yang dipilih)
+        const fullYearChartData = [
+          { month: "Jan", Free: 8000, Medium: 1200, Premium: 300 },
+          { month: "Feb", Free: 8500, Medium: 1350, Premium: 380 },
+          { month: "Mar", Free: 9200, Medium: 1500, Premium: 420 },
+          { month: "Apr", Free: 9800, Medium: 1650, Premium: 480 },
+          { month: "May", Free: 10500, Medium: 1800, Premium: 530 },
+          { month: "Jun", Free: 11200, Medium: 1950, Premium: 580 },
+          { month: "Jul", Free: 11800, Medium: 2100, Premium: 620 },
+          { month: "Aug", Free: 12450, Medium: 2300, Premium: 680 },
+          { month: "Sep", Free: 13000, Medium: 2500, Premium: 750 },
+          { month: "Oct", Free: 13600, Medium: 2700, Premium: 820 },
+          { month: "Nov", Free: 14200, Medium: 2900, Premium: 900 },
+          { month: "Dec", Free: 15000, Medium: 3200, Premium: 1000 },
+        ];
+
         const mockMetrics: DashboardMetrics = {
-          activeUsers: { total: 12450, freePct: 80, medPct: 15, premPct: 5, growth: 8 },
-          conversion: { rate: 4.2, growth: 1.2 },
-          scholarships: { total: 142, closingSoon: 12 },
+          activeUsers: { total: baseUsers, freePct: 80, medPct: 15, premPct: 5, growth: userGrowth },
+          conversion: { rate: Number(convRate), growth: 1.2 },
+          scholarships: { total: 120 + selectedMonth * 3, closingSoon: closingSoon },
+          
+          // Potong data chart HANYA sampai bulan yang dipilih
+          chartData: fullYearChartData.slice(0, selectedMonth), 
+          
           features: {
             mostUsed: [
-              { name: "Initial Assessment", percentage: 45, colorClass: "bg-ally-primary" },
-              { name: "IELTS Quiz Task 1", percentage: 30, colorClass: "bg-blue-400" },
-              { name: "University Search", percentage: 15, colorClass: "bg-purple-400" },
+              { name: "Initial Assessment", percentage: 40 + (selectedMonth % 5), colorClass: "bg-blue-600" },
+              { name: "IELTS Quiz Task 1", percentage: 30 + (selectedMonth % 3), colorClass: "bg-blue-400" },
+              { name: "University Search", percentage: 15 + (selectedMonth % 4), colorClass: "bg-purple-400" },
             ],
             leastUsed: [
-              { name: "Referral Invite", percentage: 2, colorClass: "bg-rose-400" },
-              { name: "Forum Discussion", percentage: 3, colorClass: "bg-orange-400" },
+              { name: "Referral Invite", percentage: 2 + (selectedMonth % 2), colorClass: "bg-rose-400" },
+              { name: "Forum Discussion", percentage: 3 + (selectedMonth % 3), colorClass: "bg-orange-400" },
               { name: "Profile Badges", percentage: 5, colorClass: "bg-amber-400" },
             ]
           }
@@ -91,7 +130,10 @@ export default function AdminDashboardPage() {
 
         if (!mounted) return;
         setMetrics(mockMetrics);
-        setTasks(mockTasks);
+        
+        // Simulasikan pergantian tugas bulanan
+        setTasks(selectedMonth % 2 === 0 ? mockTasks.reverse() : mockTasks);
+
       } catch (err: any) {
         setError(err?.message || "Failed to fetch dashboard data");
       } finally {
@@ -102,19 +144,19 @@ export default function AdminDashboardPage() {
     return () => {
       mounted = false;
     };
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear]); // <-- Dependency ini yang bikin useEffect dipanggil ulang setiap filternya diganti
 
-  // Calculate active tasks count (status != Done)
+  // Formatter untuk mempersingkat angka Y-Axis (Misal 12500 jadi 12.5k)
+  const formatCompact = (num: number) => {
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return num.toString();
+  };
+
   const activeTasksCount = tasks.filter((t) => t.status !== "Done").length;
 
-  // Dropdown Status Change Handler with restriction against going back to Pending from Process
   const handleDropdownChange = (taskId: string, newStatus: TaskStatus) => {
     const targetTask = tasks.find((t) => t.id === taskId);
-    
-    // Prevent going back from Process to Pending
-    if (targetTask?.status === "Process" && newStatus === "Pending") {
-      return;
-    }
+    if (targetTask?.status === "Process" && newStatus === "Pending") return;
 
     if (newStatus === "Done") {
       setPendingDoneTaskId(taskId);
@@ -126,10 +168,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Final Confirmation to Resolve Task & Send Email
   const confirmResolveTask = () => {
     if (!pendingDoneTaskId) return;
-
     const targetTask = tasks.find((t) => t.id === pendingDoneTaskId);
 
     setTasks((prev) =>
@@ -289,11 +329,36 @@ export default function AdminDashboardPage() {
 
           {/* ANALYTICS SECTION */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 min-h-[220px]">
-            <Card title="User Plan Growth Trend" padding="md" className="lg:col-span-6 flex flex-col">
-              <div className="flex-1 flex items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 mt-2 text-xs text-slate-400 min-h-[140px]">
-                {isLoading ? "Loading Chart Data..." : "[ Line Graph: Free vs Medium vs Premium ]"}
-              </div>
-            </Card>
+            
+            {/* LINE CHART IMPLEMENTED HERE */}
+            {/* LINE CHART IMPLEMENTED HERE */}
+          <Card title="User Plan Growth Trend" padding="md" className="lg:col-span-6 flex flex-col">
+            {/* PERBAIKAN: Ubah div ini jadi punya height yang fix (h-[260px]) agar Recharts bisa render */}
+            <div className="h-[260px] w-full mt-4">
+              {isLoading ? (
+                <div className="h-full w-full flex items-center justify-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-md bg-slate-50">
+                  Loading Chart Data...
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={metrics?.chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="month" fontSize={11} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis fontSize={11} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                      labelStyle={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }} />
+                    <Line type="monotone" name="Free Plan" dataKey="Free" stroke="#94a3b8" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                    <Line type="monotone" name="Medium Plan" dataKey="Medium" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                    <Line type="monotone" name="Premium Plan" dataKey="Premium" stroke="#a855f7" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </Card>
 
             <Card title="Most Used Features" padding="md" className="lg:col-span-3 flex flex-col">
               <div className="flex-1 flex flex-col justify-center gap-3 mt-2">
