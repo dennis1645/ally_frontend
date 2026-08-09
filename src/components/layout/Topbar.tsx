@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import {
+  useLocation,
   useNavigate,
 } from "react-router";
 
@@ -42,6 +43,13 @@ export default function Topbar({
 }: TopbarProps) {
   const navigate =
     useNavigate();
+
+  const location =
+    useLocation();
+
+  const profilePath = location.pathname.startsWith("/mentor")
+    ? "/mentor/profile"
+    : "/profile";
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
@@ -95,7 +103,7 @@ export default function Topbar({
             aria-label="Open profile"
             onClick={() => {
               navigate(
-                "/profile",
+                profilePath,
               );
             }}
             className="grid h-10 w-10 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-ally-primary"

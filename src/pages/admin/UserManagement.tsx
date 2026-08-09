@@ -51,7 +51,6 @@ export default function UserManagement() {
       title="User Management"
       subtitle="Kelola pengguna platform"
       sidebarItems={adminSidebarItems}
-      topbarProps={{ showSearch: false }}
     >
       <div className="p-6 bg-gray-50">
       {/* --- HEADER & ADD BUTTON --- */}

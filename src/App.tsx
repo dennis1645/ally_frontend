@@ -15,7 +15,7 @@ import {
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import FinancePage from "./pages/admin/Finance";
-import UserManagement from "./pages/admin/UserManagement";
+// import UserManagement from "./pages/admin/UserManagement.tsx";
 import UniversityAdmin from "./pages/admin/UniversityAdmin";
 import ScholarshipAdmin from "./pages/admin/ScholarshipAdmin";
 import InitialAssessmentAdmin from "./pages/admin/InitialAssessmentAdmin";
@@ -30,7 +30,6 @@ import EditProfilePage from "./pages/user/EditProfilePage";
 import EmptyPage from "./pages/EmptyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LandingPage from "./pages/LandingPage";
-import MentorDashboardPage from "./pages/mentor/MentorDashboardPage";
 import ProfilePage from "./pages/user/ProfilePage";
 import QuestTrackerPage from "./pages/user/QuestTrackerPage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
@@ -42,6 +41,19 @@ import DocumentValleyPage from "./pages/user/DocumentValleyPage";
 import EssayPassPage from "./pages/user/EssayPassPage";
 import { DIAGNOSTIC_RESULT_ROUTE } from "./utils/constants";
 import AssessmentResetOnExit from "./utils/AssessmentResetOnExit";
+import MentorDashboardPage, {
+  ActionItemsPage,
+  MentorActionPlansPage,
+  MentorAvailabilityPage,
+  MentorBookingsPage,
+  MentorDossierPage,
+  MentorDocumentsPage,
+  MentorSettingsPage,
+  MentorSupportPage,
+  MentorSessionsPage,
+  MenteeManagementPage,
+} from "./pages/mentor/MentorDashboardPage";
+import MentorProfilePage from "./pages/mentor/MentorProfilePage";
 
 export default function App() {
   return (
@@ -331,125 +343,109 @@ export default function App() {
             />
           </Route>
 
-          {/* =================================================
-              MENTOR ROUTES
-          ================================================== */}
-          <Route
-            path="/admin/dashboard"
-            element={<AdminDashboardPage />}
-          />
+        {/* =================================================
+            MENTOR ROUTES
+        ================================================== */}
 
+        <Route
+          element={
+            <RoleRoute
+              allowedRoles={[
+                "mentor",
+              ]}
+            />
+          }
+        >
           <Route
-            path="/admin/users"
-            element={<UserManagement />}
-          />
-
-          <Route
+            path="/mentor"
             element={
-              <RoleRoute
-                allowedRoles={[
-                  "mentor",
-                ]}
+              <Navigate
+                to="/mentor/dashboard"
+                replace
               />
             }
-          >
-            <Route
-              path="/mentor"
-              element={
-                <Navigate
-                  to="/mentor/dashboard"
-                  replace
-                />
-              }
-            />
+          />
 
-            <Route
-              path="/mentor/dashboard"
-              element={
-                <MentorDashboardPage />
-              }
-            />
+          <Route
+            path="/mentor/dashboard"
+            element={<MentorDashboardPage />}
+          />
 
-            <Route
-              path="/mentor/mentees"
-              element={
-                <EmptyPage
-                  title="My Mentees"
-                  description="The mentor mentee-management page will be implemented later."
-                />
-              }
-            />
+          <Route
+            path="/mentor/mentees"
+            element={<MenteeManagementPage />}
+          />
 
-            <Route
-              path="/mentor/mentees/:menteeId"
-              element={
-                <EmptyPage
-                  title="Mentee Profile"
-                  description="The selected mentee's preparation profile will be displayed here."
-                />
-              }
-            />
+          <Route
+            path="/mentor/mentees/:menteeId"
+            element={
+              <EmptyPage
+                title="Mentee Profile"
+                description="The selected mentee's preparation profile will be displayed here."
+              />
+            }
+          />
 
-            <Route
-              path="/mentor/mentees/:menteeId/dossier"
-              element={
-                <EmptyPage
-                  title="Pre-Session Dossier"
-                  description="The mentee's pre-session preparation summary will be displayed here."
-                />
-              }
-            />
+          <Route
+            path="/mentor/dossier"
+            element={<MentorDossierPage />}
+          />
 
-            <Route
-              path="/mentor/availability"
-              element={
-                <EmptyPage
-                  title="Mentor Availability"
-                  description="The mentor scheduling page will be implemented later."
-                />
-              }
-            />
+          <Route
+            path="/mentor/availability"
+            element={<MentorAvailabilityPage />}
+          />
 
-            <Route
-              path="/mentor/sessions"
-              element={
-                <EmptyPage
-                  title="Mentor Sessions"
-                  description="The mentor session-management page will be implemented later."
-                />
-              }
-            />
+          <Route
+            path="/mentor/bookings"
+            element={<MentorBookingsPage />}
+          />
 
-            <Route
-              path="/mentor/sessions/:sessionId"
-              element={
-                <EmptyPage
-                  title="Mentor Session Workspace"
-                  description="The selected mentoring session will be managed here."
-                />
-              }
-            />
+          <Route
+            path="/mentor/action-plans"
+            element={<MentorActionPlansPage />}
+          />
 
-            <Route
-              path="/mentor/action-items"
-              element={
-                <EmptyPage
-                  title="Mentee Action Items"
-                  description="The post-session action-item page will be implemented later."
-                />
-              }
-            />
+          <Route
+            path="/mentor/documents"
+            element={<MentorDocumentsPage />}
+          />
 
-            <Route
-              path="/mentor/profile"
-              element={
-                <EmptyPage
-                  title="Mentor Profile"
-                  description="The mentor profile page will be implemented later."
-                />
-              }
-            />
-          </Route>
+          <Route
+            path="/mentor/sessions"
+            element={<MentorSessionsPage />}
+          />
+
+          <Route
+            path="/mentor/sessions/:sessionId"
+            element={
+              <EmptyPage
+                title="Mentor Session Workspace"
+                description="The selected mentoring session will be managed here."
+              />
+            }
+          />
+
+          <Route
+            path="/mentor/action-items"
+            element={<ActionItemsPage />}
+          />
+
+          <Route
+            path="/mentor/settings"
+            element={<MentorSettingsPage />}
+          />
+
+          <Route
+            path="/mentor/support"
+            element={<MentorSupportPage />}
+          />
+
+          <Route
+            path="/mentor/profile"
+            element={<MentorProfilePage />}
+          />
+        </Route>
 
           {/* =================================================
               ADMIN ROUTES
