@@ -1,25 +1,158 @@
 {
   "topbar": {
     "logout": "Keluar",
-    "loggingOut": "Mengeluarkan..."
+    "loggingOut": "Sedang keluar...",
+    "titles": {
+      "dashboard": "Dasbor",
+      "questTracker": "Papan Misi",
+      "aiChatbot": "Chatbot AI",
+      "subscription": "Langganan",
+      "profile": "Paspor Penjelajah"
+    },
+    "subtitles": {
+      "dashboard": "Pangkalan Utama Penjelajah",
+      "questTracker": "Peta Jalan & Pencapaian Ekspedisimu",
+      "aiChatbot": "Teman Perjalanan Beasiswamu",
+      "subscription": "Rencana Ekspedisi & Tagihan",
+      "profile": "Jurnal Penjelajah Pribadi"
+    }
   },
   "sidebar": {
+    "explorerPortal": "Portal Penjelajah",
     "dashboard": "Dasbor",
-    "questTracker": "Pelacak Misi",
-    "aiMentor": "Mentor AI",
-    "coaching": "Pelatihan",
-    "billing": "Tagihan"
-  },
-  "dashboard": {
-    "subtitle": "DASBOR PENJELAJAH",
-    "title": "Markas Ekspedisi"
+    "questTracker": "Papan Misi",
+    "aiChatbot": "Chatbot AI",
+    "subscription": "Langganan",
+    "open": "Buka bilah sisi",
+    "collapse": "Tutup bilah sisi"
   },
   "passport": {
-    "title": "Paspor Penjelajah",
+    "identity": "Identitas Penjelajah",
     "profile": "Profil",
+    "page01": "HALAMAN 01",
+    "fullName": "Nama Lengkap",
+    "explorerId": "ID Penjelajah",
+    "role": "Peran",
+    "headline": "Sorotan",
+    "noHeadline": "Belum ada sorotan penjelajah yang ditambahkan.",
+    "email": "Email",
+    "phone": "Telepon",
+    "gender": "Jenis Kelamin",
+    "linkedin": "LinkedIn",
+    "openLinkedin": "Buka profil LinkedIn",
+    "notProvided": "Tidak tersedia",
+    "valid": "SAH",
+    
+    "journeyRecord": "Catatan Perjalanan",
     "expedition": "Ekspedisi",
-    "currentLevel": "TINGKAT SAAT INI",
+    "page02": "HALAMAN 02",
+    "currentLevel": "Level Saat Ini",
     "notCalculated": "Belum dihitung",
-    "readinessProgress": "Progres kesiapan beasiswa"
+    "readinessProgress": "Progres kesiapan beasiswa",
+    
+    "institution": "Institusi",
+    "education": "Pendidikan",
+    "targetDegree": "Target Gelar",
+    "targetMajor": "Target Jurusan",
+    "targetCountry": "Target Negara",
+    "targetScholarship": "Beasiswa",
+    
+    "explorersNote": "Catatan Penjelajah",
+    "bioPlaceholder": "Kisah pribadimu akan bertumbuh di sini seiring berjalannya perjalanan beasiswamu.",
+    
+    "guidesNote": "Catatan Pemandu",
+    "securityDesc": "Jaga keamanan paspormu! Jangan pernah membagikan kata sandi atau informasi sensitif lainnya kepada siapapun.",
+
+    "bookmarks": {
+      "profile": "Profil",
+      "journeyLog": "Catatan",
+      "journal": "Jurnal",
+      "security": "Keamanan"
+    },
+
+    "edit": {
+      "mobileNumber": "Nomor Handphone",
+      "phoneHelper": "Masukkan nomor telepon tanpa kode negara/wilayah yang dipilih"
+    }
+  },
+  "aiChatbot": {
+    "greeting": "Hai, {{name}}! 👋",
+    "subGreeting": "Apa yang bisa aku bantu taklukkan hari ini?",
+    "recentConversations": "Percakapan Terkini",
+    "savedInsights": "Wawasan Tersimpan",
+    "noInsights": "Belum ada wawasan yang disimpan.",
+    "proTips": "Kiat Pro",
+    "proTipsDesc": "Simpan pesan penting dengan mengklik ikon pembatas buku di sebelah pesan Ally.",
+    "deleteTitle": "Hapus Wawasan?",
+    "deleteDesc": "Apakah kamu yakin ingin menghapus wawasan yang disimpan ini?",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "insightSaved": "Wawasan disimpan ke koleksimu.",
+    "insightAlreadySaved": "Wawasan ini sudah disimpan.",
+    "insightRemoved": "Wawasan yang disimpan telah dihapus.",
+    "undo": "Batal",
+    "guideActive": "Pemandu aktif",
+    "searchPlaceholder": "Cari obrolan...",
+    "clearChat": "Bersihkan Obrolan",
+    "saveToInsights": "Simpan ke Wawasan",
+    "typeMessage": "Ketik pesanmu di sini...",
+    "justNow": "Baru saja",
+    "suggestedQuestions": {
+      "q1": "Bisakah kamu meninjau surat motivasi saya?",
+      "q2": "Bagaimana cara meminta surat rekomendasi?",
+      "q3": "Tips untuk bagian speaking TOEFL iBT?",
+      "q4": "Apa saja pertanyaan wawancara beasiswa yang umum?",
+      "q5": "Bantu saya membuat rencana belajar bulan ini."
+    }
+  },
+  "timeline": {
+    "badge": "Peta Buatan AI",
+    "title": "Garis Waktu Ekspedisimu",
+    "subtitle": "Rute perjalananmu telah disesuaikan berdasarkan hasil Assessment 2.",
+    "uniDeadline": "Tenggat Waktu Universitas",
+    "scholDeadline": "Tenggat Waktu Beasiswa"
+  },
+  "landing": {
+    "title": "Apakah kamu siap untuk Perjalanan Beasiswamu?",
+    "body": "Aku adalah teman perjalananmu. Bersama-sama, kita akan mencapai puncak beasiswa impianmu!",
+    "expedition": "Ekspedisi Beasiswa",
+    "beginBtn": "Mulai Ekspedisi",
+    "departure": "Siap untuk Keberangkatan"
+  },
+  "chooseAdventure": {
+    "badge": "Ekspedisi Baru Menanti",
+    "title": "Pilih Petualanganmu",
+    "mainText": "Siap untuk memulai ekspedisi? Atau ingin mengetahui tingkat kesiapan beasiswamu terlebih dahulu?",
+    "llyText": "lly",
+    "restText": " hadir untuk memandumu di setiap langkah perjalanan.",
+    "btnChoose": "Pilih Petualangan",
+    "btnBack": "Kembali",
+    "opt1Title": "Ya, saya siap!",
+    "opt1DescPrefix": "Buat akun ",
+    "opt1DescHighlight": "Ally",
+    "opt1DescSuffix": " kamu untuk membuka peta jalan beasiswa personal, panduan AI, pelacakan progres, dan bimbingan eksklusif.",
+    "opt1Btn": "Mulai Ekspedisiku",
+    "opt2Title": "Saya masih ragu...",
+    "opt2Desc": "Ikuti tes kesiapan beasiswa singkat untuk mengetahui potensimu sebelum membuat akun. Gratis dan hanya butuh lima menit!",
+    "opt2Btn": "Mulai Tes Gratis"
+  },
+  "auth": {
+    "tabLogin": "Masuk",
+    "tabRegister": "Daftar",
+    "loginTitle": "Selamat Datang Kembali!",
+    "loginSub": "Lanjutkan pendakianmu menuju puncak.",
+    "emailLabel": "Alamat Email",
+    "passwordLabel": "Kata Sandi",
+    "rememberMe": "Ingat Saya",
+    "forgotPwd": "Lupa Kata Sandi?",
+    "signInBtn": "Masuk",
+    "signingIn": "Sedang masuk...",
+    "regTitle": "Mulai Ekspedisimu",
+    "regSub": "Buat akun penjelajah Ally kamu.",
+    "nameLabel": "Nama Lengkap",
+    "phoneLabel": "Nomor Telepon",
+    "confirmPwdLabel": "Konfirmasi Kata Sandi",
+    "createBtn": "Buat Akun",
+    "creatingBtn": "Membuat akun..."
   }
 }

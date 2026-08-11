@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Send, Bookmark, Search, MoreHorizontal, Trash2, X } from "lucide-react";
+import { Send, Bookmark, Search, MoreHorizontal, Trash2, X, Sparkles } from "lucide-react";
 import allyMascot from "../../assets/ally-assessment-mascot.png"; // Pastikan path ini benar!
 
 type Message = {
@@ -64,6 +64,15 @@ export default function AIMentorChat({ initialMessages, userInitials, onSaveInsi
     if (!searchQuery.trim()) return messages;
     return messages.filter((msg) => msg.content.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [messages, searchQuery]);
+
+  // Daftar Pertanyaan Bantuan (Prompt Starters)
+  const suggestedQuestions = [
+    "Can you review my motivation letter?",
+    "How to ask for a recommendation letter?",
+    "Tips for TOEFL iBT speaking section?",
+    "What are common scholarship interview questions?",
+    "Help me build a study plan for this month."
+  ];
 
   return (
     <div className="flex h-[600px] flex-col rounded-[22px] border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -144,11 +153,11 @@ export default function AIMentorChat({ initialMessages, userInitials, onSaveInsi
                       {msg.content}
                     </div>
                     
-                    {/* TOMBOL SAVE (MUNCUL DI SEBELAH KANAN BUBBLE AI SAAT DI HOVER) */}
+                    {/* TOMBOL SAVE */}
                     {isAlly && (
                       <button
                         onClick={() => onSaveInsight(msg.content, "AI Advice")}
-                        className="absolute -right-10 bottom-0 p-2 rounded-full text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-orange-50 hover:text-[#b17a39] transition-all"
+                        className="absolute -right-10 bottom-0 p-2 rounded-full text-slate-400 opacity-50 transition-all hover:bg-orange-50 hover:text-[#b17a39] hover:opacity-100 group-hover:opacity-100"
                         title="Save to Insights"
                       >
                         <Bookmark size={18} />
@@ -164,7 +173,21 @@ export default function AIMentorChat({ initialMessages, userInitials, onSaveInsi
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT AREA (Tanpa Mic) */}
+      {/* PERTANYAAN BANTUAN (SUGGESTED QUESTIONS) */}
+      <div className="flex w-full gap-2 overflow-x-auto border-t border-slate-100 bg-slate-50/50 px-4 py-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {suggestedQuestions.map((question, index) => (
+          <button
+            key={index}
+            onClick={() => handleSendMessage(question)}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-blue-600 shadow-sm transition-colors hover:bg-blue-500 hover:text-white active:scale-95"
+          >
+            <Sparkles size={12} />
+            {question}
+          </button>
+        ))}
+      </div>
+
+      {/* INPUT AREA */}
       <div className="border-t border-slate-200 bg-white p-4">
         <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputValue); }} className="flex items-end gap-3">
           <textarea
@@ -175,7 +198,7 @@ export default function AIMentorChat({ initialMessages, userInitials, onSaveInsi
             className="flex-1 max-h-[120px] min-h-[50px] resize-none rounded-xl border border-slate-300 bg-slate-50 py-3.5 px-4 text-sm outline-none focus:border-blue-400 focus:bg-white"
             rows={1}
           />
-          <button type="submit" disabled={!inputValue.trim()} className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-xl bg-[#5b9bd5] text-white hover:bg-blue-600 disabled:opacity-50">
+          <button type="submit" disabled={!inputValue.trim()} className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-xl bg-[#5b9bd5] text-white hover:bg-blue-600 disabled:opacity-50 transition-colors">
             <Send size={20} className="ml-1" />
           </button>
         </form>

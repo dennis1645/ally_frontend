@@ -35,6 +35,7 @@ import EmptyPage from "./pages/EmptyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoadingPage from "./pages/LoadingPage";
 import LandingPage from "./pages/LandingPage";
+import TimelineGenerator from "./pages/user/TimelineGenerator";
 import MentorDashboardPage, {
   ActionItemsPage,
   MenteeManagementPage,
@@ -229,6 +230,12 @@ export default function App() {
               }
             />
 
+            <Route 
+            path="/assessment-2" 
+            element={<Assessment2Page />} 
+            />
+
+
             {/* ===============================================
                 AUTHENTICATED ONBOARDING ROUTES
             ================================================ */}
@@ -351,15 +358,16 @@ export default function App() {
               }
             />
 
+            {/* ===============================================
+                TIMELINE ROUTE (SUDAH DIUBAH)
+            ================================================ */}
             <Route
               path="/timeline"
               element={
-                <EmptyPage
-                  title="Expedition Timeline"
-                  description="The user's dynamic scholarship timeline will be displayed here."
-                />
+                <TimelineGenerator />
               }
             />
+
             <Route
               path="/billing"
               element={

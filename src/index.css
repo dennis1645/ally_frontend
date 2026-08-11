@@ -237,12 +237,52 @@ img.ally-mascot-float {
  * }}
  */
 .landing-map {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100dvh;
   background-color: #d8e8e5;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
+}
+
+.landing-page-content {
+  --landing-mascot-size: clamp(9.5rem, 29dvh, 16rem);
+}
+
+.landing-mascot-size {
+  width: var(--landing-mascot-size);
+  height: var(--landing-mascot-size);
+}
+
+@media (max-height: 800px) and (min-width: 641px) {
+  .landing-page-content {
+    --landing-mascot-size: clamp(8.5rem, 25dvh, 12rem);
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .landing-welcome {
+    margin-top: 0.75rem;
+  }
+
+  .landing-speech-bubble {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .landing-speech-bubble p {
+    margin-top: 0.65rem;
+  }
+
+  .landing-mascot-size {
+    margin-top: 1rem;
+  }
+
+  .landing-welcome > div:last-child {
+    margin-top: 0.75rem;
+  }
+
+  .landing-welcome > div:last-child > div {
+    margin-top: 0.75rem;
+  }
 }
 
 /* Landing-page speech bubble */
@@ -305,6 +345,180 @@ img.ally-mascot-float {
   filter: drop-shadow(0 12px 10px rgb(44 22 7 / 18%));
 }
 
+.auth-page {
+  min-height: 100dvh;
+}
+
+.auth-journey-panel,
+.auth-form-panel {
+  min-height: 0;
+}
+
+.auth-card-transition-register {
+  animation: auth-card-scale-register 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-card-transition-login {
+  animation: auth-card-scale-login 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-card-container {
+  transform-origin: center;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes auth-card-scale-register {
+  0% {
+    opacity: 0.72;
+    transform: translateX(22px) scale(0.94);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translateX(-4px) scale(1.015);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes auth-card-scale-login {
+  0% {
+    opacity: 0.72;
+    transform: translateX(-22px) scale(0.94);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translateX(4px) scale(1.015);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (min-width: 768px) {
+  .auth-page,
+  .auth-journey-panel,
+  .auth-form-panel {
+    height: 100dvh;
+  }
+}
+
+@media (min-width: 768px) and (min-height: 851px) {
+  .auth-card-container-register {
+    transform: scale(0.9);
+  }
+}
+
+@media (min-width: 768px) and (max-height: 850px) {
+  .auth-form-panel {
+    padding: 1rem 2rem;
+  }
+
+  .auth-card {
+    padding: 1.25rem;
+  }
+
+  .auth-card > .mb-8 {
+    margin-bottom: 1rem;
+  }
+
+  .auth-card form > .mb-7 {
+    margin-bottom: 1rem;
+  }
+
+  .auth-card form .space-y-5 > :not([hidden]) ~ :not([hidden]),
+  .auth-card form .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+  }
+
+  .auth-card input {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .auth-card form .my-5 {
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .auth-card form button[type="submit"] {
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+
+  .auth-card > .my-8 {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .auth-card > .mt-3 {
+    margin-top: 0.5rem;
+  }
+
+  .auth-card:has(#register-name) {
+    max-height: calc(100dvh - 1rem);
+    overflow: hidden;
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .auth-card:has(#register-name) > .mb-8,
+  .auth-card:has(#register-name) form > .mb-7 {
+    margin-bottom: 0.5rem;
+  }
+
+  .auth-card:has(#register-name) form .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.5rem;
+  }
+
+  .auth-card:has(#register-name) label {
+    margin-bottom: 0.25rem;
+  }
+
+  .auth-card:has(#register-name) input {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .auth-card:has(#register-name) form .my-5 {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .auth-card:has(#register-name) form button[type="submit"] {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
+
+  .auth-card:has(#register-name) > .my-8 {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .auth-card:has(#register-name) > .grid button {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .auth-card:has(#register-name) > .mt-3 {
+    font-size: 0.65rem;
+    line-height: 1.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-card-transition-register,
+  .auth-card-transition-login {
+    animation: none;
+  }
+}
+
 /* =========================================================
    Responsive landing-page adjustments
 ========================================================= */
@@ -331,6 +545,52 @@ img.ally-mascot-float {
 
   .landing-speech-bubble::before {
     left: calc(50% - 18px);
+  }
+}
+
+@media (max-height: 700px) and (min-width: 641px) {
+  .choose-adventure-shell {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .choose-adventure-intro > div:first-child {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.65rem;
+  }
+
+  .choose-adventure-intro > h1 {
+    margin-top: 0.25rem;
+    font-size: clamp(2rem, 6dvh, 3rem);
+  }
+
+  .choose-adventure-intro > section[aria-label="Message from Ally"] {
+    margin-top: 0.5rem;
+  }
+
+  .choose-adventure-intro > section[aria-label="Message from Ally"] > div {
+    padding: 0.75rem 1rem;
+  }
+
+  .choose-adventure-intro > section[aria-label="Message from Ally"] p {
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .choose-adventure-intro > section[aria-label="Message from Ally"] p + p {
+    margin-top: 0.35rem;
+  }
+
+  .choose-adventure-intro > div:nth-of-type(2) {
+    height: 6.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .choose-adventure-intro > button {
+    min-height: 2.75rem;
+    margin-top: 0.5rem;
+    padding-inline: 1.25rem;
+    font-size: 0.9rem;
   }
 }
 

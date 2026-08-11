@@ -22,45 +22,30 @@ import type {
   QuestMilestone,
 } from "../../types/questTracker";
 
+
 /*
- * TEMPORARILY HIDDEN FOR MILESTONE-TRAIL REVIEW
- * ---------------------------------------------------------
- * The following existing Quest Tracker sections remain in
- * the project but are intentionally not rendered:
+ * =========================================================
+ * Expedition Overview
+ * =========================================================
  *
- * - CurrentMilestoneCard
- * - AllyEncouragement
- * - UpcomingTrails
- * - AchievementBadges
- *
- * Previous imports:
- *
- * import AchievementBadges from "../../components/quest/AchievementBadges";
- * import AllyEncouragement from "../../components/quest/AllyEncouragement";
- * import CurrentMilestoneCard from "../../components/quest/CurrentMilestoneCard";
- * import UpcomingTrails from "../../components/quest/UpcomingTrails";
+ * Small progress card shown on top of the expedition map.
  */
 
 function ExpeditionOverviewOverlay({
   milestones,
 }: {
-  milestones:
-    QuestMilestone[];
+  milestones: QuestMilestone[];
 }) {
   const completedCount =
     milestones.filter(
-      (
-        milestone,
-      ) =>
+      (milestone) =>
         milestone.status ===
         "completed",
     ).length;
 
   const currentMilestone =
     milestones.find(
-      (
-        milestone,
-      ) =>
+      (milestone) =>
         milestone.status ===
         "current",
     );
@@ -71,10 +56,8 @@ function ExpeditionOverviewOverlay({
   const percentage =
     total > 0
       ? Math.round(
-          (
-            completedCount /
-            total
-          ) *
+          (completedCount /
+            total) *
             100,
         )
       : 0;
@@ -83,13 +66,14 @@ function ExpeditionOverviewOverlay({
     <aside
       aria-label="Scholarship Expedition overview"
       className={[
-        "rounded-[24px] border border-white/80",
-        "bg-white/92 p-4 backdrop-blur-md",
+        "rounded-[24px]",
+        "border border-white/80",
+        "bg-white/92",
+        "p-4",
+        "backdrop-blur-md",
         "shadow-[0_8px_0_rgba(122,88,47,0.14),0_18px_45px_rgba(44,22,7,0.16)]",
         "sm:p-5",
-      ].join(
-        " ",
-      )}
+      ].join(" ")}
     >
       <p className="text-[10px] font-extrabold uppercase tracking-[0.17em] text-[#7a582f] sm:text-xs">
         Quest Tracker
@@ -119,7 +103,8 @@ function ExpeditionOverviewOverlay({
           </div>
 
           <p className="mt-1.5 text-lg font-extrabold text-[#2c1607] sm:text-xl">
-            {completedCount} / {total} milestones completed
+            {completedCount} /{" "}
+            {total} milestones completed
           </p>
         </div>
 
@@ -160,8 +145,7 @@ function ExpeditionOverviewOverlay({
               `${percentage}%`,
           }}
         >
-          {percentage >
-            0 && (
+          {percentage > 0 && (
             <span
               aria-hidden="true"
               className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 translate-x-1/2 rounded-full border-2 border-white bg-[#c69c6e]"
@@ -173,21 +157,53 @@ function ExpeditionOverviewOverlay({
   );
 }
 
+
+/*
+ * =========================================================
+ * Quest Tracker Page
+ * =========================================================
+ */
+
 export default function QuestTrackerPage() {
   const navigate =
     useNavigate();
 
-  function handleMilestoneSelect(
-    milestone:
-      QuestMilestone,
-  ): void {
-    if (
-      milestone.status ===
-      "locked"
-    ) {
-      return;
-    }
 
+  /*
+   * -------------------------------------------------------
+   * Milestone selection
+   * -------------------------------------------------------
+   *
+   * IMPORTANT:
+   *
+   * Locked milestones are NOT blocked here anymore.
+   *
+   * AscentRoadmap handles:
+   *
+   *   locked
+   *      ↓
+   *   locked modal
+   *      ↓
+   *   subscription
+   *
+   * Current / completed milestones:
+   *
+   *   click
+   *      ↓
+   *   zoom animation
+   *      ↓
+   *   destination
+   */
+  function handleMilestoneSelect(
+    milestone: QuestMilestone,
+  ): void {
+    /*
+     * AscentRoadmap already handles
+     * locked milestones.
+     *
+     * We only navigate when a destination
+     * exists.
+     */
     if (
       milestone.destination
     ) {
@@ -197,29 +213,42 @@ export default function QuestTrackerPage() {
     }
   }
 
+
+  /*
+   * -------------------------------------------------------
+   * Assessment entry
+   * -------------------------------------------------------
+   *
+   * This is still used by the existing Ally guide
+   * attached to Research Trail.
+   */
   function handleStartAssessment(): void {
     navigate(
       ASSESSMENT_2_ROUTE,
     );
   }
 
+
   return (
     <UserLayout
-      title="Quest Tracker"
+      title="Quest Tracker" subtitle="Expedition Roadmap & Milestones"
       topbarProps={{
-        showSearch:
-          false,
+        showSearch: false,
       }}
     >
       <section
         aria-label="Quest Tracker milestone expedition"
         className={[
           "relative min-h-[calc(100vh-80px)]",
-          "overflow-hidden bg-ally-background",
-        ].join(
-          " ",
-        )}
+          "overflow-hidden",
+          "bg-ally-background",
+        ].join(" ")}
       >
+
+        {/* =================================================
+            Expedition Roadmap
+        ================================================= */}
+
         <AscentRoadmap
           fullPage
           milestones={
@@ -231,6 +260,7 @@ export default function QuestTrackerPage() {
           onStartAssessment={
             handleStartAssessment
           }
+          subscriptionRoute="/subscription"
           overlay={
             <ExpeditionOverviewOverlay
               milestones={
@@ -240,23 +270,6 @@ export default function QuestTrackerPage() {
           }
         />
 
-        {/*
-         * =====================================================
-         * TEMPORARILY HIDDEN / COMMENTED OUT
-         * =====================================================
-         *
-         * <CurrentMilestoneCard ... />
-         *
-         * <AllyEncouragement ... />
-         *
-         * <UpcomingTrails ... />
-         *
-         * <AchievementBadges ... />
-         *
-         * Restore these sections later after the milestone
-         * expedition layout has been finalized.
-         * =====================================================
-         */}
       </section>
     </UserLayout>
   );

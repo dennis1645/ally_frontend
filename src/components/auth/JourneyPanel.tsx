@@ -65,8 +65,8 @@ export default function JourneyPanel() {
           </span>
         </h1>
 
-        {/* CTA */}
-        <p className="text-lg text-white/90 mb-10 leading-relaxed font-medium max-w-md">
+      {/* CTA - max-w-md diubah menjadi max-w-lg agar kalimatnya muat dalam satu baris */}
+        <p className="mb-10 max-w-lg text-lg font-medium leading-relaxed text-white/90">
           Let’s take the first step together with a single sign-up.
         </p>
 
