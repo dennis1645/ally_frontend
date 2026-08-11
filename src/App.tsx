@@ -12,30 +12,48 @@ import {
   InitialAssessmentRouteElement,
 } from "./routes/assessment.routes";
 
-import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+// ============================================================
+// PUBLIC / GENERAL PAGES
+// ============================================================
+
 import AuthPage from "./pages/AuthPage";
-import DashboardPage from "./pages/user/DashboardPage";
-import EditProfilePage from "./pages/user/EditProfilePage";
 import EmptyPage from "./pages/EmptyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LandingPage from "./pages/LandingPage";
-import MentorDashboardPage, {
-  ActionItemsPage,
-  MentorActionPlansPage,
-  MentorAvailabilityPage,
-  MentorBookingsPage,
-  MentorDossierPage,
-  MentorDocumentsPage,
-  MentorSettingsPage,
-  MentorSupportPage,
-  MentorSessionsPage,
-  MenteeManagementPage,
-} from "./pages/mentor/MentorDashboardPage";
-import MentorProfilePage from "./pages/mentor/MentorProfilePage";
+import VerificationPendingPage from "./pages/VerificationPendingPage";
+import ChooseAdventurePage from "./pages/ChooseAdventurePage";
+
+// ============================================================
+// USER / EXPLORER PAGES
+// ============================================================
+
+import DashboardPage from "./pages/user/DashboardPage";
+import EditProfilePage from "./pages/user/EditProfilePage";
 import ProfilePage from "./pages/user/ProfilePage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
-import VerificationPendingPage from "./pages/VerificationPendingPage";
-import ChooseAdventurePage from "./pages/ChooseAdventurePage.tsx";
+
+// ============================================================
+// ADMIN PAGES
+// ============================================================
+
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+
+// ============================================================
+// MENTOR PAGES
+// ============================================================
+
+import MentorDashboardPage from "./pages/mentor/MentorDashboardPage";
+import MenteeManagementPage from "./pages/mentor/MenteeManagementPage";
+import MentorDossierPage from "./pages/mentor/MentorDossierPage";
+import MentorAvailabilityPage from "./pages/mentor/MentorAvailabilityPage";
+import MentorBookingsPage from "./pages/mentor/MentorBookingsPage";
+import MentorActionPlansPage from "./pages/mentor/MentorActionPlansPage";
+import MentorDocumentsPage from "./pages/mentor/MentorDocumentsPage";
+import MentorSettingsPage from "./pages/mentor/MentorSettingsPage";
+import MentorSupportPage from "./pages/mentor/MentorSupportPage";
+import MentorSessionsPage from "./pages/mentor/MentorSessionsPage";
+import ActionItemsPage from "./pages/mentor/ActionItemsPage";
+import MentorProfilePage from "./pages/mentor/MentorProfilePage";
 
 export default function App() {
   return (
@@ -94,6 +112,7 @@ export default function App() {
       ====================================================== */}
 
       <Route element={<ProtectedRoute />}>
+
         {/* =================================================
             USER / EXPLORER ROUTES
         ================================================== */}
@@ -107,7 +126,9 @@ export default function App() {
             />
           }
         >
-          {/* Email verification */}
+          {/* =================================================
+              EMAIL VERIFICATION
+          ================================================== */}
 
           <Route
             path="/verify-email"
@@ -124,7 +145,9 @@ export default function App() {
             }
           />
 
-          {/* Main user routes */}
+          {/* =================================================
+              MAIN USER ROUTES
+          ================================================== */}
 
           <Route
             path="/dashboard"
@@ -151,9 +174,9 @@ export default function App() {
             element={<EditProfilePage />}
           />
 
-          {/* ===============================================
-              ONBOARDING ROUTES
-          ================================================ */}
+          {/* =================================================
+              ONBOARDING
+          ================================================== */}
 
           <Route
             path="/onboarding"
@@ -175,7 +198,9 @@ export default function App() {
             }
           />
 
-          {/* Initial Scholarship Readiness Assessment */}
+          {/* =================================================
+              INITIAL ASSESSMENT
+          ================================================== */}
 
           <Route
             path={INITIAL_ASSESSMENT_ROUTE}
@@ -204,9 +229,9 @@ export default function App() {
             }
           />
 
-          {/* ===============================================
+          {/* =================================================
               USER FEATURE ROUTES
-          ================================================ */}
+          ================================================== */}
 
           <Route
             path="/quests"
@@ -292,6 +317,10 @@ export default function App() {
             />
           }
         >
+          {/* =================================================
+              MENTOR DASHBOARD
+          ================================================== */}
+
           <Route
             path="/mentor"
             element={
@@ -307,75 +336,99 @@ export default function App() {
             element={<MentorDashboardPage />}
           />
 
+          {/* =================================================
+              MENTEE / EXPLORER MANAGEMENT
+          ================================================== */}
+
           <Route
             path="/mentor/mentees"
             element={<MenteeManagementPage />}
           />
 
-          <Route
-            path="/mentor/mentees/:menteeId"
-            element={
-              <EmptyPage
-                title="Mentee Profile"
-                description="The selected mentee's preparation profile will be displayed here."
-              />
-            }
-          />
+          {/* =================================================
+              MENTOR DOSSIER
+          ================================================== */}
 
           <Route
             path="/mentor/dossier"
             element={<MentorDossierPage />}
           />
 
+          {/* =================================================
+              AVAILABILITY
+          ================================================== */}
+
           <Route
             path="/mentor/availability"
             element={<MentorAvailabilityPage />}
           />
 
-          <Route
-            path="/mentor/bookings"
-            element={<MentorBookingsPage />}
-          />
-
-          <Route
-            path="/mentor/action-plans"
-            element={<MentorActionPlansPage />}
-          />
-
-          <Route
-            path="/mentor/documents"
-            element={<MentorDocumentsPage />}
-          />
+          {/* =================================================
+              SESSION MANAGEMENT
+          ================================================== */}
 
           <Route
             path="/mentor/sessions"
             element={<MentorSessionsPage />}
           />
 
+          {/* =================================================
+              BOOKING CONFIRMATION
+          ================================================== */}
+
           <Route
-            path="/mentor/sessions/:sessionId"
-            element={
-              <EmptyPage
-                title="Mentor Session Workspace"
-                description="The selected mentoring session will be managed here."
-              />
-            }
+            path="/mentor/bookings"
+            element={<MentorBookingsPage />}
           />
+
+          {/* =================================================
+              ACTION PLANS
+          ================================================== */}
+
+          <Route
+            path="/mentor/action-plans"
+            element={<MentorActionPlansPage />}
+          />
+
+          {/* =================================================
+              ACTION ITEMS
+          ================================================== */}
 
           <Route
             path="/mentor/action-items"
             element={<ActionItemsPage />}
           />
 
+          {/* =================================================
+              DOCUMENTS
+          ================================================== */}
+
+          <Route
+            path="/mentor/documents"
+            element={<MentorDocumentsPage />}
+          />
+
+          {/* =================================================
+              SETTINGS
+          ================================================== */}
+
           <Route
             path="/mentor/settings"
             element={<MentorSettingsPage />}
           />
 
+          {/* =================================================
+              SUPPORT
+          ================================================== */}
+
           <Route
             path="/mentor/support"
             element={<MentorSupportPage />}
           />
+
+          {/* =================================================
+              MENTOR PROFILE / PASSPORT
+          ================================================== */}
 
           <Route
             path="/mentor/profile"
@@ -396,6 +449,10 @@ export default function App() {
             />
           }
         >
+          {/* =================================================
+              ADMIN ROOT
+          ================================================== */}
+
           <Route
             path="/admin"
             element={
@@ -406,10 +463,18 @@ export default function App() {
             }
           />
 
+          {/* =================================================
+              ADMIN DASHBOARD
+          ================================================== */}
+
           <Route
             path="/admin/dashboard"
             element={<AdminDashboardPage />}
           />
+
+          {/* =================================================
+              USER MANAGEMENT
+          ================================================== */}
 
           <Route
             path="/admin/users"
@@ -430,6 +495,10 @@ export default function App() {
               />
             }
           />
+
+          {/* =================================================
+              SCHOLARSHIP MANAGEMENT
+          ================================================== */}
 
           <Route
             path="/admin/scholarships"
@@ -461,6 +530,10 @@ export default function App() {
             }
           />
 
+          {/* =================================================
+              MENTOR MANAGEMENT
+          ================================================== */}
+
           <Route
             path="/admin/mentors"
             element={
@@ -470,6 +543,10 @@ export default function App() {
               />
             }
           />
+
+          {/* =================================================
+              CAPACITY
+          ================================================== */}
 
           <Route
             path="/admin/capacity"
@@ -481,6 +558,10 @@ export default function App() {
             }
           />
 
+          {/* =================================================
+              PAYMENTS
+          ================================================== */}
+
           <Route
             path="/admin/payments"
             element={
@@ -491,6 +572,10 @@ export default function App() {
             }
           />
 
+          {/* =================================================
+              ANALYTICS
+          ================================================== */}
+
           <Route
             path="/admin/analytics"
             element={
@@ -500,6 +585,10 @@ export default function App() {
               />
             }
           />
+
+          {/* =================================================
+              ADMIN SETTINGS
+          ================================================== */}
 
           <Route
             path="/admin/settings"
