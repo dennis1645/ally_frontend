@@ -1,34 +1,11 @@
 import AchievementsCard from "../../components/dashboard/AchievementsCard";
-import AllySpeechCard from "../../components/dashboard/AllySpeechCard";
 import ExpeditionTrailCard from "../../components/dashboard/ExpeditionTrailCard";
 import ExplorerProfileCard from "../../components/dashboard/ExplorerProfileCard";
-import MotivationalQuoteCard from "../../components/dashboard/MotivationalQuoteCard";
 import TodaysAscentCard from "../../components/dashboard/TodaysAscentCard";
 import UpcomingDeadlinesCard from "../../components/dashboard/UpcomingDeadlinesCard";
+
 import UserLayout from "../../components/layout/UserLayout";
-
-import {
-  useAuth,
-} from "../../context/AuthContext";
-
-/*
- * Temporary source from the latest diagnostic response.
- *
- * GET /api/profile does not currently return
- * weaknesses_mapping. Replace this constant with the latest
- * authenticated diagnostic-result response when that API is
- * connected to the dashboard.
- */
-const currentDiagnosticWeaknesses = [
-  "english_not_certified",
-  "weak_storytelling",
-  "cv_needs_improvement",
-  "essay_incomplete",
-  "previous_rejection",
-  "unclear_rejection_reasons",
-  "leadership_achievement_gap",
-  "cv_format_issue",
-] as const;
+import { useAuth } from "../../context/AuthContext";
 
 function DashboardLoadingState() {
   return (
@@ -41,13 +18,10 @@ function DashboardLoadingState() {
     >
       <div className="space-y-6">
         <div className="h-64 rounded-[24px] bg-white" />
-
         <div className="h-96 rounded-[24px] bg-white" />
       </div>
-
       <div className="space-y-6">
         <div className="h-64 rounded-[24px] bg-white" />
-
         <div className="h-96 rounded-[24px] bg-white" />
       </div>
     </div>
@@ -68,7 +42,6 @@ function DashboardUnavailableState() {
         <h2 className="text-xl font-bold text-[#2c1607]">
           Explorer profile unavailable
         </h2>
-
         <p className="mt-3 text-sm leading-6 text-slate-500">
           Your profile information could not be loaded. Please reload the dashboard.
         </p>
@@ -78,16 +51,13 @@ function DashboardUnavailableState() {
 }
 
 export default function DashboardPage() {
-  const {
-    user,
-    status,
-  } =
-    useAuth();
+  const { user, status } = useAuth();
 
   return (
     <UserLayout
       title="Expedition Headquarters"
-      subtitle="Explorer Dashboard">
+      subtitle="Explorer Dashboard"
+    >
       <section
         aria-label="Dashboard content"
         className={[
@@ -98,54 +68,44 @@ export default function DashboardPage() {
           "lg:px-8",
         ].join(" ")}
       >
-        {status ===
-        "loading" ? (
+        {status === "loading" ? (
           <DashboardLoadingState />
         ) : !user ? (
           <DashboardUnavailableState />
         ) : (
-          <div
-            className={[
-              "mx-auto grid w-full max-w-[1200px]",
-              "items-start gap-6",
-              "xl:grid-cols-[minmax(0,1fr)_340px]",
-            ].join(" ")}
-          >
-            {/* Main dashboard column */}
+          <div className="mx-auto w-full max-w-[1200px] space-y-8">
+            
+            {/* HEADER PROFIL FULL WIDTH */}
+            <ExplorerProfileCard />
 
-            <div className="space-y-6">
-              <ExplorerProfileCard
-                user={
-                  user
-                }
-              />
-
-              <ExpeditionTrailCard />
-
-              <div className="grid gap-6 lg:grid-cols-2">
-                <AllySpeechCard />
-
-                <MotivationalQuoteCard />
+            {/* ZIGZAG GRID LAYOUT */}
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+              
+              {/* --- BARIS 1 --- */}
+              {/* Kiri (1 Kolom): Todays Ascent / Streak */}
+              <div className="lg:col-span-1">
+                <TodaysAscentCard />
               </div>
+              
+              {/* Kanan (2 Kolom): Expedition Trail */}
+              <div className="lg:col-span-2 flex flex-col h-full">
+                <div className="flex-1">
+                  <ExpeditionTrailCard />
+                </div>
+              </div>
+
+              {/* --- BARIS 2 --- */}
+              {/* Kiri (2 Kolom): Upcoming Deadlines & Mentor Tasks */}
+              <div className="lg:col-span-2">
+                <UpcomingDeadlinesCard />
+              </div>
+              
+              {/* Kanan (1 Kolom): Achievements */}
+              <div className="lg:col-span-1">
+                <AchievementsCard badges={user.badges} />
+              </div>
+
             </div>
-
-            {/* Right dashboard column */}
-
-            <aside className="space-y-6">
-              <AchievementsCard
-                badges={
-                  user.badges
-                }
-              />
-
-              <TodaysAscentCard
-                weaknesses={
-                  currentDiagnosticWeaknesses
-                }
-              />
-
-              <UpcomingDeadlinesCard />
-            </aside>
           </div>
         )}
       </section>

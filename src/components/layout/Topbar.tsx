@@ -1,41 +1,17 @@
-import type {
-  ReactNode,
-} from "react";
-
-import {
-  LogOut,
-  Menu,
-  UserRound,
-} from "lucide-react";
-
-import {
-  useLocation,
-  useNavigate,
-} from "react-router";
+import type { ReactNode } from "react";
+import { LogOut, Menu, UserRound } from "lucide-react";
+import { useLocation, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "../LanguageSwitcher"; // Sesuaikan relative path ini dengan lokasi file LanguageSwitcher.tsx kamu
 
 export type TopbarProps = {
-  title:
-    string;
-
-  subtitle?:
-    string;
-
-  onMenuClick?:
-    () => void;
-
-  onLogout?:
-    () => void;
-
-  isLoggingOut?:
-    boolean;
-
-  actions?:
-    ReactNode;
-
-  // Kept for compatibility with pages that configure the topbar.
-  // The current Topbar does not render a search control.
-  showSearch?:
-    boolean;
+  title: string;
+  subtitle?: string;
+  onMenuClick?: () => void;
+  onLogout?: () => void;
+  isLoggingOut?: boolean;
+  actions?: ReactNode;
+  showSearch?: boolean;
 };
 
 export default function Topbar({
@@ -46,11 +22,9 @@ export default function Topbar({
   isLoggingOut = false,
   actions,
 }: TopbarProps) {
-  const navigate =
-    useNavigate();
-
-  const location =
-    useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { t } = useTranslation();
 
   const profilePath = location.pathname.startsWith("/mentor")
     ? "/mentor/profile"
@@ -60,22 +34,15 @@ export default function Topbar({
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
       <div className="flex min-h-20 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
 
-        {/* ===============================================
-            Left
-        ================================================ */}
-
+        {/* Left */}
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             aria-label="Open sidebar"
-            onClick={
-              onMenuClick
-            }
+            onClick={onMenuClick}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-ally-primary lg:hidden"
           >
-            <Menu
-              size={22}
-            />
+            <Menu size={22} />
           </button>
 
           <div className="min-w-0">
@@ -91,55 +58,42 @@ export default function Topbar({
           </div>
         </div>
 
-        {/* ===============================================
-            Right
-        ================================================ */}
-
+        {/* Right */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
 
           {/* Optional page-specific actions */}
-
           {actions}
 
-          {/* Profile */}
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
+          {/* Profile */}
           <button
             type="button"
             aria-label="Open profile"
             onClick={() => {
-              navigate(
-                profilePath,
-              );
+              navigate(profilePath);
             }}
             className="grid h-10 w-10 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-ally-primary"
           >
-            <UserRound
-              size={21}
-            />
+            <UserRound size={21} />
           </button>
 
           {/* Logout */}
-
           {onLogout && (
             <button
               type="button"
               aria-label="Log out"
-              disabled={
-                isLoggingOut
-              }
-              onClick={
-                onLogout
-              }
-              className="flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
+              disabled={isLoggingOut}
+              onClick={onLogout}
+              className="flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
             >
-              <LogOut
-                size={19}
-              />
+              <LogOut size={19} />
 
               <span className="hidden xl:inline">
                 {isLoggingOut
-                  ? "Logging out..."
-                  : "Log out"}
+                  ? t("topbar.loggingOut", "Logging out...")
+                  : t("topbar.logout", "Log out")}
               </span>
             </button>
           )}

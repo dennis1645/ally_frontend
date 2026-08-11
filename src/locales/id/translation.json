@@ -1,0 +1,15 @@
+{
+  "topbar": {
+    "logout": "Keluar"
+  },
+  "sidebar": {
+    "dashboard": "Dasbor",
+    "questTracker": "Pelacak Misi",
+    "aiMentor": "Mentor AI"
+  },
+  "passport": {
+    "title": "Paspor Penjelajah",
+    "profile": "Profil",
+    "expedition": "Ekspedisi"
+  }
+}

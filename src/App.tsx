@@ -12,6 +12,7 @@ import {
   InitialAssessmentRouteElement,
 } from "./routes/assessment.routes";
 
+import './i18n';
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import FinancePage from "./pages/admin/Finance";
@@ -29,6 +30,7 @@ import AIMentorPage from "./pages/user/AIMentorPage";
 import EditProfilePage from "./pages/user/EditProfilePage";
 import EmptyPage from "./pages/EmptyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import LoadingPage from "./pages/LoadingPage";
 import LandingPage from "./pages/LandingPage";
 import ProfilePage from "./pages/user/ProfilePage";
 import QuestTrackerPage from "./pages/user/QuestTrackerPage";
@@ -65,9 +67,22 @@ export default function App() {
             PUBLIC ROUTES
         ====================================================== */}
 
+        {/* 1. Halaman Utama (Akses awal / Refresh akan masuk ke Loading Page dulu) */}
         <Route
           path="/"
+          element={<LoadingPage />}
+        />
+
+        {/* 2. Halaman Landing Page setelah selesai Loading */}
+        <Route
+          path="/landing"
           element={<LandingPage />}
+        />
+
+        {/* 3. Akses manual /loading jika dipanggil dari navigasi lain */}
+        <Route
+          path="/loading"
+          element={<LoadingPage />}
         />
 
         <Route
@@ -469,41 +484,52 @@ export default function App() {
                 />
               }
             />
-            <Route
-              path="/admin/university"
-              element={<UniversityAdmin />}
-            />
-
-          <Route
-            path="/admin/scholarships"
-            element={<ScholarshipAdmin />}
-          />
-
-          <Route
-            path="/admin/assessment"
-            element={<InitialAssessmentAdmin />}
-          />
-
-          <Route
-            path="/admin/shop"
-            element={<ItemShopAdmin />}
-          />
-
-          <Route
-            path="/admin/quiz"
-            element={<QuizAdmin />}
-          />
-
-          <Route
-            path="/admin/badges"
-            element={<BadgeAdmin />}
-          />
-
+            
             <Route
               path="/admin/dashboard"
               element={
                 <AdminDashboardPage />
               }
+            />
+
+            <Route
+              path="/admin/university"
+              element={<UniversityAdmin />}
+            />
+
+            <Route
+              path="/admin/scholarships"
+              element={<ScholarshipAdmin />}
+            />
+
+            <Route
+              path="/admin/scholarships/:scholarshipId/edit"
+              element={
+                <EmptyPage
+                  title="Edit Scholarship"
+                  description="Update an existing scholarship entry."
+                />
+              }
+            />
+
+            <Route
+              path="/admin/assessment"
+              element={<InitialAssessmentAdmin />}
+            />
+
+            <Route
+              path="/admin/shop"
+              element={<ItemShopAdmin />}
+            />
+
+            <Route
+              path="/admin/quiz"
+              element={<QuizAdmin />}
+            />
+
+            <Route
+              path="/admin/badges"
+              element={<BadgeAdmin />}
             />
 
             <Route
@@ -527,28 +553,8 @@ export default function App() {
             />
 
             <Route
-              path="/admin/scholarships"
-              element={
-                <EmptyPage
-                  title="Scholarship Management"
-                  description="Create, edit, publish, and archive scholarship data."
-                />
-              }
-            />
-
-          <Route
-            path="/admin/payments"
-            element={<FinancePage />}
-          />
-
-            <Route
-              path="/admin/scholarships/:scholarshipId/edit"
-              element={
-                <EmptyPage
-                  title="Edit Scholarship"
-                  description="Update an existing scholarship entry."
-                />
-              }
+              path="/admin/payments"
+              element={<FinancePage />}
             />
 
             <Route
@@ -567,16 +573,6 @@ export default function App() {
                 <EmptyPage
                   title="Capacity Monitoring"
                   description="Monitor mentor availability and platform capacity."
-                />
-              }
-            />
-
-            <Route
-              path="/admin/payments"
-              element={
-                <EmptyPage
-                  title="Payment Management"
-                  description="Review payment transactions and package activation."
                 />
               }
             />
