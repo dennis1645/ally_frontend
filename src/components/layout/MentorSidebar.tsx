@@ -4,11 +4,10 @@ import {
   ClipboardList,
   BriefcaseBusiness,
   BookOpen,
-  Settings,
-  LifeBuoy,
+//   Settings,
+//   LifeBuoy,
   LayoutDashboard,
   UsersRound,
-  User,
 } from "lucide-react";
 
 import type { SidebarItem } from "./Sidebar";
@@ -50,19 +49,14 @@ export const mentorSidebarItems: SidebarItem[] = [
     path: "/mentor/documents",
     icon: BookOpen,
   },
-  {
-    label: "Settings",
-    path: "/mentor/settings",
-    icon: Settings,
-  },
-  {
-    label: "Support",
-    path: "/mentor/support",
-    icon: LifeBuoy,
-  },
-  {
-    label: "Profile",
-    path: "/mentor/profile",
-    icon: User,
-  },
+//   {
+//     label: "Settings",
+//     path: "/mentor/settings",
+//     icon: Settings,
+//   },
+//   {
+//     label: "Support",
+//     path: "/mentor/support",
+//     icon: LifeBuoy,
+//   },
 ];

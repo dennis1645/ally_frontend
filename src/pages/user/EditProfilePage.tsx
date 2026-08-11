@@ -4,7 +4,6 @@ import {
   Camera,
   CheckCircle2,
   Compass,
-  ImagePlus,
   Link as Linkedin,
   Mail,
   Phone,
@@ -293,7 +292,9 @@ export default function EditProfilePage() {
         user.phone_number ?? "",
 
       gender:
-        user.gender ?? "",
+        user.gender === "other"
+          ? ""
+          : user.gender ?? "",
 
       headline:
         user.headline ?? "",
@@ -578,7 +579,11 @@ export default function EditProfilePage() {
     }
 
     if (
-      profileForm.phone_number.trim() &&
+      !profileForm.phone_number.trim()
+    ) {
+      nextErrors.phone_number =
+        "Phone number is required.";
+    } else if (
       profileForm.phone_number
         .trim()
         .length < 8
@@ -650,22 +655,15 @@ export default function EditProfilePage() {
        */
       await refreshProfile();
 
-      setProfileForm(
-        (current) => ({
-          ...current,
-          profile_picture: null,
-        }),
-      );
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value =
-          "";
-      }
-
-      setImageFailed(false);
-
-      setProfileSuccess(
-        "Your Explorer Passport has been updated successfully.",
+      /*
+       * The passport is now saved and refreshed.
+       * Return directly to the main Explorer Passport.
+       */
+      navigate(
+        "/profile",
+        {
+          replace: true,
+        },
       );
     } catch (error) {
       setProfileFieldErrors(
@@ -748,8 +746,13 @@ export default function EditProfilePage() {
 
                     <div className="mt-7">
                       <div className="passport-edit-photo-card">
-                        <div className="relative mx-auto w-fit">
-                          <div className="passport-edit-photo-frame">
+                        <label
+                          htmlFor="profile-picture"
+                          title="Choose a new profile picture"
+                          aria-label="Choose a new profile picture"
+                          className="relative mx-auto block w-fit cursor-pointer rounded-2xl outline-none focus-within:ring-4 focus-within:ring-blue-100"
+                        >
+                          <div className="passport-edit-photo-frame transition hover:brightness-95">
                             {displayedProfilePicture &&
                             !imageFailed ? (
                               <img
@@ -773,13 +776,13 @@ export default function EditProfilePage() {
                             )}
                           </div>
 
-                          <div className="passport-edit-camera-badge">
+                          <div className="passport-edit-camera-badge pointer-events-none">
                             <Camera
                               size={19}
                             />
                           </div>
 
-                          <div className="passport-edit-verified-stamp">
+                          <div className="passport-edit-verified-stamp pointer-events-none">
                             <ShieldCheck
                               size={22}
                             />
@@ -788,34 +791,20 @@ export default function EditProfilePage() {
                               EXPLORER
                             </span>
                           </div>
-                        </div>
 
-                        <label
-                          htmlFor="profile-picture"
-                          className="passport-profile-upload"
-                        >
-                          <ImagePlus
-                            size={18}
+                          <input
+                            ref={
+                              fileInputRef
+                            }
+                            id="profile-picture"
+                            type="file"
+                            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                            className="sr-only"
+                            onChange={
+                              handleProfilePictureChange
+                            }
                           />
-
-                          <span>
-                            Choose New
-                            Picture
-                          </span>
                         </label>
-
-                        <input
-                          ref={
-                            fileInputRef
-                          }
-                          id="profile-picture"
-                          type="file"
-                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                          className="sr-only"
-                          onChange={
-                            handleProfilePictureChange
-                          }
-                        />
 
                         {profileFieldErrors.profile_picture && (
                           <p className="mt-2 text-center text-xs text-red-600">
@@ -898,6 +887,7 @@ export default function EditProfilePage() {
                           id="profile-email"
                           label="Email Address"
                           type="email"
+                          required
                           value={
                             currentUser.email
                           }
@@ -914,6 +904,7 @@ export default function EditProfilePage() {
                           id="profile-phone"
                           label="Phone Number"
                           type="tel"
+                          required
                           value={
                             profileForm.phone_number
                           }
@@ -980,10 +971,6 @@ export default function EditProfilePage() {
                               Female
                             </option>
 
-                            <option value="other">
-                              Prefer not
-                              to say
-                            </option>
                           </select>
 
                           {profileFieldErrors.gender && (
@@ -1030,10 +1017,10 @@ export default function EditProfilePage() {
                         </div>
 
                         <div>
-                          <p className="passport-handwritten">
+                          <h2 className="mt-[0.15rem] text-[clamp(1.45rem,3vw,2rem)] font-extrabold tracking-[-0.025em] text-[#2c1607]">
                             Guide&apos;s
                             note
-                          </p>
+                          </h2>
 
                           <p className="mt-1 text-sm leading-relaxed text-slate-600">
                             Keep your

@@ -1,506 +1,185 @@
-import {
-  ImageIcon,
-  Mic,
-  MoreHorizontal,
-  Paperclip,
-  Search,
-  Send,
-} from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Send, Bookmark, Search, MoreHorizontal, Trash2, X } from "lucide-react";
+import allyMascot from "../../assets/ally-assessment-mascot.png"; // Pastikan path ini benar!
 
-import {
-  useMemo,
-  useState,
-  type FormEvent,
-} from "react";
-
-import allyMascot from "../../assets/ally-assessment-mascot.png";
-
-import type {
-  AIMentorMessage,
-} from "../../mocks/aiMentorMock";
-
-export type AIMentorChatProps = {
-  milestoneName: string;
-  readiness: number;
-  initialMessages: AIMentorMessage[];
-  quickPrompts: string[];
-  userInitials?: string;
+type Message = {
+  id: number;
+  role: "user" | "ally";
+  content: string;
+  time: string;
 };
 
-function createLocalMentorReply(
-  message: string,
-): string {
-  const normalizedMessage =
-    message.toLowerCase();
+type AIMentorChatProps = {
+  initialMessages: Message[];
+  userInitials: string;
+  onSaveInsight: (content: string, category?: string) => void;
+};
 
-  if (
-    normalizedMessage.includes(
-      "essay",
-    )
-  ) {
-    return "I can help you review the structure, clarity, evidence, and scholarship fit of your essay. Paste a section here and we can work through it together.";
-  }
+export default function AIMentorChat({ initialMessages, userInitials, onSaveInsight }: AIMentorChatProps) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages || []);
+  const [inputValue, setInputValue] = useState("");
+  
+  // Search & Menu Options
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  if (
-    normalizedMessage.includes(
-      "interview",
-    )
-  ) {
-    return "Let's practice. I can give you a scholarship interview question, let you answer, and then provide structured feedback on clarity and impact.";
-  }
+  // Auto scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  if (
-    normalizedMessage.includes(
-      "scholarship",
-    )
-  ) {
-    return "I can help you organize your scholarship search around eligibility, deadline, funding coverage, and how closely each opportunity matches your profile.";
-  }
-
-  if (
-    normalizedMessage.includes(
-      "study plan",
-    ) ||
-    normalizedMessage.includes(
-      "plan",
-    )
-  ) {
-    return "We can turn your next milestone into a simple weekly plan with priority tasks, target dates, and buffer time before each deadline.";
-  }
-
-  if (
-    normalizedMessage.includes(
-      "recommendation",
-    ) ||
-    normalizedMessage.includes(
-      "professor",
-    )
-  ) {
-    return "A strong recommendation request should briefly explain the scholarship, why you are applying, the deadline, and why you are asking that specific professor. You can also attach your latest CV and a short achievements summary.";
-  }
-
-  return "Got it. For this frontend prototype, I can simulate guidance using local responses. Tell me which scholarship task you want to work on next.";
-}
-
-function getCurrentTimeLabel(): string {
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      hour: "numeric",
-      minute: "2-digit",
-    },
-  ).format(
-    new Date(),
-  );
-}
-
-export default function AIMentorChat({
-  milestoneName,
-  readiness,
-  initialMessages,
-  quickPrompts,
-  userInitials = "EX",
-}: AIMentorChatProps) {
-  const [
-    messages,
-    setMessages,
-  ] =
-    useState<AIMentorMessage[]>(
-      initialMessages,
-    );
-
-  const [
-    inputValue,
-    setInputValue,
-  ] =
-    useState(
-      "",
-    );
-
-  const [
-    isTyping,
-    setIsTyping,
-  ] =
-    useState(
-      true,
-    );
-
-  const normalizedInitials =
-    useMemo(
-      () =>
-        userInitials
-          .trim()
-          .slice(
-            0,
-            2,
-          )
-          .toUpperCase() ||
-        "EX",
-      [
-        userInitials,
-      ],
-    );
-
-  function submitMessage(
-    rawMessage?: string,
-  ): void {
-    const message =
-      (
-        rawMessage ??
-        inputValue
-      ).trim();
-
-    if (
-      !message
-    ) {
-      return;
-    }
-
-    const userMessage:
-      AIMentorMessage = {
-      id:
-        Date.now(),
-
-      role:
-        "user",
-
-      text:
-        message,
-
-      time:
-        getCurrentTimeLabel(),
+  // Klik di luar buat nutup menu titik 3
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setIsMenuOpen(false);
     };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    setMessages(
-      (
-        currentMessages,
-      ) => [
-        ...currentMessages,
-        userMessage,
-      ],
-    );
+  const getCurrentTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
-    setInputValue(
-      "",
-    );
+  const handleSendMessage = (text: string) => {
+    if (!text.trim()) return;
+    setMessages((prev) => [...prev, { id: Date.now(), role: "user", content: text, time: getCurrentTime() }]);
+    setInputValue("");
+    
+    // Mocking balasan AI
+    setTimeout(() => {
+      setMessages((prev) => [...prev, { 
+        id: Date.now() + 1, 
+        role: "ally", 
+        content: "I've noted that! You can save this advice by clicking the bookmark icon beside this bubble.", 
+        time: getCurrentTime() 
+      }]);
+    }, 1000);
+  };
 
-    setIsTyping(
-      true,
-    );
-
-    window.setTimeout(
-      () => {
-        const mentorMessage:
-          AIMentorMessage = {
-          id:
-            Date.now() +
-            1,
-
-          role:
-            "assistant",
-
-          text:
-            createLocalMentorReply(
-              message,
-            ),
-
-          time:
-            getCurrentTimeLabel(),
-        };
-
-        setMessages(
-          (
-            currentMessages,
-          ) => [
-            ...currentMessages,
-            mentorMessage,
-          ],
-        );
-
-        setIsTyping(
-          false,
-        );
-      },
-      800,
-    );
-  }
-
-  function handleSubmit(
-    event:
-      FormEvent<HTMLFormElement>,
-  ): void {
-    event.preventDefault();
-
-    submitMessage();
-  }
+  // Logic Fitur Search
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages;
+    return messages.filter((msg) => msg.content.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [messages, searchQuery]);
 
   return (
-    <section className="flex min-h-[560px] flex-col overflow-hidden rounded-[22px] border border-slate-300 bg-white shadow-sm">
-      {/* Chat header */}
-
-      <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-
-          <span className="text-sm font-medium text-slate-700">
-            Guide is active
-          </span>
+    <div className="flex h-[600px] flex-col rounded-[22px] border border-slate-200 bg-white shadow-sm overflow-hidden">
+      
+      {/* HEADER: Kiri Aktif, Kanan Search & Titik Tiga */}
+      <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 z-10">
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500"></div>
+          <span className="text-sm font-semibold text-slate-700">Guide is active</span>
         </div>
+        
+        <div className="flex items-center gap-4 relative">
+          {/* Tombol Search */}
+          {isSearchOpen ? (
+            <div className="flex items-center rounded-full bg-slate-100 px-3 py-1.5">
+              <Search size={14} className="text-slate-400 mr-2" />
+              <input 
+                type="text" autoFocus placeholder="Search chat..." value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent text-sm outline-none w-32 placeholder:text-slate-400"
+              />
+              <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}><X size={14} className="text-slate-400 hover:text-slate-600" /></button>
+            </div>
+          ) : (
+            <button onClick={() => setIsSearchOpen(true)} className="text-slate-400 hover:text-slate-700"><Search size={20} /></button>
+          )}
 
-        <div className="flex items-center gap-1 text-slate-500">
-          <button
-            type="button"
-            aria-label="Search conversation"
-            className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-slate-100 hover:text-slate-800"
-          >
-            <Search
-              size={19}
-            />
-          </button>
-
-          <button
-            type="button"
-            aria-label="More chat options"
-            className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-slate-100 hover:text-slate-800"
-          >
-            <MoreHorizontal
-              size={21}
-            />
-          </button>
+          {/* Tombol Titik Tiga */}
+          <div ref={menuRef} className="relative">
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-slate-400 hover:text-slate-700"><MoreHorizontal size={22} /></button>
+            {isMenuOpen && (
+              <div className="absolute right-0 top-8 w-36 rounded-xl border border-slate-200 bg-white shadow-lg p-1 z-50">
+                <button onClick={() => { setMessages([]); setIsMenuOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                  <Trash2 size={15} /> Clear Chat
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </header>
+      </div>
 
-      {/* Conversation */}
-
-      <div
-        aria-live="polite"
-        className="relative flex min-h-[360px] flex-1 flex-col gap-6 overflow-y-auto px-5 py-6 sm:px-6"
+      {/* AREA CHAT BUBBLE DENGAN BACKGROUND TITIK-TITIK */}
+      <div 
+        className="flex-1 overflow-y-auto p-5 space-y-6"
         style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(148,163,184,0.16) 1px, transparent 0)",
-
-          backgroundSize:
-            "22px 22px",
+          backgroundImage: "radial-gradient(#e2e8f0 1.5px, transparent 1.5px)",
+          backgroundSize: "24px 24px",
+          backgroundColor: "#ffffff"
         }}
       >
-        <div className="relative z-10 flex justify-center">
-          <div className="rounded-full border border-[#efd0bd] bg-[#fff1ea] px-4 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
-            Milestone:{" "}
-            <span className="font-semibold text-ally-primary">
-              {milestoneName}
-            </span>
+        {filteredMessages.map((msg) => {
+          const isAlly = msg.role === "ally";
 
-            {" • "}
-
-            Readiness:{" "}
-            <span className="font-semibold text-ally-primary">
-              {readiness}%
-            </span>
-          </div>
-        </div>
-
-        {messages.map(
-          (
-            message,
-          ) => {
-            const isAssistant =
-              message.role ===
-              "assistant";
-
-            if (
-              isAssistant
-            ) {
-              return (
-                <div
-                  key={
-                    message.id
-                  }
-                  className="relative z-10 flex items-start gap-3 sm:gap-4"
-                >
-                  <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-sky-200 bg-sky-100 p-1">
-                    <img
-                      src={
-                        allyMascot
-                      }
-                      alt="Ally"
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-
-                  <div className="max-w-[82%]">
-                    <div className="rounded-2xl rounded-tl-sm border border-[#efd0bd] bg-[#fff1ea] px-4 py-3.5 text-sm leading-6 text-[#3d2514] shadow-sm sm:text-[15px]">
-                      {
-                        message.text
-                      }
+          return (
+            <div key={msg.id} className={`flex w-full ${isAlly ? "justify-start" : "justify-end"}`}>
+              <div className={`flex max-w-[85%] gap-3 ${isAlly ? "flex-row" : "flex-row-reverse"}`}>
+                
+                {/* AVATAR */}
+                <div className="shrink-0 mt-1">
+                  {isAlly ? (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 border border-slate-200">
+                      <img src={allyMascot} alt="Ally" className="h-8 w-8" />
                     </div>
-
-                    <p className="mt-1 px-1 text-[10px] text-slate-400">
-                      {
-                        message.time
-                      }
-                    </p>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div
-                key={
-                  message.id
-                }
-                className="relative z-10 flex items-start justify-end gap-3 sm:gap-4"
-              >
-                <div className="flex max-w-[82%] flex-col items-end">
-                  <div className="rounded-2xl rounded-tr-sm bg-[#69a9e6] px-4 py-3.5 text-sm leading-6 text-white shadow-sm sm:text-[15px]">
-                    {
-                      message.text
-                    }
-                  </div>
-
-                  <p className="mt-1 px-1 text-[10px] text-slate-400">
-                    {
-                      message.time
-                    }
-                  </p>
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5b9bd5] text-white">
+                      <span className="text-sm font-bold">{userInitials}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#5f9fdd] text-xs font-bold text-white shadow-sm">
-                  {
-                    normalizedInitials
-                  }
+                {/* BUBBLE & TOMBOL SAVE */}
+                <div className={`flex flex-col ${isAlly ? "items-start" : "items-end"}`}>
+                  <div className="group relative">
+                    <div className={`px-5 py-3.5 text-[15px] leading-relaxed shadow-sm
+                      ${isAlly ? "rounded-2xl rounded-tl-sm bg-[#fdf6f2] border border-[#f1d9c8] text-slate-800" 
+                               : "rounded-2xl rounded-tr-sm bg-[#5b9bd5] text-white"}`}
+                    >
+                      {msg.content}
+                    </div>
+                    
+                    {/* TOMBOL SAVE (MUNCUL DI SEBELAH KANAN BUBBLE AI SAAT DI HOVER) */}
+                    {isAlly && (
+                      <button
+                        onClick={() => onSaveInsight(msg.content, "AI Advice")}
+                        className="absolute -right-10 bottom-0 p-2 rounded-full text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-orange-50 hover:text-[#b17a39] transition-all"
+                        title="Save to Insights"
+                      >
+                        <Bookmark size={18} />
+                      </button>
+                    )}
+                  </div>
+                  <span className={`text-[11px] text-slate-400 mt-1.5 ${isAlly ? "ml-1" : "mr-1"}`}>{msg.time || "Just now"}</span>
                 </div>
               </div>
-            );
-          },
-        )}
-
-        {isTyping && (
-          <div className="relative z-10 flex items-start gap-3 sm:gap-4">
-            <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-sky-200 bg-sky-100 p-1">
-              <img
-                src={
-                  allyMascot
-                }
-                alt="Ally"
-                className="h-full w-full object-contain"
-              />
             </div>
-
-            <div className="flex items-center gap-1 rounded-full border border-[#efd0bd] bg-[#fff1ea] px-4 py-3 shadow-sm">
-              {[0, 1, 2].map(
-                (
-                  dot,
-                ) => (
-                  <span
-                    key={dot}
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500"
-                    style={{
-                      animationDelay:
-                        `${dot * 100}ms`,
-                    }}
-                  />
-                ),
-              )}
-            </div>
-          </div>
-        )}
+          );
+        })}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Composer */}
-
-      <div className="border-t border-slate-200 bg-white px-5 py-5 sm:px-6">
-        <form
-          onSubmit={
-            handleSubmit
-          }
-          className="flex items-center gap-2 rounded-2xl border-2 border-slate-300 bg-white px-3 py-2 transition focus-within:border-ally-primary focus-within:ring-4 focus-within:ring-blue-100"
-        >
-          <input
-            type="text"
-            value={
-              inputValue
-            }
-            onChange={(
-              event,
-            ) => {
-              setInputValue(
-                event.target.value,
-              );
-            }}
-            placeholder="Message your guide..."
-            className="min-w-0 flex-1 border-0 bg-transparent px-2 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0 sm:text-base"
+      {/* INPUT AREA (Tanpa Mic) */}
+      <div className="border-t border-slate-200 bg-white p-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputValue); }} className="flex items-end gap-3">
+          <textarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(inputValue); } }}
+            placeholder="Type your message here..."
+            className="flex-1 max-h-[120px] min-h-[50px] resize-none rounded-xl border border-slate-300 bg-slate-50 py-3.5 px-4 text-sm outline-none focus:border-blue-400 focus:bg-white"
+            rows={1}
           />
-
-          <div className="flex shrink-0 items-center border-l border-slate-200 pl-2 text-slate-500">
-            <button
-              type="button"
-              aria-label="Voice input"
-              className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-slate-100 hover:text-ally-primary"
-            >
-              <Mic
-                size={18}
-              />
-            </button>
-
-            <button
-              type="button"
-              aria-label="Attach a file"
-              className="hidden h-9 w-9 place-items-center rounded-lg transition hover:bg-slate-100 hover:text-ally-primary sm:grid"
-            >
-              <Paperclip
-                size={18}
-              />
-            </button>
-
-            <button
-              type="button"
-              aria-label="Attach an image"
-              className="hidden h-9 w-9 place-items-center rounded-lg transition hover:bg-slate-100 hover:text-ally-primary sm:grid"
-            >
-              <ImageIcon
-                size={18}
-              />
-            </button>
-
-            <button
-              type="submit"
-              aria-label="Send message"
-              disabled={
-                !inputValue.trim()
-              }
-              className="ml-1 grid h-10 w-10 place-items-center rounded-full bg-ally-primary text-white shadow-sm transition hover:bg-[#124f82] disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              <Send
-                size={18}
-              />
-            </button>
-          </div>
+          <button type="submit" disabled={!inputValue.trim()} className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-xl bg-[#5b9bd5] text-white hover:bg-blue-600 disabled:opacity-50">
+            <Send size={20} className="ml-1" />
+          </button>
         </form>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {quickPrompts.map(
-            (
-              prompt,
-            ) => (
-              <button
-                key={
-                  prompt
-                }
-                type="button"
-                onClick={() => {
-                  setInputValue(
-                    prompt,
-                  );
-                }}
-                className="rounded-full border border-[#efccb8] bg-[#fff1ea] px-4 py-2 text-left text-xs font-medium text-slate-700 shadow-sm transition hover:border-[#d9a98d] hover:bg-[#ffe7da] sm:text-sm"
-              >
-                {prompt}
-              </button>
-            ),
-          )}
-        </div>
       </div>
-    </section>
+    </div>
   );
 }

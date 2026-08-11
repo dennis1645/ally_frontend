@@ -94,6 +94,75 @@ const emptyJournalForm: JournalFormState =
     blockers: "",
   };
 
+const moodOptions = [
+  {
+    value: "Excited",
+    emoji: "🤩",
+  },
+  {
+    value: "Happy",
+    emoji: "😊",
+  },
+  {
+    value: "Focused",
+    emoji: "🎯",
+  },
+  {
+    value: "Calm",
+    emoji: "😌",
+  },
+  {
+    value: "Neutral",
+    emoji: "😐",
+  },
+  {
+    value: "Tired",
+    emoji: "😮‍💨",
+  },
+  {
+    value: "Overwhelmed",
+    emoji: "😣",
+  },
+  {
+    value: "Sad",
+    emoji: "😔",
+  },
+] as const;
+
+const requiredJournalFields: Array<{
+  field: keyof JournalFormState;
+  label: string;
+}> = [
+  {
+    field: "mood",
+    label: "Mood",
+  },
+  {
+    field: "reflection",
+    label: "Reflection",
+  },
+  {
+    field: "goals",
+    label: "Goals",
+  },
+  {
+    field: "achievements",
+    label: "Achievements",
+  },
+  {
+    field: "challenges",
+    label: "Challenges",
+  },
+  {
+    field: "progress_notes",
+    label: "Progress Notes",
+  },
+  {
+    field: "blockers",
+    label: "Blockers",
+  },
+];
+
 const weekDays = [
   "Sun",
   "Mon",
@@ -219,11 +288,22 @@ function getMoodIcon(
 
   if (
     normalized.includes("happy") ||
-    normalized.includes("senang") ||
-    normalized.includes("calm") ||
-    normalized.includes("focused")
+    normalized.includes("senang")
   ) {
     return "😊";
+  }
+
+  if (
+    normalized.includes("focused") ||
+    normalized.includes("focus")
+  ) {
+    return "🎯";
+  }
+
+  if (
+    normalized.includes("calm")
+  ) {
+    return "😌";
   }
 
   if (
@@ -334,12 +414,19 @@ function JournalTextarea({
         htmlFor={id}
         className="passport-field-label"
       >
-        {label}
+        {label}{" "}
+        <span
+          aria-hidden="true"
+          className="text-red-600"
+        >
+          *
+        </span>
       </label>
 
       <textarea
         id={id}
         rows={rows}
+        required
         value={value}
         placeholder={placeholder}
         onChange={(event) =>
@@ -700,22 +787,21 @@ export default function JourneyLogSpread() {
       return;
     }
 
-    if (!form.mood.trim()) {
-      setError(
-        "Mood is required.",
-      );
-
-      return;
-    }
-
-    if (
-      !form.reflection.trim()
+    for (
+      const requiredField of
+      requiredJournalFields
     ) {
-      setError(
-        "Reflection is required.",
-      );
+      if (
+        !form[
+          requiredField.field
+        ].trim()
+      ) {
+        setError(
+          `${requiredField.label} is required.`,
+        );
 
-      return;
+        return;
+      }
     }
 
     const payload: JournalPayload =
@@ -741,8 +827,7 @@ export default function JourneyLogSpread() {
           form.progress_notes.trim(),
 
         blockers:
-          form.blockers.trim() ||
-          null,
+          form.blockers.trim(),
       };
 
     setIsSaving(true);
@@ -840,7 +925,13 @@ export default function JourneyLogSpread() {
       >
         <div className="rounded-2xl border-2 border-dashed border-[#c69c6e] bg-[#fff8e8] p-4">
           <p className="passport-field-label">
-            Journal Date
+            Journal Date{" "}
+            <span
+              aria-hidden="true"
+              className="text-red-600"
+            >
+              *
+            </span>
           </p>
 
           <div className="mt-2 flex items-center gap-3">
@@ -863,29 +954,74 @@ export default function JourneyLogSpread() {
           </div>
         </div>
 
-        <div>
-          <label
-            htmlFor="journal-mood"
-            className="passport-field-label"
-          >
-            Mood
-          </label>
+        <fieldset>
+          <legend className="passport-field-label">
+            Mood{" "}
+            <span
+              aria-hidden="true"
+              className="text-red-600"
+            >
+              *
+            </span>
+          </legend>
 
-          <input
+          <div
             id="journal-mood"
-            type="text"
-            required
-            value={form.mood}
-            placeholder="Focused, motivated, tired..."
-            onChange={(event) =>
-              updateField(
-                "mood",
-                event.target.value,
-              )
-            }
-            className="passport-form-control mt-2"
-          />
-        </div>
+            className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4"
+          >
+            {moodOptions.map(
+              (
+                option,
+              ) => {
+                const isSelected =
+                  form.mood ===
+                  option.value;
+
+                return (
+                  <button
+                    key={
+                      option.value
+                    }
+                    type="button"
+                    aria-pressed={
+                      isSelected
+                    }
+                    onClick={() =>
+                      updateField(
+                        "mood",
+                        option.value,
+                      )
+                    }
+                    className={[
+                      "flex min-h-16 items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left transition",
+                      "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100",
+                      isSelected
+                        ? "border-[#16629b] bg-[#eef6fb] text-[#16629b] shadow-sm"
+                        : "border-dashed border-[#c69c6e] bg-[#fff8e8] text-[#7a582f] hover:bg-[#fff1dc]",
+                    ].join(
+                      " ",
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="text-2xl"
+                    >
+                      {
+                        option.emoji
+                      }
+                    </span>
+
+                    <span className="text-xs font-extrabold sm:text-sm">
+                      {
+                        option.value
+                      }
+                    </span>
+                  </button>
+                );
+              },
+            )}
+          </div>
+        </fieldset>
 
         <JournalTextarea
           id="journal-reflection"

@@ -19,6 +19,7 @@ import {
   useSearchParams,
 } from "react-router";
 
+import { ApiError } from "../../api/apiClient";
 import { useAuth } from "../../context/AuthContext";
 
 import {
@@ -70,6 +71,16 @@ export default function AuthCard() {
   ] = useState(false);
 
   const [
+    showRegisterPassword,
+    setShowRegisterPassword,
+  ] = useState(false);
+
+  const [
+    showRegisterConfirmPassword,
+    setShowRegisterConfirmPassword,
+  ] = useState(false);
+
+  const [
     submissionState,
     setSubmissionState,
   ] = useState<SubmissionState>(
@@ -117,6 +128,10 @@ export default function AuthCard() {
 
     loginForm.clearErrors();
     registerForm.clearErrors();
+
+    setShowLoginPassword(false);
+    setShowRegisterPassword(false);
+    setShowRegisterConfirmPassword(false);
   }
 
   const handleLogin: SubmitHandler<
@@ -179,6 +194,68 @@ export default function AuthCard() {
         },
       );
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.errors
+      ) {
+        const fieldMap: Record<
+          string,
+          keyof RegisterValues
+        > = {
+          name: "name",
+          email: "email",
+          phone_number: "phone_number",
+          password: "password",
+          password_confirmation:
+            "password_confirmation",
+        };
+
+        let hasFieldError = false;
+        let shouldFocus = true;
+
+        for (const [
+          backendField,
+          messages,
+        ] of Object.entries(error.errors)) {
+          const fieldName =
+            fieldMap[backendField];
+
+          const message =
+            messages.find(
+              (item) =>
+                typeof item === "string" &&
+                item.trim().length > 0,
+            );
+
+          if (!fieldName || !message) {
+            continue;
+          }
+
+          registerForm.setError(
+            fieldName,
+            {
+              type: "server",
+              message,
+            },
+            {
+              shouldFocus,
+            },
+          );
+
+          shouldFocus = false;
+          hasFieldError = true;
+        }
+
+        setSubmissionState({
+          isSubmitting: false,
+          error: hasFieldError
+            ? null
+            : error.message,
+        });
+
+        return;
+      }
+
       setSubmissionState({
         isSubmitting: false,
         error:
@@ -293,13 +370,16 @@ export default function AuthCard() {
                         ? "Hide password"
                         : "Show password"
                     }
+                    aria-pressed={
+                      showLoginPassword
+                    }
                     onClick={() =>
                       setShowLoginPassword(
                         (current) =>
                           !current,
                       )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ally-muted"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-ally-muted transition hover:bg-ally-surface-strong hover:text-ally-primary focus:outline-none focus:ring-2 focus:ring-ally-blue"
                   >
                     {showLoginPassword ? (
                       <EyeOff size={20} />
@@ -420,53 +500,243 @@ export default function AuthCard() {
                 )}
               />
 
-              <FormField
-                id="register-phone"
-                label="Phone Number"
-                type="tel"
-                autoComplete="tel"
-                placeholder="081234567891"
-                error={
-                  registerForm.formState
-                    .errors.phone_number
-                    ?.message
-                }
-                {...registerForm.register(
-                  "phone_number",
-                )}
-              />
+              <div>
+                <label
+                  htmlFor="register-phone"
+                  className="mb-2 block text-sm font-medium"
+                >
+                  Phone Number
+                </label>
 
-              <FormField
-                id="register-password"
-                label="Password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Minimum 8 characters"
-                error={
-                  registerForm.formState
-                    .errors.password?.message
-                }
-                {...registerForm.register(
-                  "password",
-                )}
-              />
+                <input
+                  id="register-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder="081234567891"
+                  maxLength={12}
+                  pattern="[0-9]*"
+                  aria-invalid={
+                    Boolean(
+                      registerForm.formState
+                        .errors.phone_number,
+                    )
+                  }
+                  aria-describedby={
+                    registerForm.formState
+                      .errors.phone_number
+                      ? "register-phone-error"
+                      : undefined
+                  }
+                  className={[
+                    "w-full rounded-xl border-2 bg-white px-4 py-3 outline-none focus:ring-4 focus:ring-blue-100",
+                    registerForm.formState
+                      .errors.phone_number
+                      ? "border-red-400 focus:border-red-500"
+                      : "border-ally-brown focus:border-ally-blue",
+                  ].join(" ")}
+                  onInput={(event) => {
+                    const input =
+                      event.currentTarget;
 
-              <FormField
-                id="register-confirm-password"
-                label="Confirm Password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Repeat your password"
-                error={
-                  registerForm.formState
-                    .errors
-                    .password_confirmation
-                    ?.message
-                }
-                {...registerForm.register(
-                  "password_confirmation",
+                    input.value = input.value
+                      .replace(/\D/g, "")
+                      .slice(0, 12);
+                  }}
+                  {...registerForm.register(
+                    "phone_number",
+                  )}
+                />
+
+                {registerForm.formState.errors
+                  .phone_number?.message && (
+                  <p
+                    id="register-phone-error"
+                    role="alert"
+                    className="mt-1.5 text-sm text-ally-error"
+                  >
+                    {
+                      registerForm.formState
+                        .errors.phone_number
+                        .message
+                    }
+                  </p>
                 )}
-              />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="register-password"
+                  className="mb-2 block text-sm font-medium"
+                >
+                  Password
+                </label>
+
+                <div className="relative">
+                  <input
+                    id="register-password"
+                    type={
+                      showRegisterPassword
+                        ? "text"
+                        : "password"
+                    }
+                    autoComplete="new-password"
+                    placeholder="Minimum 8 characters"
+                    aria-invalid={
+                      Boolean(
+                        registerForm.formState
+                          .errors.password,
+                      )
+                    }
+                    aria-describedby={
+                      registerForm.formState
+                        .errors.password
+                        ? "register-password-error"
+                        : undefined
+                    }
+                    className={[
+                      "w-full rounded-xl border-2 bg-white px-4 py-3 pr-12 outline-none focus:ring-4 focus:ring-blue-100",
+                      registerForm.formState
+                        .errors.password
+                        ? "border-red-400 focus:border-red-500"
+                        : "border-ally-brown focus:border-ally-blue",
+                    ].join(" ")}
+                    {...registerForm.register(
+                      "password",
+                    )}
+                  />
+
+                  <button
+                    type="button"
+                    aria-label={
+                      showRegisterPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                    aria-pressed={
+                      showRegisterPassword
+                    }
+                    onClick={() =>
+                      setShowRegisterPassword(
+                        (current) =>
+                          !current,
+                      )
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-ally-muted transition hover:bg-ally-surface-strong hover:text-ally-primary focus:outline-none focus:ring-2 focus:ring-ally-blue"
+                  >
+                    {showRegisterPassword ? (
+                      <EyeOff size={20} />
+                    ) : (
+                      <Eye size={20} />
+                    )}
+                  </button>
+                </div>
+
+                {registerForm.formState.errors
+                  .password?.message && (
+                  <p
+                    id="register-password-error"
+                    role="alert"
+                    className="mt-1.5 text-sm text-ally-error"
+                  >
+                    {
+                      registerForm.formState
+                        .errors.password.message
+                    }
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="register-confirm-password"
+                  className="mb-2 block text-sm font-medium"
+                >
+                  Confirm Password
+                </label>
+
+                <div className="relative">
+                  <input
+                    id="register-confirm-password"
+                    type={
+                      showRegisterConfirmPassword
+                        ? "text"
+                        : "password"
+                    }
+                    autoComplete="new-password"
+                    placeholder="Repeat your password"
+                    aria-invalid={
+                      Boolean(
+                        registerForm.formState
+                          .errors
+                          .password_confirmation,
+                      )
+                    }
+                    aria-describedby={
+                      registerForm.formState
+                        .errors
+                        .password_confirmation
+                        ? "register-confirm-password-error"
+                        : undefined
+                    }
+                    className={[
+                      "w-full rounded-xl border-2 bg-white px-4 py-3 pr-12 outline-none focus:ring-4 focus:ring-blue-100",
+                      registerForm.formState
+                        .errors
+                        .password_confirmation
+                        ? "border-red-400 focus:border-red-500"
+                        : "border-ally-brown focus:border-ally-blue",
+                    ].join(" ")}
+                    {...registerForm.register(
+                      "password_confirmation",
+                    )}
+                  />
+
+                  <button
+                    type="button"
+                    aria-label={
+                      showRegisterConfirmPassword
+                        ? "Hide confirmed password"
+                        : "Show confirmed password"
+                    }
+                    aria-pressed={
+                      showRegisterConfirmPassword
+                    }
+                    onClick={() =>
+                      setShowRegisterConfirmPassword(
+                        (current) =>
+                          !current,
+                      )
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-ally-muted transition hover:bg-ally-surface-strong hover:text-ally-primary focus:outline-none focus:ring-2 focus:ring-ally-blue"
+                  >
+                    {
+                      showRegisterConfirmPassword ? (
+                        <EyeOff size={20} />
+                      ) : (
+                        <Eye size={20} />
+                      )
+                    }
+                  </button>
+                </div>
+
+                {registerForm.formState.errors
+                  .password_confirmation
+                  ?.message && (
+                  <p
+                    id="register-confirm-password-error"
+                    role="alert"
+                    className="mt-1.5 text-sm text-ally-error"
+                  >
+                    {
+                      registerForm.formState
+                        .errors
+                        .password_confirmation
+                        .message
+                    }
+                  </p>
+                )}
+              </div>
             </div>
 
             <label className="my-5 flex items-start gap-3 text-sm">

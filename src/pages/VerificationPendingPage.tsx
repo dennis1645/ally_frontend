@@ -81,8 +81,8 @@ export default function VerificationPendingPage() {
 
   const locationState =
     location.state as
-      | VerificationLocationState
-      | null;
+    | VerificationLocationState
+    | null;
 
   /*
    * Resolve the registered email from:
@@ -289,13 +289,9 @@ export default function VerificationPendingPage() {
               </strong>
 
               <p>
-                Open the verification
-                email and follow the
-                link. Once your email
-                has been verified,
-                return to login to
-                continue your
-                scholarship expedition.
+                Didn&apos;t receive the
+                email? Check your Spam, Junk,
+                or Promotions folder.
               </p>
             </div>
           </div>
@@ -313,12 +309,6 @@ export default function VerificationPendingPage() {
             </button>
           </div>
         </section>
-
-        <p className="verification-footer-note">
-          Didn&apos;t receive the
-          email? Check your Spam, Junk,
-          or Promotions folder.
-        </p>
       </section>
     </main>
   );
