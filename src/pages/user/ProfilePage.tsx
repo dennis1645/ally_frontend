@@ -791,9 +791,9 @@ export default function ProfilePage() {
             </div>
 
             <div className="mt-7 rotate-[-1deg] rounded-2xl border-2 border-dashed border-[#c69c6e] bg-[#fff8e8] p-5">
-              <p className="passport-handwritten">
+              <h2 className="mt-[0.15rem] text-[clamp(1.45rem,3vw,2rem)] font-extrabold tracking-[-0.025em] text-[#2c1607]">
                 Explorer&apos;s note
-              </p>
+              </h2>
 
               <p className="mt-2 leading-relaxed text-slate-600">
                 {currentUser.bio?.trim() ||

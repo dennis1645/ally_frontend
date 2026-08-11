@@ -10,7 +10,26 @@ export type QuestMilestoneStatus =
 export type QuestMilestone = {
   id: number;
   name: string;
+  description: string;
   status: QuestMilestoneStatus;
+
+  /**
+   * Whether Ally has revealed/generated this milestone yet.
+   *
+   * Locked milestones default to undiscovered when this value
+   * is omitted. Set this to true when the API has generated the
+   * milestone but it is still progression-locked.
+   *
+   * completed/current milestones are always shown.
+   */
+  isDiscovered?: boolean;
+
+  /**
+   * Existing app route used when the milestone can be opened.
+   * Locked milestones remain non-interactive even when a future
+   * destination is added.
+   */
+  destination?: string;
 };
 
 export type QuestChecklistItem = {
@@ -19,14 +38,6 @@ export type QuestChecklistItem = {
   dueDate?: string;
   statusLabel?: string;
   completed: boolean;
-
-  /*
-   * Mock-only progress weight.
-   *
-   * This lets the three visible checklist rows match the supplied
-   * reference's initial 75% while keeping progress derived from
-   * checklist state rather than hardcoding 75 in the component.
-   */
   progressWeight: number;
 };
 

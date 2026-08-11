@@ -12,24 +12,22 @@ import {
   InitialAssessmentRouteElement,
 } from "./routes/assessment.routes";
 
+import {
+  ASSESSMENT_2_ROUTE,
+} from "./routes/assessment2.routes";
+
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
-import FinancePage from "./pages/admin/Finance";
-import UserManagement from "./pages/admin/UserManagement";
-import UniversityAdmin from "./pages/admin/UniversityAdmin";
-import ScholarshipAdmin from "./pages/admin/ScholarshipAdmin";
-import InitialAssessmentAdmin from "./pages/admin/InitialAssessmentAdmin";
-import ItemShopAdmin from "./pages/admin/ItemShopAdmin";
-import QuizAdmin from "./pages/admin/QuizAdmin";
-import BadgeAdmin from "./pages/admin/BadgeAdmin";
 import AuthPage from "./pages/AuthPage";
 import ChooseAdventurePage from "./pages/ChooseAdventurePage";
 import DashboardPage from "./pages/user/DashboardPage";
+import Assessment2Page from "./pages/user/Assessment2Page";
 import AIMentorPage from "./pages/user/AIMentorPage";
 import EditProfilePage from "./pages/user/EditProfilePage";
 import EmptyPage from "./pages/EmptyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LandingPage from "./pages/LandingPage";
+import MentorDashboardPage, { ActionItemsPage, MentorAvailabilityPage, MenteeManagementPage, MentorActionPlansPage, MentorBookingsPage, MentorDocumentsPage, MentorDossierPage, MentorSessionsPage, MentorSettingsPage, MentorSupportPage } from "./pages/mentor/MentorDashboardPage";
 import ProfilePage from "./pages/user/ProfilePage";
 import QuestTrackerPage from "./pages/user/QuestTrackerPage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
@@ -41,18 +39,6 @@ import DocumentValleyPage from "./pages/user/DocumentValleyPage";
 import EssayPassPage from "./pages/user/EssayPassPage";
 import { DIAGNOSTIC_RESULT_ROUTE } from "./utils/constants";
 import AssessmentResetOnExit from "./utils/AssessmentResetOnExit";
-import MentorDashboardPage, {
-  ActionItemsPage,
-  MentorActionPlansPage,
-  MentorAvailabilityPage,
-  MentorBookingsPage,
-  MentorDossierPage,
-  MentorDocumentsPage,
-  MentorSettingsPage,
-  MentorSupportPage,
-  MentorSessionsPage,
-  MenteeManagementPage,
-} from "./pages/mentor/MentorDashboardPage";
 import MentorProfilePage from "./pages/mentor/MentorProfilePage";
 
 export default function App() {
@@ -271,6 +257,20 @@ export default function App() {
               }
             />
 
+            {/*
+             * Assessment 2 / Deep Diagnostic is a separate
+             * authenticated Research Trail destination.
+             *
+             * It intentionally does not reuse the public
+             * INITIAL_ASSESSMENT_ROUTE.
+             */}
+            <Route
+              path={ASSESSMENT_2_ROUTE}
+              element={
+                <Assessment2Page />
+              }
+            />
+
             <Route
               path="/quests/document-valley"
               element={
@@ -469,35 +469,6 @@ export default function App() {
                 />
               }
             />
-            <Route
-              path="/admin/university"
-              element={<UniversityAdmin />}
-            />
-
-          <Route
-            path="/admin/scholarships"
-            element={<ScholarshipAdmin />}
-          />
-
-          <Route
-            path="/admin/assessment"
-            element={<InitialAssessmentAdmin />}
-          />
-
-          <Route
-            path="/admin/shop"
-            element={<ItemShopAdmin />}
-          />
-
-          <Route
-            path="/admin/quiz"
-            element={<QuizAdmin />}
-          />
-
-          <Route
-            path="/admin/badges"
-            element={<BadgeAdmin />}
-          />
 
             <Route
               path="/admin/dashboard"
@@ -508,7 +479,11 @@ export default function App() {
 
             <Route
               path="/admin/users"
-              element={<UserManagement />
+              element={
+                <EmptyPage
+                  title="User Management"
+                  description="Manage Explorer, Mentor, and Admin accounts."
+                />
               }
             />
 
@@ -532,10 +507,15 @@ export default function App() {
               }
             />
 
-          <Route
-            path="/admin/payments"
-            element={<FinancePage />}
-          />
+            <Route
+              path="/admin/scholarships/new"
+              element={
+                <EmptyPage
+                  title="Add Scholarship"
+                  description="Create a new scholarship entry."
+                />
+              }
+            />
 
             <Route
               path="/admin/scholarships/:scholarshipId/edit"
