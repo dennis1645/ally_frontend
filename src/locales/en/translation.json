@@ -1,0 +1,25 @@
+{
+  "topbar": {
+    "logout": "Log out",
+    "loggingOut": "Logging out..."
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "questTracker": "Quest Tracker",
+    "aiMentor": "AI Mentor",
+    "coaching": "Coaching",
+    "billing": "Billing"
+  },
+  "dashboard": {
+    "subtitle": "EXPLORER DASHBOARD",
+    "title": "Expedition Headquarters"
+  },
+  "passport": {
+    "title": "Explorer Passport",
+    "profile": "Profile",
+    "expedition": "Expedition",
+    "currentLevel": "CURRENT LEVEL",
+    "notCalculated": "Not calculated yet",
+    "readinessProgress": "Scholarship readiness progress"
+  }
+}

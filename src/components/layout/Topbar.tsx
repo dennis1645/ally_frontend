@@ -21,6 +21,10 @@ import {
 } from "react-router";
 
 import {
+  useTranslation,
+} from "react-i18next";
+
+import {
   API_BASE_URL,
 } from "../../api/apiClient";
 
@@ -32,28 +36,13 @@ import DocumentVault from "../vault/DocumentVault";
 import NotificationPanel from "../notifications/NotificationPanel";
 
 export type TopbarProps = {
-  title:
-    string;
-
-  subtitle?:
-    string;
-
-  onMenuClick?:
-    () => void;
-
-  onLogout?:
-    () => void;
-
-  isLoggingOut?:
-    boolean;
-
-  actions?:
-    ReactNode;
-
-  // Kept for compatibility with pages that configure the topbar.
-  // The current Topbar does not render a search control.
-  showSearch?:
-    boolean;
+  title: string;
+  subtitle?: string;
+  onMenuClick?: () => void;
+  onLogout?: () => void;
+  isLoggingOut?: boolean;
+  actions?: ReactNode;
+  showSearch?: boolean;
 };
 
 function resolveProfilePictureUrl(
@@ -137,6 +126,68 @@ function getInitials(
   );
 }
 
+function LanguageSwitcher() {
+  const {
+    i18n,
+  } =
+    useTranslation();
+
+  const currentLanguage =
+    (
+      i18n.resolvedLanguage ??
+      i18n.language ??
+      "en"
+    )
+      .toLowerCase();
+
+  const isIndonesian =
+    currentLanguage.startsWith(
+      "id",
+    );
+
+  const nextLanguage =
+    isIndonesian
+      ? "en"
+      : "id";
+
+  const currentLabel =
+    isIndonesian
+      ? "ID"
+      : "EN";
+
+  return (
+    <button
+      type="button"
+      aria-label={
+        isIndonesian
+          ? "Switch language to English"
+          : "Ganti bahasa ke Indonesia"
+      }
+      title={
+        isIndonesian
+          ? "Switch to English"
+          : "Ganti ke Bahasa Indonesia"
+      }
+      onClick={() => {
+        void i18n.changeLanguage(
+          nextLanguage,
+        );
+      }}
+      className={[
+        "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-2",
+        "border border-slate-200 bg-white",
+        "text-[11px] font-extrabold tracking-[0.08em] text-slate-600",
+        "transition hover:border-[#bad6e7] hover:bg-[#f3f9fd] hover:text-[#16629b]",
+        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d7edf9]",
+      ].join(
+        " ",
+      )}
+    >
+      {currentLabel}
+    </button>
+  );
+}
+
 export default function Topbar({
   title,
   subtitle,
@@ -145,11 +196,9 @@ export default function Topbar({
   isLoggingOut = false,
   actions,
 }: TopbarProps) {
-  const navigate =
-    useNavigate();
-
-  const location =
-    useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { t } = useTranslation();
 
   const {
     user,
@@ -271,6 +320,8 @@ export default function Topbar({
               }
             </div>
 
+            <LanguageSwitcher />
+
             {showExplorerTools && (
               <>
                 {/* Document Vault / Expedition Backpack */}
@@ -333,6 +384,10 @@ export default function Topbar({
                       notificationsOpen
                     }
                     onClick={() => {
+                      setVaultOpen(
+                        false,
+                      );
+
                       setNotificationsOpen(
                         (
                           current,
@@ -384,6 +439,14 @@ export default function Topbar({
                 type="button"
                 aria-label="Open profile"
                 onClick={() => {
+                  setVaultOpen(
+                    false,
+                  );
+
+                  setNotificationsOpen(
+                    false,
+                  );
+
                   navigate(
                     profilePath,
                   );
@@ -436,6 +499,14 @@ export default function Topbar({
                 type="button"
                 aria-label="Open profile"
                 onClick={() => {
+                  setVaultOpen(
+                    false,
+                  );
+
+                  setNotificationsOpen(
+                    false,
+                  );
+
                   navigate(
                     profilePath,
                   );
@@ -472,8 +543,14 @@ export default function Topbar({
 
                 <span className="hidden 2xl:inline">
                   {isLoggingOut
-                    ? "Logging out..."
-                    : "Log out"}
+                    ? t(
+                        "topbar.loggingOut",
+                        "Logging out...",
+                      )
+                    : t(
+                        "topbar.logout",
+                        "Log out",
+                      )}
                 </span>
               </button>
             )}
@@ -487,8 +564,8 @@ export default function Topbar({
             </div>
           </div>
         )}
-      </header>
 
+      </header>
     </>
   );
 }

@@ -16,8 +16,15 @@ import {
   ASSESSMENT_2_ROUTE,
 } from "./routes/assessment2.routes";
 
+import "./i18n";
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import BadgeAdmin from "./pages/admin/BadgeAdmin";
+import InitialAssessmentAdmin from "./pages/admin/InitialAssessmentAdmin";
+import ItemShopAdmin from "./pages/admin/ItemShopAdmin";
+import QuizAdmin from "./pages/admin/QuizAdmin";
+import ScholarshipAdmin from "./pages/admin/ScholarshipAdmin";
+import UniversityAdmin from "./pages/admin/UniversityAdmin";
 import AuthPage from "./pages/AuthPage";
 import ChooseAdventurePage from "./pages/ChooseAdventurePage";
 import DashboardPage from "./pages/user/DashboardPage";
@@ -26,8 +33,20 @@ import AIMentorPage from "./pages/user/AIMentorPage";
 import EditProfilePage from "./pages/user/EditProfilePage";
 import EmptyPage from "./pages/EmptyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import LoadingPage from "./pages/LoadingPage";
 import LandingPage from "./pages/LandingPage";
-import MentorDashboardPage, { ActionItemsPage, MentorAvailabilityPage, MenteeManagementPage, MentorActionPlansPage, MentorBookingsPage, MentorDocumentsPage, MentorDossierPage, MentorSessionsPage, MentorSettingsPage, MentorSupportPage } from "./pages/mentor/MentorDashboardPage";
+import MentorDashboardPage, {
+  ActionItemsPage,
+  MenteeManagementPage,
+  MentorActionPlansPage,
+  MentorAvailabilityPage,
+  MentorBookingsPage,
+  MentorDocumentsPage,
+  MentorDossierPage,
+  MentorSessionsPage,
+  MentorSettingsPage,
+  MentorSupportPage,
+} from "./pages/mentor/MentorDashboardPage";
 import ProfilePage from "./pages/user/ProfilePage";
 import QuestTrackerPage from "./pages/user/QuestTrackerPage";
 import ResetPasswordPage from "./pages/user/ResetPasswordPage";
@@ -51,9 +70,22 @@ export default function App() {
             PUBLIC ROUTES
         ====================================================== */}
 
+        {/* 1. Halaman Utama (Akses awal / Refresh akan masuk ke Loading Page dulu) */}
         <Route
           path="/"
+          element={<LoadingPage />}
+        />
+
+        {/* 2. Halaman Landing Page setelah selesai Loading */}
+        <Route
+          path="/landing"
           element={<LandingPage />}
+        />
+
+        {/* 3. Akses manual /loading jika dipanggil dari navigasi lain */}
+        <Route
+          path="/loading"
+          element={<LoadingPage />}
         />
 
         <Route
@@ -469,12 +501,52 @@ export default function App() {
                 />
               }
             />
-
+            
             <Route
               path="/admin/dashboard"
               element={
                 <AdminDashboardPage />
               }
+            />
+
+            <Route
+              path="/admin/university"
+              element={<UniversityAdmin />}
+            />
+
+            <Route
+              path="/admin/scholarships"
+              element={<ScholarshipAdmin />}
+            />
+
+            <Route
+              path="/admin/scholarships/:scholarshipId/edit"
+              element={
+                <EmptyPage
+                  title="Edit Scholarship"
+                  description="Update an existing scholarship entry."
+                />
+              }
+            />
+
+            <Route
+              path="/admin/assessment"
+              element={<InitialAssessmentAdmin />}
+            />
+
+            <Route
+              path="/admin/shop"
+              element={<ItemShopAdmin />}
+            />
+
+            <Route
+              path="/admin/quiz"
+              element={<QuizAdmin />}
+            />
+
+            <Route
+              path="/admin/badges"
+              element={<BadgeAdmin />}
             />
 
             <Route
@@ -498,31 +570,11 @@ export default function App() {
             />
 
             <Route
-              path="/admin/scholarships"
+              path="/admin/payments"
               element={
                 <EmptyPage
-                  title="Scholarship Management"
-                  description="Create, edit, publish, and archive scholarship data."
-                />
-              }
-            />
-
-            <Route
-              path="/admin/scholarships/new"
-              element={
-                <EmptyPage
-                  title="Add Scholarship"
-                  description="Create a new scholarship entry."
-                />
-              }
-            />
-
-            <Route
-              path="/admin/scholarships/:scholarshipId/edit"
-              element={
-                <EmptyPage
-                  title="Edit Scholarship"
-                  description="Update an existing scholarship entry."
+                  title="Payment Management"
+                  description="Monitor payments, transaction status, and package activation."
                 />
               }
             />
@@ -543,16 +595,6 @@ export default function App() {
                 <EmptyPage
                   title="Capacity Monitoring"
                   description="Monitor mentor availability and platform capacity."
-                />
-              }
-            />
-
-            <Route
-              path="/admin/payments"
-              element={
-                <EmptyPage
-                  title="Payment Management"
-                  description="Review payment transactions and package activation."
                 />
               }
             />
