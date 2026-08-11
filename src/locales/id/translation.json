@@ -1,15 +1,25 @@
 {
   "topbar": {
-    "logout": "Keluar"
+    "logout": "Keluar",
+    "loggingOut": "Mengeluarkan..."
   },
   "sidebar": {
     "dashboard": "Dasbor",
     "questTracker": "Pelacak Misi",
-    "aiMentor": "Mentor AI"
+    "aiMentor": "Mentor AI",
+    "coaching": "Pelatihan",
+    "billing": "Tagihan"
+  },
+  "dashboard": {
+    "subtitle": "DASBOR PENJELAJAH",
+    "title": "Markas Ekspedisi"
   },
   "passport": {
     "title": "Paspor Penjelajah",
     "profile": "Profil",
-    "expedition": "Ekspedisi"
+    "expedition": "Ekspedisi",
+    "currentLevel": "TINGKAT SAAT INI",
+    "notCalculated": "Belum dihitung",
+    "readinessProgress": "Progres kesiapan beasiswa"
   }
 }

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import AchievementsCard from "../../components/dashboard/AchievementsCard";
 import ExpeditionTrailCard from "../../components/dashboard/ExpeditionTrailCard";
 import ExplorerProfileCard from "../../components/dashboard/ExplorerProfileCard";
@@ -52,11 +53,12 @@ function DashboardUnavailableState() {
 
 export default function DashboardPage() {
   const { user, status } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <UserLayout
-      title="Expedition Headquarters"
-      subtitle="Explorer Dashboard"
+      title={t("dashboard.title", "Expedition Headquarters")}
+      subtitle={t("dashboard.subtitle", "Explorer Dashboard")}
     >
       <section
         aria-label="Dashboard content"
