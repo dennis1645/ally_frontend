@@ -1,6 +1,6 @@
 import {
   CalendarDays,
-  CheckCircle2,
+  // CheckCircle2,
   ClipboardList,
   BriefcaseBusiness,
   BookOpen,

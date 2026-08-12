@@ -4,12 +4,10 @@ import {
   BadgeCheck,
   ChevronDown,
   Clock3,
-  Download,
   ExternalLink,
   FileText,
   GraduationCap,
   Sparkles,
-  User,
 } from "lucide-react";
 import { Link } from "react-router";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";

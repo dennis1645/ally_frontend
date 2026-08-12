@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -58,11 +57,6 @@ type MilestoneIconProps = {
   size?: number;
 };
 
-
-type MilestoneWithAccess = QuestMilestone & {
-  requiresSubscription?: boolean;
-  isDiscovered?: boolean;
-};
 
 
 const desktopPositions: Record<
@@ -1030,52 +1024,6 @@ export default function AscentRoadmap({
     null,
   );
 
-  const [
-    revealedMilestones,
-    setRevealedMilestones,
-  ] = useState<
-    Set<number>
-  >(
-    () =>
-      new Set(
-        milestones
-          .filter(
-            (milestone) =>
-              milestone.isDiscovered ===
-                true ||
-              milestone.status !==
-                "locked",
-          )
-          .map(
-            (milestone) =>
-              milestone.id,
-          ),
-      ),
-  );
-
-
-  /*
-   * Keep revealed milestone state synchronized
-   * if the API/mock data changes.
-   */
-  useEffect(() => {
-    setRevealedMilestones(
-      new Set(
-        milestones
-          .filter(
-            (milestone) =>
-              milestone.isDiscovered ===
-                true ||
-              milestone.status !==
-                "locked",
-          )
-          .map(
-            (milestone) =>
-              milestone.id,
-          ),
-      ),
-    );
-  }, [milestones]);
 
 
   /*
@@ -1092,8 +1040,6 @@ export default function AscentRoadmap({
   function handleMilestoneClick(
     milestone: QuestMilestone,
   ): void {
-    const milestoneWithAccess =
-      milestone as MilestoneWithAccess;
 
     if (
       milestone.status ===
@@ -1116,19 +1062,6 @@ export default function AscentRoadmap({
     ) {
       setZoomingMilestone(
         milestone,
-      );
-
-      setRevealedMilestones(
-        (previous) => {
-          const next =
-            new Set(previous);
-
-          next.add(
-            milestone.id,
-          );
-
-          return next;
-        },
       );
 
       window.setTimeout(() => {
