@@ -5,6 +5,7 @@ import type {
 import {
   Backpack,
   Bell,
+  Globe,
   LogOut,
   Menu,
   UserRound,
@@ -174,16 +175,17 @@ function LanguageSwitcher() {
         );
       }}
       className={[
-        "inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-2",
+        "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-3",
         "border border-slate-200 bg-white",
-        "text-[11px] font-extrabold tracking-[0.08em] text-slate-600",
+        "text-xs font-bold tracking-wider text-slate-700",
         "transition hover:border-[#bad6e7] hover:bg-[#f3f9fd] hover:text-[#16629b]",
         "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d7edf9]",
       ].join(
         " ",
       )}
     >
-      {currentLabel}
+      <Globe size={16} className="text-slate-500" />
+      <span>{currentLabel}</span>
     </button>
   );
 }
@@ -231,11 +233,6 @@ export default function Topbar({
       "/admin",
     );
 
-  /*
-   * The enhanced expedition controls are intentionally scoped to
-   * normal user/explorer pages so shared mentor/admin topbars are
-   * not unintentionally redesigned.
-   */
   const showExplorerTools =
     !isMentorArea &&
     !isAdminArea;
@@ -311,7 +308,7 @@ export default function Topbar({
               Right
           ================================================ */}
 
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             {/* Optional page-specific actions */}
 
             <div className="hidden md:block">
@@ -408,11 +405,6 @@ export default function Topbar({
                       size={20}
                       aria-hidden="true"
                     />
-
-                    {/*
-                     * No unread badge is rendered because no notification
-                     * count API is currently documented.
-                     */}
                   </button>
 
                   <NotificationPanel
@@ -430,7 +422,7 @@ export default function Topbar({
             )}
 
             {/* ===============================================
-                Profile
+                Profile Widget (Diperbesar)
             ================================================ */}
 
             {showExplorerTools &&
@@ -452,16 +444,15 @@ export default function Topbar({
                   );
                 }}
                 className={[
-                  "flex h-11 items-center gap-2 rounded-2xl",
-                  "border border-transparent px-1.5 sm:px-2.5",
+                  "flex h-12 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-2.5 py-1 sm:px-3.5",
                   "text-left transition",
-                  "hover:border-[#d8e7f0] hover:bg-[#f6fbfe]",
+                  "hover:border-[#bad6e7] hover:bg-[#f3f9fd]",
                   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d7edf9]",
                 ].join(
                   " ",
                 )}
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#eaf5fb] text-xs font-extrabold text-[#16629b]">
+                <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#eaf5fb] text-xs font-black text-[#16629b] shadow-xs sm:h-10 sm:w-10 sm:text-sm">
                   {profilePicture ? (
                     <img
                       src={
@@ -478,13 +469,13 @@ export default function Topbar({
                 </span>
 
                 <span className="hidden min-w-0 sm:block">
-                  <span className="block max-w-[120px] truncate text-xs font-extrabold leading-4 text-[#2c1607]">
+                  <span className="block max-w-[140px] truncate text-sm font-extrabold leading-tight text-[#2c1607]">
                     {
                       userName
                     }
                   </span>
 
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-[#16629b]">
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-[#16629b]">
                     {displayLevel !==
                     null
                       ? `Level ${String(
@@ -520,9 +511,7 @@ export default function Topbar({
               </button>
             )}
 
-            {/* ===============================================
-                Existing Logout — preserved
-            ================================================ */}
+            {/* Logout Button */}
 
             {onLogout && (
               <button
@@ -534,11 +523,12 @@ export default function Topbar({
                 onClick={
                   onLogout
                 }
-                className="flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
+                className="group flex h-10 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3"
               >
                 <LogOut
                   size={19}
                   aria-hidden="true"
+                  className="text-red-500 transition-colors group-hover:text-red-600"
                 />
 
                 <span className="hidden 2xl:inline">
@@ -564,7 +554,6 @@ export default function Topbar({
             </div>
           </div>
         )}
-
       </header>
     </>
   );

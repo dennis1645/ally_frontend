@@ -30,14 +30,9 @@ export const mentorSidebarItems: SidebarItem[] = [
     icon: ClipboardList,
   },
   {
-    label: "Scheduling",
+    label: "Availability & Schedule Confirmation",
     path: "/mentor/availability",
     icon: CalendarDays,
-  },
-  {
-    label: "Meeting Confirmation",
-    path: "/mentor/bookings",
-    icon: CheckCircle2,
   },
   {
     label: "Action Plans",

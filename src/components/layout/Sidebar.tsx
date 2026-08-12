@@ -2,12 +2,11 @@ import type { LucideIcon } from "lucide-react";
 
 import {
   Bot,
-  ChevronsLeft,
-  ChevronsRight,
+  Compass,
   CreditCard,
   LayoutDashboard,
   Map,
-  UsersRound,
+  PanelLeft,
   X,
 } from "lucide-react";
 
@@ -50,17 +49,12 @@ export const defaultUserSidebarItems: SidebarItem[] = [
     icon: Map,
   },
   {
-    label: "AI Mentor",
+    label: "AI Chatbot",
     path: "/ally",
     icon: Bot,
   },
   {
-    label: "Coaching",
-    path: "/sessions",
-    icon: UsersRound,
-  },
-  {
-    label: "Billing",
+    label: "Subscription",
     path: "/billing",
     icon: CreditCard,
   },
@@ -99,79 +93,85 @@ export default function Sidebar({
           "transition-all duration-200",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "w-12" : "w-64",
-          collapsed ? "lg:w-12" : "lg:w-64",
+          collapsed ? "w-16" : "w-64",
+          collapsed ? "lg:w-16" : "lg:w-64",
         ].join(" ")}
       >
         {/* =====================================================
             HEADER
             ===================================================== */}
 
-        <div className="flex items-center justify-between px-3 py-6">
-          {!collapsed && (
-            <div>
+        <div
+          className={[
+            "flex",
+            collapsed
+              ? "flex-col items-center pt-6 pb-4" // Jika ditutup, cukup padding atas bawah
+              : "items-center justify-between px-3 py-6",
+          ].join(" ")}
+        >
+          {collapsed ? (
+            /* Toggle Button yang tergabung dengan Logo Kompas */
+            <div className="group relative flex justify-center">
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                aria-label="Open sidebar"
+                className="grid h-10 w-10 place-items-center rounded-xl bg-[#16629b] text-white transition-colors duration-200 group-hover:bg-slate-100 group-hover:text-slate-600"
+              >
+                {/* Ikon Kompas tampil saat normal */}
+                <Compass size={22} strokeWidth={2.5} className="block group-hover:hidden" />
+                
+                {/* Ikon PanelLeft tampil saat di-hover */}
+                <PanelLeft size={20} className="hidden group-hover:block" />
+              </button>
+
+              {/* Custom Tooltip "Open sidebar" */}
+              <div className="pointer-events-none absolute left-14 top-1/2 z-50 w-max -translate-y-1/2 rounded-md bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-sm transition-opacity duration-200 group-hover:opacity-100">
+                Open sidebar
+              </div>
+            </div>
+          ) : (
+            /* Tampilan normal saat sidebar terbuka (Teks Logo Ally + Tombol Toggle Terpisah) */
+            <>
               <div>
                 <span
                   className="ally-logo text-[40px] leading-none"
                   role="img"
                   aria-label="Ally"
                 >
-                  <span
-                    aria-hidden="true"
-                    className="ally-logo-a"
-                  >
+                  <span aria-hidden="true" className="ally-logo-a">
                     A
                   </span>
-
-                  <span
-                    aria-hidden="true"
-                    className="ally-logo-lly"
-                  >
+                  <span aria-hidden="true" className="ally-logo-lly">
                     lly
                   </span>
                 </span>
+                <p className="mt-1 text-xs text-slate-400">Explorer Portal</p>
               </div>
 
-              <p className="mt-1 text-xs text-slate-400">
-                Explorer Portal
-              </p>
-            </div>
+              <div className="flex items-center gap-2">
+                {/* Desktop collapse toggle */}
+                <button
+                  type="button"
+                  aria-label="Collapse sidebar"
+                  onClick={onToggleCollapse}
+                  className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:flex"
+                >
+                  <PanelLeft size={20} />
+                </button>
+
+                {/* Mobile close */}
+                <button
+                  type="button"
+                  aria-label="Close sidebar"
+                  onClick={onClose}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </>
           )}
-
-          <div
-            className={[
-              "flex items-center gap-2",
-              collapsed ? "mx-auto" : "",
-            ].join(" ")}
-          >
-            {/* Desktop collapse toggle */}
-            <button
-              type="button"
-              aria-label={
-                collapsed
-                  ? "Expand sidebar"
-                  : "Collapse sidebar"
-              }
-              onClick={onToggleCollapse}
-              className="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:flex"
-            >
-              {collapsed ? (
-                <ChevronsRight size={18} />
-              ) : (
-                <ChevronsLeft size={18} />
-              )}
-            </button>
-
-            {/* Mobile close */}
-            <button
-              type="button"
-              aria-label="Close sidebar"
-              onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
-            >
-              <X size={20} />
-            </button>
-          </div>
         </div>
 
         {/* =====================================================
@@ -188,20 +188,14 @@ export default function Sidebar({
                 <div
                   key={item.path}
                   className={[
-                    "flex cursor-not-allowed items-center",
-                    "rounded-xl px-4 py-3",
+                    "flex cursor-not-allowed items-center rounded-xl py-3",
                     "text-sm font-semibold text-slate-300",
-                    collapsed
-                      ? "justify-center"
-                      : "gap-3",
+                    collapsed ? "justify-center px-0" : "gap-3 px-4",
                   ].join(" ")}
                   title={item.label}
                 >
                   <Icon size={20} />
-
-                  {!collapsed && (
-                    <span>{item.label}</span>
-                  )}
+                  {!collapsed && <span>{item.label}</span>}
                 </div>
               );
             }
@@ -213,14 +207,12 @@ export default function Sidebar({
                 to={item.path}
                 end={item.end}
                 onClick={onClose}
-                title={item.label}
+                title={collapsed ? item.label : undefined} // Native tooltip saat hover ikon menu
                 className={({ isActive }) =>
                   [
-                    "flex items-center rounded-xl px-4 py-3",
+                    "flex items-center rounded-xl py-3",
                     "text-sm font-semibold transition",
-                    collapsed
-                      ? "justify-center"
-                      : "gap-3",
+                    collapsed ? "justify-center px-0" : "gap-3 px-4",
                     isActive
                       ? "bg-blue-50 text-ally-primary"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
@@ -228,36 +220,11 @@ export default function Sidebar({
                 }
               >
                 <Icon size={20} />
-
-                {!collapsed && (
-                  <span>{item.label}</span>
-                )}
+                {!collapsed && <span>{item.label}</span>}
               </NavLink>
             );
           })}
         </nav>
-
-        {/* =====================================================
-            USER INFO
-            ===================================================== */}
-
-        {(userName || userEmail) && !collapsed && (
-          <div className="border-t border-slate-100 p-4">
-            <div className="rounded-xl bg-slate-50 p-3">
-              {userName && (
-                <p className="truncate text-sm font-semibold text-slate-800">
-                  {userName}
-                </p>
-              )}
-
-              {userEmail && (
-                <p className="mt-0.5 truncate text-xs text-slate-500">
-                  {userEmail}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </aside>
     </>
   );

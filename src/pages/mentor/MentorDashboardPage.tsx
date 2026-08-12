@@ -112,13 +112,14 @@ function renderUnknownValue(value: unknown): string {
   }
 }
 
+// --- SHARED COMPONENTS ---
 function SectionHeader({
   eyebrow,
   title,
   description,
   action,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   action?: ReactNode;
@@ -1830,7 +1831,6 @@ export default function MentorDashboardPage() {
               description="Upload, preview, and remove mentor documents."
             />
           </div>
-
           <div className="mt-8 rounded-3xl border border-slate-200 bg-ally-surface p-5">
             <div className="flex items-center gap-2 text-ally-primary">
               <CircleAlert size={18} />

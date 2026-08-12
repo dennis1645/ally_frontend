@@ -97,7 +97,8 @@ export default function AIMentorPage() {
   }
 
   return (
-    <UserLayout title="AI Mentor — Your scholarship companion, whenever you need a hand.">
+    <UserLayout title="AI Chatbot"
+    subtitle="Your Scholarship Companion">
       <section className="min-h-[calc(100vh-80px)] bg-ally-background px-4 py-6 relative">
         <div className="mx-auto w-full max-w-[1220px]">
           

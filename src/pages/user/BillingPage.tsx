@@ -716,7 +716,7 @@ export default function BillingPage() {
 
   return (
     <UserLayout
-      title="Billing"
+      title="Subscription"
       subtitle="Expedition Plans"
       topbarProps={{
         showSearch:

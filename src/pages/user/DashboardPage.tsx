@@ -421,8 +421,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <UserLayout
-      title="Dashboard"
+     <UserLayout title="Dashboard"
+        subtitle="Explorer Basecamp & Overview"
+      
       topbarProps={{
         showSearch: false,
       }}

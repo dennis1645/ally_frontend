@@ -71,7 +71,7 @@ type Bookmark = {
 type InformationItemProps = {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
 };
 
 /* =========================================================
@@ -163,9 +163,13 @@ function InformationItem({
             {label}
           </p>
 
-          <p className="mt-1 break-words font-semibold text-slate-800">
-            {value}
-          </p>
+          {typeof value === "string" ? (
+            <p className="mt-1 break-words font-semibold text-slate-800">
+              {value}
+            </p>
+          ) : (
+            value
+          )}
         </div>
       </div>
     </div>
@@ -252,12 +256,6 @@ function getInitials(
   return initials || "EX";
 }
 
-/*
- * GET /api/profile returns profile_picture_url.
- *
- * This function converts that returned string into
- * a URL that can be used by <img>.
- */
 function getProfilePictureUrl(
   profilePictureUrl:
     | string
@@ -351,10 +349,6 @@ export default function ProfilePage() {
     setImageFailed,
   ] = useState(false);
 
-  /* =======================================================
-     Synchronize passport section with route
-  ======================================================= */
-
   useEffect(() => {
     setActiveSection(
       getSectionFromPath(
@@ -363,17 +357,9 @@ export default function ProfilePage() {
     );
   }, [location.pathname]);
 
-  /* =======================================================
-     Retry profile image when its backend URL changes
-  ======================================================= */
-
   useEffect(() => {
     setImageFailed(false);
   }, [user?.profile_picture_url]);
-
-  /* =======================================================
-     Auth loading state
-  ======================================================= */
 
   if (status === "loading") {
     return (
@@ -402,14 +388,8 @@ export default function ProfilePage() {
     );
   }
 
-  const currentUser: AuthUser =
-    user;
+  const currentUser: AuthUser = user;
 
-  /*
-   * profile_picture_url:
-   * returned by GET /api/profile
-   * and used only for display.
-   */
   const profilePictureUrl =
     getProfilePictureUrl(
       currentUser.profile_picture_url,
@@ -434,9 +414,21 @@ export default function ProfilePage() {
     ),
   );
 
-  /* =======================================================
-     Passport navigation
-  ======================================================= */
+  // Formatting Phone Number to display with +62
+  let rawPhone = currentUser.phone_number?.trim() || "";
+  let phoneDisplayStr = rawPhone;
+  let hasPhone = false;
+
+  if (rawPhone) {
+    hasPhone = true;
+    if (rawPhone.startsWith("+62")) {
+      phoneDisplayStr = rawPhone.substring(3);
+    } else if (rawPhone.startsWith("62")) {
+      phoneDisplayStr = rawPhone.substring(2);
+    } else if (rawPhone.startsWith("0")) {
+      phoneDisplayStr = rawPhone.substring(1);
+    }
+  }
 
   function changeSection(
     nextSection: BookSection,
@@ -521,9 +513,10 @@ export default function ProfilePage() {
 
           <div className="relative mt-7">
             <div className="grid gap-6 sm:grid-cols-[150px_minmax(0,1fr)]">
-              <div className="relative mx-auto sm:mx-0">
+              {/* WADAH FOTO DIKUNCI LEBARNYA AGAR STEMPEL TIDAK GESER */}
+              <div className="relative mx-auto w-[140px] sm:mx-0">
                 <div className="-rotate-2 overflow-hidden rounded-xl border-4 border-[#ffe3d2] bg-white p-1 shadow-md">
-                  <div className="h-48 w-36 overflow-hidden rounded-lg bg-blue-50">
+                  <div className="h-44 w-full overflow-hidden rounded-lg bg-blue-50">
                     {profilePictureUrl &&
                     !imageFailed ? (
                       <img
@@ -548,7 +541,8 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="passport-valid-stamp absolute -bottom-5 -right-5 rotate-12">
+                {/* POSISI STEMPEL DIMASUKKAN LEBIH KE KIRI AGAR AMAN */}
+                <div className="passport-valid-stamp absolute -bottom-1 -right-1 z-10 rotate-12">
                   <ShieldCheck
                     size={27}
                   />
@@ -619,8 +613,20 @@ export default function ProfilePage() {
                 }
                 label="Phone"
                 value={
-                  currentUser.phone_number?.trim() ||
-                  "Not provided"
+                  hasPhone ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-700">
+                        🇮🇩 +62
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        {phoneDisplayStr}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="mt-1 block font-semibold text-slate-800">
+                      Not provided
+                    </span>
+                  )
                 }
               />
 
@@ -791,8 +797,8 @@ export default function ProfilePage() {
             </div>
 
             <div className="mt-7 rotate-[-1deg] rounded-2xl border-2 border-dashed border-[#c69c6e] bg-[#fff8e8] p-5">
-              <h2 className="mt-[0.15rem] text-[clamp(1.45rem,3vw,2rem)] font-extrabold tracking-[-0.025em] text-[#2c1607]">
-                Explorer&apos;s note
+              <h2 className="text-lg font-bold tracking-tight text-[#2c1607]">
+                Explorer's note
               </h2>
 
               <p className="mt-2 leading-relaxed text-slate-600">
@@ -852,7 +858,6 @@ export default function ProfilePage() {
                 key={activeSection}
                 className={[
                   "passport-book-spread",
-
                   turnDirection === "next"
                     ? "book-page-turn-next"
                     : "book-page-turn-previous",
@@ -892,7 +897,6 @@ export default function ProfilePage() {
                       }
                       className={[
                         "passport-bookmark-tab",
-
                         isActive
                           ? "is-active"
                           : "",
