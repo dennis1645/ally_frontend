@@ -59,6 +59,7 @@ import EssayPassPage from "./pages/user/EssayPassPage";
 import { DIAGNOSTIC_RESULT_ROUTE } from "./utils/constants";
 import AssessmentResetOnExit from "./utils/AssessmentResetOnExit";
 import MentorProfilePage from "./pages/mentor/MentorProfilePage";
+import UserManagement from "./pages/admin/UserManagement";
 
 export default function App() {
   return (
@@ -551,12 +552,7 @@ export default function App() {
 
             <Route
               path="/admin/users"
-              element={
-                <EmptyPage
-                  title="User Management"
-                  description="Manage Explorer, Mentor, and Admin accounts."
-                />
-              }
+              element={<UserManagement />}
             />
 
             <Route
