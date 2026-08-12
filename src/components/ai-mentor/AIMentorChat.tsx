@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Send, Bookmark, Search, MoreHorizontal, Trash2, X, Sparkles } from "lucide-react";
+import { Send, Search, MoreHorizontal, Trash2, X, Sparkles } from "lucide-react";
 import allyMascot from "../../assets/ally-assessment-mascot.png"; // Pastikan path ini benar!
 
 type Message = {
@@ -12,10 +12,9 @@ type Message = {
 type AIMentorChatProps = {
   initialMessages: Message[];
   userInitials: string;
-  onSaveInsight: (content: string, category?: string) => void;
 };
 
-export default function AIMentorChat({ initialMessages, userInitials, onSaveInsight }: AIMentorChatProps) {
+export default function AIMentorChat({ initialMessages, userInitials }: AIMentorChatProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages || []);
   const [inputValue, setInputValue] = useState("");
   
@@ -53,7 +52,7 @@ export default function AIMentorChat({ initialMessages, userInitials, onSaveInsi
       setMessages((prev) => [...prev, { 
         id: Date.now() + 1, 
         role: "ally", 
-        content: "I've noted that! You can save this advice by clicking the bookmark icon beside this bubble.", 
+        content: "I've noted that! How else can I help you today?", 
         time: getCurrentTime() 
       }]);
     }, 1000);
@@ -143,7 +142,7 @@ export default function AIMentorChat({ initialMessages, userInitials, onSaveInsi
                   )}
                 </div>
 
-                {/* BUBBLE & TOMBOL SAVE */}
+                {/* BUBBLE */}
                 <div className={`flex flex-col ${isAlly ? "items-start" : "items-end"}`}>
                   <div className="group relative">
                     <div className={`px-5 py-3.5 text-[15px] leading-relaxed shadow-sm
@@ -152,17 +151,6 @@ export default function AIMentorChat({ initialMessages, userInitials, onSaveInsi
                     >
                       {msg.content}
                     </div>
-                    
-                    {/* TOMBOL SAVE */}
-                    {isAlly && (
-                      <button
-                        onClick={() => onSaveInsight(msg.content, "AI Advice")}
-                        className="absolute -right-10 bottom-0 p-2 rounded-full text-slate-400 opacity-50 transition-all hover:bg-orange-50 hover:text-[#b17a39] hover:opacity-100 group-hover:opacity-100"
-                        title="Save to Insights"
-                      >
-                        <Bookmark size={18} />
-                      </button>
-                    )}
                   </div>
                   <span className={`text-[11px] text-slate-400 mt-1.5 ${isAlly ? "ml-1" : "mr-1"}`}>{msg.time || "Just now"}</span>
                 </div>

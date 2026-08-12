@@ -4,11 +4,17 @@ import {
 } from "lucide-react";
 
 import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
   useNavigate,
 } from "react-router";
 
 import AscentRoadmap from "../../components/quest/AscentRoadmap";
 import UserLayout from "../../components/layout/UserLayout";
+import SessionRescheduledModal from "../../components/modals/SessionRescheduledModal"; // Import Modal Baru
 
 import {
   questTrackerMockData,
@@ -168,42 +174,58 @@ export default function QuestTrackerPage() {
   const navigate =
     useNavigate();
 
+  // State untuk mengontrol munculnya Modal Reschedule
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  
+  // State untuk menyimpan data jadwal baru dari Backend (Simulasi)
+  const [rescheduleData, setRescheduleData] = useState({
+    mentorName: "",
+    newDate: "",
+    newTime: ""
+  });
+
+  // Simulasi mengecek ke Backend saat buka Quest Tracker
+  useEffect(() => {
+    // Anggap ini fetch API ke backend untuk cek status jadwal
+    const checkRescheduleUpdates = async () => {
+      // Kita simulasi ada delay sedikit biar terasa loading
+      setTimeout(() => {
+        // Anggap backend merespon bahwa ada jadwal yang digeser mentor
+        const mockBackendResponse = {
+          hasReschedule: true, 
+          mentorName: "Dr. Eleanor Vance",
+          newDate: "Friday, August 28, 2026",
+          newTime: "15:00 - 16:00 WIB"
+        };
+
+        if (mockBackendResponse.hasReschedule) {
+          setRescheduleData({
+            mentorName: mockBackendResponse.mentorName,
+            newDate: mockBackendResponse.newDate,
+            newTime: mockBackendResponse.newTime,
+          });
+          setIsRescheduleModalOpen(true);
+        }
+      }, 800); // Muncul setelah 0.8 detik buka halaman
+    };
+
+    checkRescheduleUpdates();
+  }, []);
+
+  // Fungsi saat tombol "Got it" diklik
+  const handleAcknowledgeReschedule = () => {
+    setIsRescheduleModalOpen(false);
+    // Nanti di sini bisa tambah hit API untuk set status "read" / "acknowledged" ke backend
+  };
 
   /*
    * -------------------------------------------------------
    * Milestone selection
    * -------------------------------------------------------
-   *
-   * IMPORTANT:
-   *
-   * Locked milestones are NOT blocked here anymore.
-   *
-   * AscentRoadmap handles:
-   *
-   *   locked
-   *      ↓
-   *   locked modal
-   *      ↓
-   *   subscription
-   *
-   * Current / completed milestones:
-   *
-   *   click
-   *      ↓
-   *   zoom animation
-   *      ↓
-   *   destination
    */
   function handleMilestoneSelect(
     milestone: QuestMilestone,
   ): void {
-    /*
-     * AscentRoadmap already handles
-     * locked milestones.
-     *
-     * We only navigate when a destination
-     * exists.
-     */
     if (
       milestone.destination
     ) {
@@ -218,9 +240,6 @@ export default function QuestTrackerPage() {
    * -------------------------------------------------------
    * Assessment entry
    * -------------------------------------------------------
-   *
-   * This is still used by the existing Ally guide
-   * attached to Research Trail.
    */
   function handleStartAssessment(): void {
     navigate(
@@ -268,6 +287,17 @@ export default function QuestTrackerPage() {
               }
             />
           }
+        />
+
+        {/* =================================================
+            MODALS
+        ================================================= */}
+        <SessionRescheduledModal 
+          isOpen={isRescheduleModalOpen}
+          onAcknowledge={handleAcknowledgeReschedule}
+          mentorName={rescheduleData.mentorName}
+          newDate={rescheduleData.newDate}
+          newTime={rescheduleData.newTime}
         />
 
       </section>

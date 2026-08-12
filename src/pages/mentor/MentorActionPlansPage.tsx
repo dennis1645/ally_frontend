@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FileText,
   History,
+  Map, // Tambahan icon untuk milestone
   MessageSquare,
   Plus
 } from "lucide-react";
@@ -19,6 +20,7 @@ type AssignmentItem = {
   id: string;
   title: string;
   mentee: string;
+  milestone: string; // Field baru untuk milestone
   due: string;
   status: TaskStatus;
   note: string;
@@ -29,12 +31,24 @@ type AssignmentItem = {
   };
 };
 
-// --- MOCK DATA ---
+// --- MOCK DATA (Simulasi Backend) ---
+
+// Simulasi data milestone dari backend
+const mockMilestones = [
+  { id: "m1", name: "Milestone 1 - Research Trail" },
+  { id: "m2", name: "Milestone 2 - Document Valley" },
+  { id: "m3", name: "Milestone 3 - Essay Summit" },
+  { id: "m4", name: "Milestone 4 - Interview Peak" },
+];
+
+const activeMenteesList = ["Ari Chen", "Jordan Lee", "Mina Alvarez"];
+
 const initialAssignments: AssignmentItem[] = [
   {
     id: "a1",
     title: "Complete the leadership worksheet",
     mentee: "Mina Alvarez",
+    milestone: "Milestone 2 - Document Valley",
     due: "2026-08-14",
     status: "Approval Needed",
     note: "Use the reflection journal template we discussed.",
@@ -48,6 +62,7 @@ const initialAssignments: AssignmentItem[] = [
     id: "a2",
     title: "Rework motivation letter outline",
     mentee: "Ari Chen",
+    milestone: "Milestone 3 - Essay Summit",
     due: "2026-08-15",
     status: "In Progress",
     note: "Make sure to connect your chemistry background with the scholarship's green energy goals.",
@@ -56,6 +71,7 @@ const initialAssignments: AssignmentItem[] = [
     id: "a3",
     title: "Draft 3 potential research topics",
     mentee: "Jordan Lee",
+    milestone: "Milestone 1 - Research Trail",
     due: "2026-08-10",
     status: "Approved",
     note: "Keep it under food technology and supply chain.",
@@ -66,7 +82,6 @@ const initialAssignments: AssignmentItem[] = [
   },
 ];
 
-const activeMenteesList = ["Ari Chen", "Jordan Lee", "Mina Alvarez"];
 
 // --- SHARED COMPONENT ---
 function SectionHeader({
@@ -99,10 +114,11 @@ export function MentorActionPlansPage() {
   // State untuk Approval Modal
   const [approveModalId, setApproveModalId] = useState<string | null>(null);
 
-  // State untuk form draft tugas baru
+  // State untuk form draft tugas baru (ditambah milestoneId)
   const [draft, setDraft] = useState({
     title: "",
     mentee: activeMenteesList[0],
+    milestoneId: mockMilestones[0].id, // Default pilihan pertama
     due: "",
     note: "",
   });
@@ -110,13 +126,17 @@ export function MentorActionPlansPage() {
   // Fungsi membuat tugas baru
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.title || !draft.mentee || !draft.due) return;
+    if (!draft.title || !draft.mentee || !draft.due || !draft.milestoneId) return;
+
+    // Cari nama milestone berdasarkan ID yang dipilih
+    const selectedMilestone = mockMilestones.find(m => m.id === draft.milestoneId)?.name || "General Task";
 
     setAssignments((current) => [
       {
         id: `task-${Date.now()}`,
         title: draft.title,
         mentee: draft.mentee,
+        milestone: selectedMilestone,
         due: draft.due,
         status: "In Progress",
         note: draft.note || "Keep up the good work!",
@@ -124,8 +144,15 @@ export function MentorActionPlansPage() {
       ...current,
     ]);
 
-    setDraft({ title: "", mentee: activeMenteesList[0], due: "", note: "" });
-    setActiveTab("Active"); // Pindah ke tab active kalau baru bikin
+    // Reset form
+    setDraft({ 
+      title: "", 
+      mentee: activeMenteesList[0], 
+      milestoneId: mockMilestones[0].id, 
+      due: "", 
+      note: "" 
+    });
+    setActiveTab("Active"); 
   }
 
   // Fungsi Konfirmasi Approve Tugas dari Modal
@@ -138,7 +165,7 @@ export function MentorActionPlansPage() {
       )
     );
     
-    setApproveModalId(null); // Tutup modal
+    setApproveModalId(null);
   }
 
   // Filter tugas berdasarkan Tab
@@ -156,7 +183,7 @@ export function MentorActionPlansPage() {
         <SectionHeader
           eyebrow="Action plans"
           title="Manage Post-Session Tasks"
-          description="Create clear follow-up tasks, review mentees' submitted answers, and track their progress."
+          description="Create clear follow-up tasks linked to specific milestones, review mentees' submitted answers, and track their progress."
         />
 
         <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
@@ -206,9 +233,14 @@ export function MentorActionPlansPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-lg font-bold text-slate-900">{task.title}</p>
-                        <p className="mt-1 text-sm font-medium text-slate-600">
-                          Mentee: <span className="font-bold text-ally-primary">{task.mentee}</span>
-                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                          <p className="text-sm font-medium text-slate-600">
+                            Mentee: <span className="font-bold text-ally-primary">{task.mentee}</span>
+                          </p>
+                          <span className="flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
+                            <Map size={13} className="text-slate-400" /> {task.milestone}
+                          </span>
+                        </div>
                       </div>
                       
                       <span
@@ -234,7 +266,7 @@ export function MentorActionPlansPage() {
                       )}
                     </div>
 
-                    {/* Mentee's Response Box (Muncul jika ada respons/jawaban) */}
+                    {/* Mentee's Response Box */}
                     {task.menteeResponse && (
                       <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
                         <div className="flex items-center justify-between mb-2">
@@ -257,7 +289,7 @@ export function MentorActionPlansPage() {
                           </button>
                         )}
 
-                        {/* Tombol Approve (Hanya muncul jika butuh approval) */}
+                        {/* Tombol Approve */}
                         {task.status === "Approval Needed" && (
                           <div className="mt-4 flex justify-end border-t border-indigo-100 pt-4">
                             <button
@@ -290,6 +322,8 @@ export function MentorActionPlansPage() {
               </p>
               
               <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+                
+                {/* Title */}
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-600">
                     Task Title <span className="text-rose-500">*</span>
@@ -303,6 +337,7 @@ export function MentorActionPlansPage() {
                   />
                 </div>
 
+                {/* Mentee Selection */}
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-600">
                     Assign to Mentee <span className="text-rose-500">*</span>
@@ -322,6 +357,28 @@ export function MentorActionPlansPage() {
                   </div>
                 </div>
 
+                {/* Milestone Selection (BARU) */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                    Target Milestone <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={draft.milestoneId}
+                      onChange={(event) => setDraft((current) => ({ ...current, milestoneId: event.target.value }))}
+                      className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-4 pr-10 text-sm outline-none transition focus:border-ally-primary focus:bg-white cursor-pointer"
+                      required
+                    >
+                      <option value="" disabled>Select a milestone...</option>
+                      {mockMilestones.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                  </div>
+                </div>
+
+                {/* Due Date */}
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-600">
                     Due Date <span className="text-rose-500">*</span>
@@ -335,6 +392,7 @@ export function MentorActionPlansPage() {
                   />
                 </div>
 
+                {/* Note */}
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-600">Optional Mentor's Note</label>
                   <textarea
@@ -364,7 +422,7 @@ export function MentorActionPlansPage() {
                 </div>
                 <div className="relative rounded-2xl rounded-tl-none border border-slate-200 bg-white p-3 text-sm leading-relaxed text-slate-700 shadow-sm">
                   <p>
-                    "Review submissions thoroughly! Clicking <strong>Approve</strong> will move the task to History and allow the explorer to proceed to their next milestone."
+                    "Link tasks to specific <strong>Milestones</strong> so mentees know exactly how this assignment helps them progress through their expedition map!"
                   </p>
                 </div>
               </div>
@@ -405,7 +463,6 @@ export function MentorActionPlansPage() {
         )}
       </section>
 
-      {/* CSS Styles tambahan untuk animasi Modal */}
       <style>{`
         .animate-fade-in-up {
           animation: fadeInUp 0.3s ease-out forwards;
