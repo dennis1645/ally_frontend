@@ -19,6 +19,7 @@ import {
 } from "react-router";
 
 import {
+  chooseDeepDiagnosticRecommendation,
   getDeepDiagnosticQuestions,
   getDeepDiagnosticResult,
   submitDeepDiagnostic,
@@ -29,6 +30,7 @@ import type {
   DeepDiagnosticPage,
   DeepDiagnosticQuestion,
   DeepDiagnosticResult as DeepDiagnosticResultData,
+  DeepDiagnosticScholarshipRecommendation,
 } from "../../api/deepDiagnosticApi";
 
 import allyMascot from "../../assets/ally-assessment-mascot.png";
@@ -45,6 +47,10 @@ import AllyDialogue from "../../components/assessment/AllyDialogue";
 import DeepDiagnosticOption from "../../components/assessment/DeepDiagnosticOption";
 import DeepDiagnosticProgress from "../../components/assessment/DeepDiagnosticProgress";
 import DeepDiagnosticResult from "../../components/assessment/DeepDiagnosticResult";
+
+import {
+  useAuth,
+} from "../../context/AuthContext";
 
 /* =========================================================
    Conversation configuration
@@ -239,6 +245,12 @@ export default function Assessment2Page() {
   const navigate =
     useNavigate();
 
+  const {
+    user,
+    refreshProfile,
+  } =
+    useAuth();
+
   const [
     pageData,
     setPageData,
@@ -333,6 +345,22 @@ export default function Assessment2Page() {
   const [
     resultError,
     setResultError,
+  ] =
+    useState<string | null>(
+      null,
+    );
+
+  const [
+    choosingScholarshipId,
+    setChoosingScholarshipId,
+  ] =
+    useState<number | null>(
+      null,
+    );
+
+  const [
+    recommendationError,
+    setRecommendationError,
   ] =
     useState<string | null>(
       null,
@@ -685,6 +713,69 @@ export default function Assessment2Page() {
     } finally {
       setPhase(
         "result",
+      );
+    }
+  }
+
+  async function handleChooseRecommendation(
+    recommendation:
+      DeepDiagnosticScholarshipRecommendation,
+  ): Promise<void> {
+    if (
+      choosingScholarshipId !==
+      null
+    ) {
+      return;
+    }
+
+    if (!user) {
+      setRecommendationError(
+        "Your account session is not available. Please sign in again before choosing a scholarship.",
+      );
+
+      return;
+    }
+
+    setRecommendationError(
+      null,
+    );
+
+    setChoosingScholarshipId(
+      recommendation.scholarshipId,
+    );
+
+    try {
+      await chooseDeepDiagnosticRecommendation(
+        recommendation.scholarshipId,
+        true,
+      );
+
+      /*
+       * GET /api/profile now exposes target_scholarship_id.
+       * Refresh AuthContext so /quests reads the canonical backend
+       * scholarship ID instead of relying on URL/localStorage state.
+       */
+      await refreshProfile();
+
+      navigate(
+        "/quests",
+      );
+    } catch (
+      error
+    ) {
+      console.error(
+        "[Deep Diagnostic] Unable to choose scholarship recommendation:",
+        error,
+      );
+
+      setRecommendationError(
+        error instanceof Error
+          ? error.message
+          : "That scholarship could not be selected yet. Please try again.",
+      );
+    } finally {
+      setChoosingScholarshipId(
+        null,
       );
     }
   }
@@ -1116,6 +1207,10 @@ export default function Assessment2Page() {
                   <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[#2c1607] sm:text-3xl">
                     Deep Diagnostic
                   </h1>
+
+                  <p className="mt-1 max-w-xl text-sm leading-6 text-[#667085]">
+                    A scholarship expedition dialogue with Ally — not a test sheet.
+                  </p>
                 </div>
 
                 {pageData && (
@@ -1525,6 +1620,19 @@ export default function Assessment2Page() {
                 resultError={
                   resultError
                 }
+                recommendationError={
+                  recommendationError
+                }
+                choosingScholarshipId={
+                  choosingScholarshipId
+                }
+                onChooseRecommendation={(
+                  recommendation: DeepDiagnosticScholarshipRecommendation,
+                ) => {
+                  void handleChooseRecommendation(
+                    recommendation,
+                  );
+                }}
                 onRetry={() => {
                   void retrieveResult();
                 }}
