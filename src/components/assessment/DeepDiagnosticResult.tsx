@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  CalendarDays,
   CheckCircle2,
   Compass,
   Loader2,
@@ -109,6 +110,40 @@ function formatFundingType(
     );
 }
 
+function formatDeadline(
+  value:
+    string | null,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed =
+    new Date(
+      value,
+    );
+
+  if (
+    Number.isNaN(
+      parsed.getTime(),
+    )
+  ) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(
+    "en",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    },
+  ).format(
+    parsed,
+  );
+}
+
 function RecommendationCard({
   recommendation,
   busy,
@@ -132,6 +167,11 @@ function RecommendationCard({
       recommendation.fundingType,
     );
 
+  const deadline =
+    formatDeadline(
+      recommendation.deadlineDate,
+    );
+
   return (
     <article
       className={[
@@ -143,6 +183,14 @@ function RecommendationCard({
         "sm:p-5",
       ].join(" ")}
     >
+      {recommendation.imageUrl && (
+        <img
+          src={recommendation.imageUrl}
+          alt=""
+          className="mb-4 h-32 w-full rounded-2xl object-cover"
+        />
+      )}
+
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[#16629b]">
@@ -173,7 +221,8 @@ function RecommendationCard({
       </div>
 
       {(fundingType ||
-        recommendation.providerCountry) && (
+        recommendation.providerCountry ||
+        deadline) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {fundingType && (
             <span className="rounded-full bg-[#fff5e8] px-2.5 py-1 text-xs font-semibold text-[#8a5f32]">
@@ -184,6 +233,16 @@ function RecommendationCard({
           {recommendation.providerCountry && (
             <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">
               {recommendation.providerCountry}
+            </span>
+          )}
+
+          {deadline && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eef6f1] px-2.5 py-1 text-xs font-semibold text-[#446556]">
+              <CalendarDays
+                size={13}
+                aria-hidden="true"
+              />
+              Deadline {deadline}
             </span>
           )}
         </div>
@@ -217,7 +276,7 @@ function RecommendationCard({
         }
       >
         {busy
-          ? "Choosing Scholarship..."
+          ? "Building Your Roadmap..."
           : "Choose Scholarship"}
       </PrimaryButton>
     </article>
@@ -409,12 +468,12 @@ export default function DeepDiagnosticResult({
             </p>
 
             <h2 className="mt-1 text-2xl font-extrabold text-[#2c1607]">
-              Choose your destination
+              Your recommended destination
             </h2>
 
             <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#667085]">
-              Your selection uses the scholarship&apos;s backend ID directly.
-              You never need to enter an ID yourself.
+              Ally matched this scholarship from your Deep Diagnostic result.
+              Choose it to make it your primary scholarship target and build your roadmap.
             </p>
           </div>
 

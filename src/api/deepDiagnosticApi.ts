@@ -115,6 +115,12 @@ export type DeepDiagnosticScholarshipRecommendation = {
   providerCountry:
     string | null;
 
+  deadlineDate:
+    string | null;
+
+  imageUrl:
+    string | null;
+
   reason:
     string | null;
 };
@@ -556,6 +562,17 @@ function getRecommendationRows(
     Record<string, unknown>,
 ): unknown[] {
   const candidates = [
+    /*
+     * Current backend contract:
+     * GET /api/deep-diagnostic/my-result
+     * returns the selected recommendation under the intentionally
+     * misspelled `beasiswa_recomendation` key.
+     *
+     * Keep the exact backend key here. The correctly-spelled variant
+     * is also accepted defensively.
+     */
+    data.beasiswa_recomendation,
+    data.beasiswa_recommendation,
     data.scholarship_recommendations,
     data.scholarship_recommendation,
     data.recommended_scholarships,
@@ -691,6 +708,18 @@ function normalizeScholarshipRecommendation(
         value.provider_country ??
           value.providerCountry ??
           scholarship?.provider_country,
+      ),
+    deadlineDate:
+      asString(
+        value.deadline_date ??
+          value.deadlineDate ??
+          scholarship?.deadline_date,
+      ),
+    imageUrl:
+      asString(
+        value.image_url ??
+          value.imageUrl ??
+          scholarship?.image_url,
       ),
     reason:
       asString(
@@ -832,6 +861,15 @@ export async function submitDeepDiagnostic(
           JSON.stringify(
             payload,
           ),
+
+        /*
+         * Deep Diagnostic submission performs AI analysis on the backend.
+         * The shared apiClient defaults to 15 seconds, which is too short
+         * for this endpoint and can abort the browser request even though
+         * the server continues processing and successfully stores a result.
+         */
+        timeoutMs:
+          200_000,
       },
     );
 
@@ -847,6 +885,9 @@ export async function getDeepDiagnosticResult(): Promise<DeepDiagnosticResult> {
       {
         method:
           "GET",
+
+        timeoutMs:
+          30_000,
       },
     );
 

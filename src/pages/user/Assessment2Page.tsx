@@ -25,6 +25,10 @@ import {
   submitDeepDiagnostic,
 } from "../../api/deepDiagnosticApi";
 
+import {
+  ApiError,
+} from "../../api/apiClient";
+
 import type {
   DeepDiagnosticAnswer,
   DeepDiagnosticPage,
@@ -47,6 +51,7 @@ import AllyDialogue from "../../components/assessment/AllyDialogue";
 import DeepDiagnosticOption from "../../components/assessment/DeepDiagnosticOption";
 import DeepDiagnosticProgress from "../../components/assessment/DeepDiagnosticProgress";
 import DeepDiagnosticResult from "../../components/assessment/DeepDiagnosticResult";
+import DeepDiagnosticResultLoading from "../../components/assessment/DeepDiagnosticResultLoading";
 
 import {
   useAuth,
@@ -74,6 +79,41 @@ const neutralReactions = [
 
 const introMessage =
   "Hey, Explorer! 👋\nBefore we continue our expedition, I want to get to know you a little better. Your answers will help me understand what support you need next.";
+
+const RESULT_POLL_INTERVAL_MS = 2500;
+const RESULT_MAX_WAIT_MS = 90000;
+const RESULT_MIN_LOADING_MS = 4500;
+
+function wait(
+  milliseconds: number,
+): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(
+      resolve,
+      milliseconds,
+    );
+  });
+}
+
+function isDeepDiagnosticResultReady(
+  value: DeepDiagnosticResultData,
+): boolean {
+  /*
+   * Assessment 2 is considered ready when the backend has produced
+   * the scored result and the AI guidance text. A score of 0 is valid,
+   * so we check against null rather than using truthiness.
+   *
+   * Scholarship recommendations may legitimately be empty, so they are
+   * not required to stop polling.
+   */
+  return (
+    value.id !== null &&
+    value.revisedPercentage !== null &&
+    Boolean(
+      value.suggestion?.trim(),
+    )
+  );
+}
 
 function getNextPageNumber(
   page:
@@ -378,6 +418,11 @@ export default function Assessment2Page() {
       null,
     );
 
+  const resultRequestVersionRef =
+    useRef(
+      0,
+    );
+
   const retryPageNumberRef =
     useRef(
       1,
@@ -545,6 +590,13 @@ export default function Assessment2Page() {
       );
 
       return () => {
+        /*
+         * Invalidate any in-flight result polling loop when this page
+         * unmounts or the effect is cleaned up.
+         */
+        resultRequestVersionRef.current +=
+          1;
+
         if (
           transitionTimerRef.current !==
           null
@@ -680,7 +732,18 @@ export default function Assessment2Page() {
   }
 
   async function retrieveResult(): Promise<void> {
+    const requestVersion =
+      resultRequestVersionRef.current +
+      1;
+
+    resultRequestVersionRef.current =
+      requestVersion;
+
     setResultError(
+      null,
+    );
+
+    setResult(
       null,
     );
 
@@ -688,33 +751,157 @@ export default function Assessment2Page() {
       "loading-result",
     );
 
-    try {
-      const nextResult =
-        await getDeepDiagnosticResult();
+    const startedAt =
+      Date.now();
 
-      setResult(
-        nextResult,
-      );
-    } catch (
-      error
+    let lastError:
+      unknown =
+      null;
+
+    while (
+      Date.now() -
+        startedAt <
+      RESULT_MAX_WAIT_MS
     ) {
-      console.error(
-        "[Deep Diagnostic] Unable to load result:",
-        error,
-      );
+      /*
+       * A newer retry or route change invalidates this polling loop.
+       */
+      if (
+        resultRequestVersionRef.current !==
+        requestVersion
+      ) {
+        return;
+      }
 
-      setResult(
-        null,
-      );
+      try {
+        const nextResult =
+          await getDeepDiagnosticResult();
 
-      setResultError(
-        "Your answers were submitted, but I couldn't retrieve the analysis yet. Please try viewing the result again.",
-      );
-    } finally {
-      setPhase(
-        "result",
+        if (
+          resultRequestVersionRef.current !==
+          requestVersion
+        ) {
+          return;
+        }
+
+        if (
+          isDeepDiagnosticResultReady(
+            nextResult,
+          )
+        ) {
+          /*
+           * Keep the transition visible for a short minimum time so
+           * the result does not flash abruptly on very fast responses.
+           * This never delays a slow API response; it only smooths fast ones.
+           */
+          const elapsed =
+            Date.now() -
+            startedAt;
+
+          const remainingMinimum =
+            RESULT_MIN_LOADING_MS -
+            elapsed;
+
+          if (
+            remainingMinimum >
+            0
+          ) {
+            await wait(
+              remainingMinimum,
+            );
+          }
+
+          if (
+            resultRequestVersionRef.current !==
+            requestVersion
+          ) {
+            return;
+          }
+
+          setResult(
+            nextResult,
+          );
+
+          setPhase(
+            "result",
+          );
+
+          return;
+        }
+
+        /*
+         * The result endpoint responded, but the AI analysis is not yet
+         * complete. Keep the loading experience open and ask again.
+         */
+        lastError =
+          null;
+      } catch (
+        error
+      ) {
+        lastError =
+          error;
+
+        /*
+         * Authentication/authorization failures are not "still processing".
+         * Surface them immediately rather than making the user wait 90 seconds.
+         */
+        if (
+          error instanceof ApiError &&
+          (
+            error.status === 401 ||
+            error.status === 403
+          )
+        ) {
+          console.error(
+            "[Deep Diagnostic] Result request is not authorized:",
+            error,
+          );
+
+          setResultError(
+            "Your session could not be used to retrieve the analysis. Please sign in again and retry.",
+          );
+
+          setPhase(
+            "result",
+          );
+
+          return;
+        }
+
+        console.info(
+          "[Deep Diagnostic] Result is not ready yet; retrying shortly.",
+          error,
+        );
+      }
+
+      await wait(
+        RESULT_POLL_INTERVAL_MS,
       );
     }
+
+    if (
+      resultRequestVersionRef.current !==
+      requestVersion
+    ) {
+      return;
+    }
+
+    console.error(
+      "[Deep Diagnostic] Result did not become ready before the polling timeout.",
+      lastError,
+    );
+
+    setResult(
+      null,
+    );
+
+    setResultError(
+      "Your answers are safely submitted, but Ally is taking longer than expected to finish the analysis. Try loading the result again in a moment.",
+    );
+
+    setPhase(
+      "result",
+    );
   }
 
   async function handleChooseRecommendation(
@@ -736,26 +923,50 @@ export default function Assessment2Page() {
       return;
     }
 
+    const scholarshipId =
+      recommendation.scholarshipId;
+
     setRecommendationError(
       null,
     );
 
     setChoosingScholarshipId(
-      recommendation.scholarshipId,
+      scholarshipId,
     );
 
     try {
+      /*
+       * Persist the user's explicit recommendation choice first.
+       *
+       * POST /api/deep-diagnostic/choose-recommendation
+       * {
+       *   accept: true,
+       *   scholarship_id: scholarshipId
+       * }
+       */
       await chooseDeepDiagnosticRecommendation(
-        recommendation.scholarshipId,
+        scholarshipId,
         true,
       );
 
       /*
-       * GET /api/profile now exposes target_scholarship_id.
-       * Refresh AuthContext so /quests reads the canonical backend
-       * scholarship ID instead of relying on URL/localStorage state.
+       * Refresh the canonical profile so target_scholarship_id and
+       * is_premium are current before Quest Tracker opens.
+       *
+       * Timeline generation itself is intentionally handled on /quests.
+       * Premium users get an explicit "Generate My Full Timeline" CTA
+       * there instead of silently relying on a background POST.
        */
-      await refreshProfile();
+      try {
+        await refreshProfile();
+      } catch (
+        profileError
+      ) {
+        console.warn(
+          "[Deep Diagnostic] Scholarship was accepted, but profile refresh failed:",
+          profileError,
+        );
+      }
 
       navigate(
         "/quests",
@@ -764,7 +975,7 @@ export default function Assessment2Page() {
       error
     ) {
       console.error(
-        "[Deep Diagnostic] Unable to choose scholarship recommendation:",
+        "[Deep Diagnostic] Unable to accept scholarship recommendation:",
         error,
       );
 
@@ -837,6 +1048,35 @@ export default function Assessment2Page() {
     } catch (
       error
     ) {
+      /*
+       * apiClient converts its AbortController timeout into ApiError(408).
+       *
+       * A timeout does NOT prove the backend failed. For this endpoint the
+       * server may continue the AI analysis after the browser stops waiting
+       * and can still save /api/deep-diagnostic/my-result successfully.
+       *
+       * Therefore never ask the user to submit the same assessment again
+       * after a 408. Move into the result-loading flow and poll the canonical
+       * GET endpoint instead.
+       */
+      if (
+        error instanceof ApiError &&
+        error.status ===
+          408
+      ) {
+        console.info(
+          "[Deep Diagnostic] Submission response timed out; checking for the completed result instead.",
+        );
+
+        setSubmissionError(
+          null,
+        );
+
+        await retrieveResult();
+
+        return;
+      }
+
       console.error(
         "[Deep Diagnostic] Submission failed:",
         error,
@@ -1274,7 +1514,15 @@ export default function Assessment2Page() {
                           allyMascot
                         }
                         alt="Ally, your scholarship expedition guide"
-                        className="mx-auto h-[200px] w-[200px] object-contain object-top drop-shadow-[0_10px_8px_rgba(44,22,7,0.14)] lg:h-[250px] lg:w-[220px]"
+                        className={[
+                          "mx-auto h-[200px] w-[200px] object-contain object-top",
+                          "drop-shadow-[0_10px_8px_rgba(44,22,7,0.14)]",
+                          "lg:h-[250px] lg:w-[220px]",
+                          phase === "submitting" ||
+                          phase === "loading-result"
+                            ? "ally-mascot-float ally-mascot-shadow"
+                            : "",
+                        ].join(" ")}
                       />
                     </div>
                   </aside>
@@ -1575,24 +1823,7 @@ export default function Assessment2Page() {
 
                     {phase ===
                       "loading-result" && (
-                      <div className="my-auto text-center">
-                        <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-[#bad6e7] bg-[#eaf5fb] text-[#16629b]">
-                          <Loader2
-                            size={27}
-                            className="animate-spin"
-                            aria-hidden="true"
-                          />
-                        </div>
-
-                        <h2 className="mt-5 text-xl font-extrabold text-[#2c1607]">
-                          Reading your new trail...
-                        </h2>
-
-                        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#667085]">
-                          Your answers are submitted. I&apos;m checking the
-                          Deep Diagnostic result now.
-                        </p>
-                      </div>
+                      <DeepDiagnosticResultLoading />
                     )}
                   </main>
                 </div>

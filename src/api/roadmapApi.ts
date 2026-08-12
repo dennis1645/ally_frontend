@@ -64,6 +64,24 @@ export type LoadRoadmapResult = {
   generated: boolean;
 };
 
+export type RoadmapLoadOptions = {
+  /*
+   * GET /api/profile is the source used to detect the user's
+   * current premium state.
+   */
+  userId?:
+    | number
+    | string
+    | null;
+
+  isPremium?:
+    boolean;
+
+  premiumUntil?:
+    | string
+    | null;
+};
+
 /* =========================================================
    Submission models
 ========================================================= */
@@ -779,12 +797,247 @@ export async function getRoadmapAccess(
 }
 
 /* =========================================================
+   Premium roadmap expansion state
+
+   Why this exists:
+   - a free user can already have a preview/partial roadmap;
+   - after GET /api/profile changes to is_premium: true,
+     the frontend must call POST /api/milestones/generate again
+     once so the backend can create/expand the full premium timeline;
+   - simply checking "milestones.length > 0" is not enough because
+     those milestones may be the older free-preview version.
+
+   The backend contract currently does not expose a
+   "premium_timeline_generated" or timeline-version field, so this
+   client remembers a successful premium expansion per user +
+   scholarship. The POST should still be implemented idempotently on
+   the backend for cross-device safety.
+========================================================= */
+
+const PREMIUM_ROADMAP_SYNC_PREFIX =
+  "ally.premium-roadmap-sync";
+
+function getPremiumRoadmapSyncKey(
+  options: RoadmapLoadOptions,
+  scholarshipId: number,
+): string | null {
+  if (
+    options.userId ===
+      null ||
+    options.userId ===
+      undefined
+  ) {
+    return null;
+  }
+
+  return `${PREMIUM_ROADMAP_SYNC_PREFIX}:${String(
+    options.userId,
+  )}:${String(
+    scholarshipId,
+  )}`;
+}
+
+function getPremiumRoadmapFingerprint(
+  options: RoadmapLoadOptions,
+): string {
+  const premiumUntil =
+    options.premiumUntil?.trim();
+
+  return premiumUntil ||
+    "premium-active";
+}
+
+function hasPremiumRoadmapBeenSynced(
+  options: RoadmapLoadOptions,
+  scholarshipId: number,
+): boolean {
+  const key =
+    getPremiumRoadmapSyncKey(
+      options,
+      scholarshipId,
+    );
+
+  if (!key) {
+    return false;
+  }
+
+  try {
+    return (
+      window.localStorage.getItem(
+        key,
+      ) ===
+      getPremiumRoadmapFingerprint(
+        options,
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+function markPremiumRoadmapSynced(
+  options: RoadmapLoadOptions,
+  scholarshipId: number,
+): void {
+  const key =
+    getPremiumRoadmapSyncKey(
+      options,
+      scholarshipId,
+    );
+
+  if (!key) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      key,
+      getPremiumRoadmapFingerprint(
+        options,
+      ),
+    );
+  } catch {
+    /*
+     * The roadmap itself is already stored on the backend.
+     * Local storage only prevents unnecessary repeat generation.
+     */
+  }
+}
+
+function clearPremiumRoadmapSync(
+  options: RoadmapLoadOptions,
+  scholarshipId: number,
+): void {
+  const key =
+    getPremiumRoadmapSyncKey(
+      options,
+      scholarshipId,
+    );
+
+  if (!key) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(
+      key,
+    );
+  } catch {
+    /*
+     * Non-critical cache cleanup.
+     */
+  }
+}
+
+export function hasPremiumTimelineGenerationMarker(
+  options: RoadmapLoadOptions,
+  scholarshipId: number,
+): boolean {
+  return hasPremiumRoadmapBeenSynced(
+    options,
+    scholarshipId,
+  );
+}
+
+export function clearPremiumTimelineGenerationMarker(
+  options: RoadmapLoadOptions,
+  scholarshipId: number,
+): void {
+  clearPremiumRoadmapSync(
+    options,
+    scholarshipId,
+  );
+}
+
+function roadmapFingerprint(
+  roadmap:
+    RoadmapData | null,
+): string | null {
+  if (!roadmap) {
+    return null;
+  }
+
+  return JSON.stringify(
+    roadmap.milestones.map(
+      (
+        milestone,
+      ) => ({
+        id:
+          String(
+            milestone.id,
+          ),
+        title:
+          milestone.title,
+        status:
+          milestone.status,
+        backendStatus:
+          milestone.backendStatus,
+        completed:
+          milestone.completed,
+        targetDate:
+          milestone.targetDate,
+        tasks:
+          milestone.tasks.map(
+            (
+              task,
+            ) => ({
+              id:
+                String(
+                  task.id,
+                ),
+              parentId:
+                task.parentId ===
+                null
+                  ? null
+                  : String(
+                      task.parentId,
+                    ),
+              title:
+                task.title,
+              status:
+                task.status,
+              completed:
+                task.completed,
+              targetDate:
+                task.targetDate,
+              isMandatory:
+                task.isMandatory,
+              isDiscovered:
+                task.isDiscovered,
+            }),
+          ),
+      }),
+    ),
+  );
+}
+
+/* =========================================================
    AI generation
 
    Generation is allowed for both free and premium users.
    Premium status only controls whether a user can open/use
    the actual milestone-task workspace.
 ========================================================= */
+
+const ROADMAP_GENERATION_TIMEOUT_MS =
+  120_000;
+
+const ROADMAP_RELOAD_POLL_INTERVAL_MS =
+  2_500;
+
+const ROADMAP_RELOAD_MAX_WAIT_MS =
+  45_000;
+
+function waitForRoadmapPoll(
+  milliseconds: number,
+): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(
+      resolve,
+      milliseconds,
+    );
+  });
+}
 
 async function requestRoadmapGeneration(
   scholarshipId: number,
@@ -804,7 +1057,7 @@ async function requestRoadmapGeneration(
               scholarshipId,
           }),
         timeoutMs:
-          120_000,
+          ROADMAP_GENERATION_TIMEOUT_MS,
       },
     );
 
@@ -827,34 +1080,298 @@ const generationLocks =
 async function generateAndReloadRoadmap(
   scholarshipId: number,
 ): Promise<RoadmapAccessResult> {
-  await requestRoadmapGeneration(
-    scholarshipId,
-  );
+  let generationTimedOut =
+    false;
+
+  try {
+    await requestRoadmapGeneration(
+      scholarshipId,
+    );
+  } catch (
+    error
+  ) {
+    /*
+     * AI generation is a long-running server operation.
+     *
+     * A browser-side 408 only means apiClient stopped waiting.
+     * The backend may still finish and persist the milestones.
+     *
+     * Do not immediately trigger a second POST. Instead, poll the
+     * canonical GET endpoint for the saved roadmap.
+     */
+    if (
+      error instanceof ApiError &&
+      error.status ===
+        408
+    ) {
+      generationTimedOut =
+        true;
+
+      console.info(
+        "[Roadmap] Generation response timed out; checking for saved milestones instead.",
+      );
+    } else {
+      throw error;
+    }
+  }
 
   /*
-   * Always GET again after generation.
+   * Always GET after generation.
    *
-   * The generator response can contain AI/string IDs, while the saved
-   * milestone response returns the canonical numeric database IDs that
-   * are required by:
+   * POST /api/milestones/generate can return AI/string IDs such as
+   * "leadership-activities". Those IDs are descriptive output only.
    *
-   * POST /api/milestones/{id}/submit
-   * GET  /api/milestones/{id}/submission
+   * GET /api/milestones returns the canonical numeric DB milestone IDs
+   * needed by the submission/review endpoints.
+   *
+   * Poll briefly because persistence can finish a little after the AI
+   * response, and especially because a 408 may leave the backend still
+   * processing.
    */
-  const reloaded =
+  const startedAt =
+    Date.now();
+
+  let lastReloadError:
+    unknown =
+    null;
+
+  while (
+    Date.now() -
+      startedAt <
+    ROADMAP_RELOAD_MAX_WAIT_MS
+  ) {
+    try {
+      const reloaded =
+        await getRoadmapAccess(
+          scholarshipId,
+        );
+
+      if (
+        reloaded.hasTimeline &&
+        reloaded.roadmap
+      ) {
+        return reloaded;
+      }
+
+      lastReloadError =
+        null;
+    } catch (
+      error
+    ) {
+      /*
+       * Auth failures are definitive and should be surfaced immediately.
+       */
+      if (
+        error instanceof ApiError &&
+        (
+          error.status ===
+            401 ||
+          error.status ===
+            403
+        )
+      ) {
+        throw error;
+      }
+
+      lastReloadError =
+        error;
+    }
+
+    await waitForRoadmapPoll(
+      ROADMAP_RELOAD_POLL_INTERVAL_MS,
+    );
+  }
+
+  console.error(
+    "[Roadmap] Saved milestones did not become available before the reload timeout.",
+    lastReloadError,
+  );
+
+  throw new Error(
+    generationTimedOut
+      ? "The roadmap generation request is still processing. Your scholarship is already selected; try opening the Quest Tracker again in a moment."
+      : "Ally generated the timeline, but the saved milestones are not available yet.",
+  );
+}
+
+/* =========================================================
+   Explicit Premium full-timeline generator
+
+   This is intentionally different from loadOrGenerateRoadmap().
+
+   It ALWAYS sends:
+   POST /api/milestones/generate
+   { scholarship_id: X }
+
+   It is designed for the explicit "Generate My Full Timeline"
+   button in Quest Tracker.
+
+   Why:
+   GET /api/milestones can already contain a free/partial preview.
+   The frontend cannot safely infer from "milestones.length > 0"
+   that the full premium timeline has already been generated.
+========================================================= */
+
+export async function generateFullPremiumRoadmap(
+  scholarshipId: number,
+  options: RoadmapLoadOptions = {},
+): Promise<LoadRoadmapResult> {
+  const before =
     await getRoadmapAccess(
       scholarshipId,
     );
 
-  if (
-    !reloaded.roadmap
+  const beforeFingerprint =
+    roadmapFingerprint(
+      before.roadmap,
+    );
+
+  let requestTimedOut =
+    false;
+
+  try {
+    await requestRoadmapGeneration(
+      scholarshipId,
+    );
+  } catch (
+    error
   ) {
-    throw new Error(
-      "Ally generated the timeline, but the saved milestones are not available yet.",
+    /*
+     * The AI request can outlive the browser timeout. If apiClient
+     * returns 408, do NOT send another generation POST. Poll the
+     * canonical GET endpoint and wait for the saved roadmap to change.
+     */
+    if (
+      error instanceof ApiError &&
+      error.status ===
+        408
+    ) {
+      requestTimedOut =
+        true;
+
+      console.info(
+        "[Roadmap] Full timeline generation timed out in the browser; waiting for the backend result.",
+      );
+    } else {
+      throw error;
+    }
+  }
+
+  const startedAt =
+    Date.now();
+
+  let latestAccess =
+    before;
+
+  let lastReloadError:
+    unknown =
+    null;
+
+  while (
+    Date.now() -
+      startedAt <
+    ROADMAP_RELOAD_MAX_WAIT_MS
+  ) {
+    try {
+      latestAccess =
+        await getRoadmapAccess(
+          scholarshipId,
+        );
+
+      const latestFingerprint =
+        roadmapFingerprint(
+          latestAccess.roadmap,
+        );
+
+      const roadmapAppeared =
+        beforeFingerprint ===
+          null &&
+        latestFingerprint !==
+          null;
+
+      const roadmapChanged =
+        beforeFingerprint !==
+          null &&
+        latestFingerprint !==
+          null &&
+        latestFingerprint !==
+          beforeFingerprint;
+
+      /*
+       * If the POST completed normally and there was no baseline roadmap,
+       * any saved roadmap is enough.
+       *
+       * If a partial roadmap existed before generation, wait for the
+       * canonical milestone tree to actually change. This prevents the
+       * UI from immediately re-rendering the same partial timeline.
+       */
+      if (
+        roadmapAppeared ||
+        roadmapChanged
+      ) {
+        markPremiumRoadmapSynced(
+          options,
+          scholarshipId,
+        );
+
+        return {
+          status:
+            "ready",
+          roadmap:
+            latestAccess.roadmap!,
+          isPremium:
+            options.isPremium ??
+            latestAccess.isPremium,
+          generated:
+            true,
+        };
+      }
+
+      /*
+       * If POST returned normally and GET already has a roadmap, give the
+       * database a short window to expose any expanded records before
+       * checking again.
+       */
+      lastReloadError =
+        null;
+    } catch (
+      error
+    ) {
+      if (
+        error instanceof ApiError &&
+        (
+          error.status ===
+            401 ||
+          error.status ===
+            403
+        )
+      ) {
+        throw error;
+      }
+
+      lastReloadError =
+        error;
+    }
+
+    await waitForRoadmapPoll(
+      ROADMAP_RELOAD_POLL_INTERVAL_MS,
     );
   }
 
-  return reloaded;
+  console.error(
+    "[Roadmap] Full timeline generation finished/continued, but the canonical milestone tree did not change before timeout.",
+    {
+      requestTimedOut,
+      lastReloadError,
+      scholarshipId,
+    },
+  );
+
+  throw new Error(
+    requestTimedOut
+      ? "Ally is still building your premium timeline. Your generation request was sent successfully, but the saved milestone tree has not updated yet. Try reloading the Quest Tracker in a moment."
+      : "The generator responded, but the saved milestone tree did not change. Please check the backend generation response and milestone persistence.",
+  );
 }
 
 /* =========================================================
@@ -875,13 +1392,55 @@ async function generateAndReloadRoadmap(
 
 export async function loadOrGenerateRoadmap(
   scholarshipId: number,
+  options: RoadmapLoadOptions = {},
 ): Promise<LoadRoadmapResult> {
+  const profilePremium =
+    options.isPremium ===
+    true;
+
+  /*
+   * If GET /api/profile currently says the user is not premium,
+   * remove the local premium-expansion marker. If the account is
+   * upgraded again later, the next premium profile load can trigger
+   * a fresh expansion.
+   */
+  if (
+    options.isPremium ===
+    false
+  ) {
+    clearPremiumRoadmapSync(
+      options,
+      scholarshipId,
+    );
+  }
+
   const access =
     await getRoadmapAccess(
       scholarshipId,
     );
 
+  /*
+   * CRITICAL PREMIUM-UPGRADE CASE
+   *
+   * A free user may already have milestones, so this cannot be:
+   *
+   *   if (milestones exist) return
+   *
+   * when GET /api/profile has changed to is_premium: true.
+   *
+   * On the first premium load for this user + scholarship, generate
+   * once even if an older roadmap already exists. This is the call
+   * that expands/rebuilds the full premium milestone timeline.
+   */
+  const premiumExpansionRequired =
+    profilePremium &&
+    !hasPremiumRoadmapBeenSynced(
+      options,
+      scholarshipId,
+    );
+
   if (
+    !premiumExpansionRequired &&
     access.hasTimeline &&
     access.roadmap
   ) {
@@ -890,7 +1449,13 @@ export async function loadOrGenerateRoadmap(
         "ready",
       roadmap:
         access.roadmap,
+
+      /*
+       * The profile flag is authoritative for UI task unlocking
+       * when it was explicitly supplied by the caller.
+       */
       isPremium:
+        options.isPremium ??
         access.isPremium,
       generated:
         false,
@@ -902,69 +1467,63 @@ export async function loadOrGenerateRoadmap(
       scholarshipId,
     );
 
+  let generatedAccess:
+    RoadmapAccessResult;
+
   if (
     activeGeneration
   ) {
-    const generatedAccess =
+    generatedAccess =
       await activeGeneration;
-
-    if (
-      !generatedAccess.roadmap
-    ) {
-      throw new Error(
-        "The generated roadmap is not available yet.",
+  } else {
+    const generation =
+      generateAndReloadRoadmap(
+        scholarshipId,
       );
-    }
 
-    return {
-      status:
-        "ready",
-      roadmap:
-        generatedAccess.roadmap,
-      isPremium:
-        generatedAccess.isPremium,
-      generated:
-        true,
-    };
-  }
-
-  const generation =
-    generateAndReloadRoadmap(
+    generationLocks.set(
       scholarshipId,
+      generation,
     );
 
-  generationLocks.set(
-    scholarshipId,
-    generation,
-  );
-
-  try {
-    const generatedAccess =
-      await generation;
-
-    if (
-      !generatedAccess.roadmap
-    ) {
-      throw new Error(
-        "The generated roadmap is not available yet.",
+    try {
+      generatedAccess =
+        await generation;
+    } finally {
+      generationLocks.delete(
+        scholarshipId,
       );
     }
+  }
 
-    return {
-      status:
-        "ready",
-      roadmap:
-        generatedAccess.roadmap,
-      isPremium:
-        generatedAccess.isPremium,
-      generated:
-        true,
-    };
-  } finally {
-    generationLocks.delete(
+  if (
+    !generatedAccess.roadmap
+  ) {
+    throw new Error(
+      "The generated roadmap is not available yet.",
+    );
+  }
+
+  if (
+    profilePremium
+  ) {
+    markPremiumRoadmapSynced(
+      options,
       scholarshipId,
     );
   }
+
+  return {
+    status:
+      "ready",
+    roadmap:
+      generatedAccess.roadmap,
+    isPremium:
+      options.isPremium ??
+      generatedAccess.isPremium,
+    generated:
+      true,
+  };
 }
 
 /* =========================================================
