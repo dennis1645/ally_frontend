@@ -16,7 +16,6 @@ import {
   ASSESSMENT_2_ROUTE,
 } from "./routes/assessment2.routes";
 
-import "./i18n";
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import BadgeAdmin from "./pages/admin/BadgeAdmin";

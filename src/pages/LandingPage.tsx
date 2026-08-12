@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
-import { Compass, Mountain, Globe } from "lucide-react";
+import { Compass, Mountain } from "lucide-react";
 import { useNavigate } from "react-router";
-
-// 1. Import file JSON terjemahan (pastikan path-nya sesuai dengan letak folder locales-mu)
-import enLocale from "../locales/en/translation.json";
-import idLocale from "../locales/id/translation.json";
 
 import worldMap from "../assets/world-map.png";
 import allyMascot from "../assets/ally-explorer.png";
@@ -13,41 +9,42 @@ import PrimaryButton from "../components/ui/PrimaryButton";
 import { useAuth } from "../context/AuthContext";
 import { getHomePathForUser } from "../utils/authRouting";
 
+// Teks statis (silakan ubah sesuai kebutuhan aslimu)
+const TEXTS = {
+  title: "Welcome to Ally Explorer!",
+  body: "Are you ready to embark on an unforgettable journey? Pack your bags and let's discover the world together.",
+  expedition: "GLOBAL EXPEDITION",
+  beginBtn: "Begin Expedition",
+  departure: "Ready for departure",
+};
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user, status } = useAuth();
 
-  // State untuk Bahasa (Default: English)
-  const [language, setLanguage] = useState<"en" | "id">("en");
-
-  // 2. Panggil objek "landing" dari file JSON yang sesuai
-  // Tambahkan 'as any' agar TypeScript berhenti protes
-  const currentTexts = language === "en" ? (enLocale as any).landing : (idLocale as any).landing;
-
   const [displayedTitle, setDisplayedTitle] = useState("");
   const [displayedBody, setDisplayedBody] = useState("");
 
-  // Effect Typewriter (Akan me-restart setiap kali 'language' berubah)
+  // Effect Typewriter
   useEffect(() => {
     let isCancelled = false;
 
-    // Reset teks sebelum mengetik ulang
     setDisplayedTitle("");
     setDisplayedBody("");
 
     const typeText = async () => {
-      for (let i = 1; i <= currentTexts.title.length; i++) {
+      for (let i = 1; i <= TEXTS.title.length; i++) {
         if (isCancelled) return;
-        setDisplayedTitle(currentTexts.title.substring(0, i));
+        setDisplayedTitle(TEXTS.title.substring(0, i));
         await new Promise((resolve) => setTimeout(resolve, 35));
       }
 
       if (isCancelled) return;
       await new Promise((resolve) => setTimeout(resolve, 400));
 
-      for (let i = 1; i <= currentTexts.body.length; i++) {
+      for (let i = 1; i <= TEXTS.body.length; i++) {
         if (isCancelled) return;
-        setDisplayedBody(currentTexts.body.substring(0, i));
+        setDisplayedBody(TEXTS.body.substring(0, i));
         await new Promise((resolve) => setTimeout(resolve, 30));
       }
     };
@@ -57,7 +54,7 @@ export default function LandingPage() {
     return () => {
       isCancelled = true;
     };
-  }, [currentTexts.title, currentTexts.body, language]);
+  }, []);
 
   function handleBeginExpedition(): void {
     if (status === "authenticated" && user) {
@@ -67,10 +64,6 @@ export default function LandingPage() {
     navigate("/choose-adventure");
   }
 
-  function toggleLanguage() {
-    setLanguage((prev) => (prev === "en" ? "id" : "en"));
-  }
-
   return (
     <main
       className="landing-map relative flex h-dvh min-h-0 flex-col items-center justify-center overflow-hidden bg-cover bg-center bg-no-repeat"
@@ -78,17 +71,6 @@ export default function LandingPage() {
     >
       {/* Light overlay */}
       <div aria-hidden="true" className="absolute inset-0 bg-white/30" />
-
-      {/* Tombol Ganti Bahasa (Pojok Kanan Atas) */}
-      <div className="fixed top-6 right-6 z-50 sm:top-8 sm:right-8 lg:right-12">
-        <button
-          onClick={toggleLanguage}
-          className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-2.5 text-sm font-bold text-ally-primary shadow-md backdrop-blur-md transition-transform hover:scale-105 hover:bg-white"
-        >
-          <Globe size={18} />
-          {language === "en" ? "EN" : "ID"}
-        </button>
-      </div>
 
       {/* Container utama */}
       <div className="relative z-10 mx-auto flex h-full w-full max-w-4xl flex-col items-center justify-center gap-3 px-4 py-4 sm:gap-5 sm:px-8 sm:py-6">
@@ -104,7 +86,7 @@ export default function LandingPage() {
             <span aria-hidden="true" className="ally-logo-lly font-bold text-[#005a9c]">lly</span>
           </span>
           <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#7a582f] sm:mt-3 sm:text-xs md:text-sm">
-            {currentTexts.expedition}
+            {TEXTS.expedition}
           </p>
         </header>
 
@@ -141,12 +123,12 @@ export default function LandingPage() {
               onClick={handleBeginExpedition}
               className="min-w-[200px] text-sm sm:min-w-[220px] sm:text-base md:min-w-[240px] md:text-lg"
             >
-              {currentTexts.beginBtn}
+              {TEXTS.beginBtn}
             </PrimaryButton>
 
             <div className="mt-2 flex items-center gap-2 text-[11px] font-medium text-[#7a582f]/80 sm:mt-2.5 sm:text-xs md:text-sm">
               <Mountain size={16} aria-hidden="true" />
-              <span>{currentTexts.departure}</span>
+              <span>{TEXTS.departure}</span>
             </div>
           </div>
         </div>
