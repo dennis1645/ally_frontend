@@ -59,7 +59,6 @@ type RoadmapHeroState = {
   roadmap: RoadmapData | null;
 };
 
-
 /*
  * Keeps duplicate reminder requests from React StrictMode/remounts
  * from opening the same SweetAlert twice in one dashboard visit.
@@ -240,34 +239,74 @@ function looksLikeAnalysisFailure(
     "cannot connect",
     "could not connect",
   ].some(
-    (signal) =>
+    (
+      signal,
+    ) =>
       normalized.includes(
         signal,
       ),
   );
 }
 
+/* =========================================================
+   Loading state
+
+   Matches the new floating-card dashboard layout:
+   one large map with utility cards floating over it.
+========================================================= */
+
 function DashboardLoadingState() {
   return (
     <div className="min-h-[calc(100vh-80px)] bg-ally-background px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
       <div className="mx-auto w-full max-w-[1480px] animate-pulse">
-        <div className="mb-4">
-          <div className="h-4 w-28 rounded bg-white" />
-          <div className="mt-2 h-8 w-80 max-w-full rounded bg-white" />
-          <div className="mt-2 h-4 w-52 rounded bg-white" />
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="h-4 w-28 rounded bg-white" />
+
+            <div className="mt-2 h-8 w-80 max-w-full rounded bg-white" />
+
+            <div className="mt-2 h-4 w-52 rounded bg-white" />
+          </div>
+
+          <div className="h-10 w-44 rounded-xl bg-white" />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
-          <div className="min-h-[650px] rounded-[26px] bg-white" />
+        <div className="relative min-h-[720px] overflow-hidden rounded-[26px] border border-[#c3d0d9] bg-[#dbeae7] shadow-[0_7px_0_#d8c6ae]">
+          <div className="absolute inset-0 bg-white/30" />
 
-          <div className="space-y-3">
-            <div className="h-40 rounded-[22px] bg-white" />
-            <div className="h-20 rounded-[16px] bg-white" />
-            <div className="h-20 rounded-[16px] bg-white" />
-            <div className="h-20 rounded-[16px] bg-white" />
-            <div className="h-32 rounded-[18px] bg-white" />
-            <div className="h-36 rounded-[18px] bg-white" />
+          <div className="absolute left-6 top-8 h-[620px] w-[62%] rounded-[24px] bg-white/25" />
+
+          <div className="absolute right-4 top-4 hidden w-[320px] space-y-3 xl:block">
+            <div className="h-40 rounded-[22px] bg-white/95" />
+
+            <div className="h-20 rounded-[16px] bg-white/95" />
+
+            <div className="h-20 rounded-[16px] bg-white/95" />
+
+            <div className="h-20 rounded-[16px] bg-white/95" />
+
+            <div className="h-32 rounded-[18px] bg-white/95" />
+
+            <div className="h-36 rounded-[18px] bg-white/95" />
           </div>
+
+          <div className="absolute inset-x-8 bottom-8 h-20 rounded-[22px] bg-white/30 xl:right-[350px]" />
+        </div>
+
+        <div className="mt-4 space-y-3 xl:hidden">
+          <div className="h-40 rounded-[22px] bg-white" />
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="h-20 rounded-[16px] bg-white" />
+
+            <div className="h-20 rounded-[16px] bg-white" />
+
+            <div className="h-20 rounded-[16px] bg-white" />
+          </div>
+
+          <div className="h-32 rounded-[18px] bg-white" />
+
+          <div className="h-36 rounded-[18px] bg-white" />
         </div>
       </div>
     </div>
@@ -283,7 +322,9 @@ function DashboardUnavailableState() {
           "border border-orange-100 bg-white",
           "p-8 text-center",
           "shadow-[0_6px_0_#d8c6ae]",
-        ].join(" ")}
+        ].join(
+          " ",
+        )}
       >
         <h2 className="text-xl font-extrabold text-[#2c1607]">
           Explorer profile unavailable
@@ -300,11 +341,18 @@ function DashboardUnavailableState() {
 
 function isRecord(
   value: unknown,
-): value is Record<string, unknown> {
+): value is Record<
+  string,
+  unknown
+> {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
+    typeof value ===
+      "object" &&
+    value !==
+      null &&
+    !Array.isArray(
+      value,
+    )
   );
 }
 
@@ -340,16 +388,20 @@ export default function DashboardPage() {
   const {
     user,
     status,
-  } = useAuth();
+  } =
+    useAuth();
 
   const [
     readiness,
     setReadiness,
   ] =
     useState<ReadinessState>({
-      loading: true,
-      score: null,
-      unavailable: false,
+      loading:
+        true,
+      score:
+        null,
+      unavailable:
+        false,
     });
 
   const [
@@ -357,15 +409,19 @@ export default function DashboardPage() {
     setRoadmapHero,
   ] =
     useState<RoadmapHeroState>({
-      loading: true,
-      roadmap: null,
+      loading:
+        true,
+      roadmap:
+        null,
     });
 
   const [
     assessment2Complete,
     setAssessment2Complete,
   ] =
-    useState<boolean | null>(
+    useState<
+      boolean | null
+    >(
       null,
     );
 
@@ -389,16 +445,21 @@ export default function DashboardPage() {
       async function loadReadiness():
         Promise<void> {
         setReadiness({
-          loading: true,
-          score: null,
-          unavailable: false,
+          loading:
+            true,
+          score:
+            null,
+          unavailable:
+            false,
         });
 
         try {
           const result =
             await getDeepDiagnosticResult();
 
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
@@ -432,7 +493,8 @@ export default function DashboardPage() {
             );
 
           setReadiness({
-            loading: false,
+            loading:
+              false,
             score:
               validScore
                 ? score
@@ -448,7 +510,9 @@ export default function DashboardPage() {
             error,
           );
 
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
@@ -462,9 +526,12 @@ export default function DashboardPage() {
           );
 
           setReadiness({
-            loading: false,
-            score: null,
-            unavailable: true,
+            loading:
+              false,
+            score:
+              null,
+            unavailable:
+              true,
           });
         }
       }
@@ -484,9 +551,12 @@ export default function DashboardPage() {
         );
 
         setReadiness({
-          loading: false,
-          score: null,
-          unavailable: false,
+          loading:
+            false,
+          score:
+            null,
+          unavailable:
+            false,
         });
       }
 
@@ -504,9 +574,10 @@ export default function DashboardPage() {
   /* =======================================================
      Dashboard Quest Hero roadmap
 
-     This only reads the canonical roadmap. Timeline generation
-     and the Premium mentor-match onboarding remain owned by the
-     existing Quest Tracker flow.
+     Dashboard only READS the user's canonical roadmap.
+
+     Premium timeline generation and mentor matching remain
+     owned by the existing Quest Tracker flow.
   ======================================================= */
 
   useEffect(
@@ -522,8 +593,10 @@ export default function DashboardPage() {
           !user
         ) {
           setRoadmapHero({
-            loading: false,
-            roadmap: null,
+            loading:
+              false,
+            roadmap:
+              null,
           });
 
           return;
@@ -534,18 +607,24 @@ export default function DashboardPage() {
             user,
           );
 
-        if (!targetId) {
+        if (
+          !targetId
+        ) {
           setRoadmapHero({
-            loading: false,
-            roadmap: null,
+            loading:
+              false,
+            roadmap:
+              null,
           });
 
           return;
         }
 
         setRoadmapHero({
-          loading: true,
-          roadmap: null,
+          loading:
+            true,
+          roadmap:
+            null,
         });
 
         try {
@@ -554,12 +633,15 @@ export default function DashboardPage() {
               targetId,
             );
 
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
           setRoadmapHero({
-            loading: false,
+            loading:
+              false,
             roadmap:
               access.roadmap,
           });
@@ -571,13 +653,17 @@ export default function DashboardPage() {
             roadmapError,
           );
 
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
           setRoadmapHero({
-            loading: false,
-            roadmap: null,
+            loading:
+              false,
+            roadmap:
+              null,
           });
         }
       }
@@ -670,7 +756,9 @@ export default function DashboardPage() {
           );
 
           const first =
-            unseen[0];
+            unseen[
+              0
+            ];
 
           const dateLabel =
             formattedReminderDeadline(
@@ -700,34 +788,47 @@ export default function DashboardPage() {
             await Swal.fire({
               icon:
                 "warning",
+
               title:
                 unseen.length ===
                   1
                   ? "Mentor task due tomorrow"
                   : `${unseen.length} mentor tasks due tomorrow`,
+
               text:
                 message,
+
               confirmButtonText:
                 "Open Quest Tracker",
+
               cancelButtonText:
                 "Later",
+
               showCancelButton:
                 true,
+
               reverseButtons:
                 true,
+
               confirmButtonColor:
                 "#16629b",
+
               cancelButtonColor:
                 "#8a735f",
+
               background:
                 "#ffffff",
+
               color:
                 "#2c1607",
+
               customClass: {
                 popup:
                   "rounded-[24px]",
+
                 confirmButton:
                   "rounded-xl px-5 py-2.5 font-bold",
+
                 cancelButton:
                   "rounded-xl px-5 py-2.5 font-bold",
               },
@@ -805,6 +906,12 @@ export default function DashboardPage() {
           ),
       );
 
+    /*
+     * Milestone 2 is Assessment 2.
+     *
+     * Keep this interaction on the Dashboard instead of
+     * immediately sending the user to another page.
+     */
     if (
       milestoneIndex ===
         1 &&
@@ -818,6 +925,11 @@ export default function DashboardPage() {
       return;
     }
 
+    /*
+     * Fallback:
+     * if for some reason the milestone cannot be found in the
+     * currently loaded roadmap, open the full Quest Tracker.
+     */
     if (
       milestoneIndex <
       0

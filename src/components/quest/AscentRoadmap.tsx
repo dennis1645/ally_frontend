@@ -6,6 +6,12 @@ import {
   MapPinned,
 } from "lucide-react";
 
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import expeditionTerrain from "../../assets/expedition-terrain.png";
 
 import type {
@@ -357,6 +363,695 @@ function Overview({
 }
 
 
+
+type DashboardTrailPoint = {
+  x: number;
+  y: number;
+};
+
+type DashboardMapSize = {
+  width: number;
+  height: number;
+};
+
+const DASHBOARD_TRAIL_VIEWBOX_WIDTH =
+  1086;
+
+const DASHBOARD_TRAIL_VIEWBOX_HEIGHT =
+  1449;
+
+/*
+ * These points trace the CENTRE of the actual brown walking path in
+ * expedition-terrain.png from the lower trail toward the summit.
+ *
+ * Important:
+ * - The path is not an arbitrary S curve anymore.
+ * - The points were placed against the real green/brown terrain image.
+ * - The SVG uses the same xMidYMid "slice" behaviour as object-cover,
+ *   so the white line stays on top of the painted brown trail.
+ */
+const DASHBOARD_TRAIL_REFERENCE_POINTS:
+  DashboardTrailPoint[] = [
+    {
+      x: 480,
+      y: 1438,
+    },
+    {
+      x: 592,
+      y: 1348,
+    },
+    {
+      x: 599,
+      y: 1248,
+    },
+    {
+      x: 455,
+      y: 1148,
+    },
+    {
+      x: 450,
+      y: 1048,
+    },
+    {
+      x: 580,
+      y: 948,
+    },
+    {
+      x: 628,
+      y: 848,
+    },
+    {
+      x: 526,
+      y: 748,
+    },
+    {
+      x: 492,
+      y: 648,
+    },
+    {
+      x: 591,
+      y: 548,
+    },
+    {
+      x: 402,
+      y: 448,
+    },
+    {
+      x: 574,
+      y: 348,
+    },
+    {
+      x: 471,
+      y: 248,
+    },
+    {
+      x: 534,
+      y: 178,
+    },
+    {
+      x: 548,
+      y: 120,
+    },
+    {
+      x: 535,
+      y: 82,
+    },
+  ];
+
+function catmullRomPoint(
+  point0:
+    DashboardTrailPoint,
+  point1:
+    DashboardTrailPoint,
+  point2:
+    DashboardTrailPoint,
+  point3:
+    DashboardTrailPoint,
+  t: number,
+): DashboardTrailPoint {
+  const clamped =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        t,
+      ),
+    );
+
+  const t2 =
+    clamped *
+    clamped;
+
+  const t3 =
+    t2 *
+    clamped;
+
+  return {
+    x:
+      0.5 *
+      (
+        2 *
+          point1.x +
+        (
+          -point0.x +
+          point2.x
+        ) *
+          clamped +
+        (
+          2 *
+            point0.x -
+          5 *
+            point1.x +
+          4 *
+            point2.x -
+          point3.x
+        ) *
+          t2 +
+        (
+          -point0.x +
+          3 *
+            point1.x -
+          3 *
+            point2.x +
+          point3.x
+        ) *
+          t3
+      ),
+
+    y:
+      0.5 *
+      (
+        2 *
+          point1.y +
+        (
+          -point0.y +
+          point2.y
+        ) *
+          clamped +
+        (
+          2 *
+            point0.y -
+          5 *
+            point1.y +
+          4 *
+            point2.y -
+          point3.y
+        ) *
+          t2 +
+        (
+          -point0.y +
+          3 *
+            point1.y -
+          3 *
+            point2.y +
+          point3.y
+        ) *
+          t3
+      ),
+  };
+}
+
+function buildDashboardTrailPath(
+  points:
+    DashboardTrailPoint[],
+): string {
+  if (
+    points.length ===
+    0
+  ) {
+    return "";
+  }
+
+  if (
+    points.length ===
+    1
+  ) {
+    return `M ${points[0].x} ${points[0].y}`;
+  }
+
+  let path =
+    `M ${points[0].x} ${points[0].y}`;
+
+  /*
+   * Convert the Catmull-Rom guide points to cubic Bézier commands.
+   * This gives us the smooth wandering shape of the painted trail
+   * without cutting sharp corners between the sampled road centres.
+   */
+  for (
+    let index =
+      0;
+    index <
+    points.length -
+      1;
+    index +=
+      1
+  ) {
+    const point0 =
+      points[
+        Math.max(
+          0,
+          index -
+            1,
+        )
+      ];
+
+    const point1 =
+      points[
+        index
+      ];
+
+    const point2 =
+      points[
+        index +
+          1
+      ];
+
+    const point3 =
+      points[
+        Math.min(
+          points.length -
+            1,
+          index +
+            2,
+        )
+      ];
+
+    const control1 = {
+      x:
+        point1.x +
+        (
+          point2.x -
+          point0.x
+        ) /
+          6,
+
+      y:
+        point1.y +
+        (
+          point2.y -
+          point0.y
+        ) /
+          6,
+    };
+
+    const control2 = {
+      x:
+        point2.x -
+        (
+          point3.x -
+          point1.x
+        ) /
+          6,
+
+      y:
+        point2.y -
+        (
+          point3.y -
+          point1.y
+        ) /
+          6,
+    };
+
+    path +=
+      ` C ${control1.x} ${control1.y}, ${control2.x} ${control2.y}, ${point2.x} ${point2.y}`;
+  }
+
+  return path;
+}
+
+const DASHBOARD_TRAIL_PATH =
+  buildDashboardTrailPath(
+    DASHBOARD_TRAIL_REFERENCE_POINTS,
+  );
+
+/*
+ * progress = 0  -> bottom of the brown trail
+ * progress = 1  -> summit
+ */
+function pointOnDashboardTrail(
+  progress: number,
+): DashboardTrailPoint {
+  const clampedProgress =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        progress,
+      ),
+    );
+
+  const segmentCount =
+    DASHBOARD_TRAIL_REFERENCE_POINTS.length -
+    1;
+
+  const scaledProgress =
+    clampedProgress *
+    segmentCount;
+
+  const segmentIndex =
+    Math.min(
+      segmentCount -
+        1,
+      Math.floor(
+        scaledProgress,
+      ),
+    );
+
+  const segmentProgress =
+    clampedProgress ===
+    1
+      ? 1
+      : scaledProgress -
+        segmentIndex;
+
+  const point0 =
+    DASHBOARD_TRAIL_REFERENCE_POINTS[
+      Math.max(
+        0,
+        segmentIndex -
+          1,
+      )
+    ];
+
+  const point1 =
+    DASHBOARD_TRAIL_REFERENCE_POINTS[
+      segmentIndex
+    ];
+
+  const point2 =
+    DASHBOARD_TRAIL_REFERENCE_POINTS[
+      Math.min(
+        DASHBOARD_TRAIL_REFERENCE_POINTS.length -
+          1,
+        segmentIndex +
+          1,
+      )
+    ];
+
+  const point3 =
+    DASHBOARD_TRAIL_REFERENCE_POINTS[
+      Math.min(
+        DASHBOARD_TRAIL_REFERENCE_POINTS.length -
+          1,
+        segmentIndex +
+          2,
+      )
+    ];
+
+  return catmullRomPoint(
+    point0,
+    point1,
+    point2,
+    point3,
+    segmentProgress,
+  );
+}
+
+/*
+ * Because the terrain image uses object-cover, a wide desktop hero
+ * shows only a middle slice of the portrait illustration.
+ *
+ * This finds which part of the native image is currently visible.
+ * We then distribute ALL dashboard milestones inside that visible
+ * part of the real brown trail instead of placing some milestones
+ * outside the cropped viewport.
+ */
+function getVisibleNativeYRange(
+  mapSize:
+    DashboardMapSize,
+): {
+  top: number;
+  bottom: number;
+} {
+  if (
+    mapSize.width <=
+      0 ||
+    mapSize.height <=
+      0
+  ) {
+    return {
+      top:
+        350,
+      bottom:
+        1080,
+    };
+  }
+
+  const scale =
+    Math.max(
+      mapSize.width /
+        DASHBOARD_TRAIL_VIEWBOX_WIDTH,
+      mapSize.height /
+        DASHBOARD_TRAIL_VIEWBOX_HEIGHT,
+    );
+
+  const renderedHeight =
+    DASHBOARD_TRAIL_VIEWBOX_HEIGHT *
+    scale;
+
+  const offsetY =
+    (
+      mapSize.height -
+      renderedHeight
+    ) /
+    2;
+
+  return {
+    top:
+      Math.max(
+        0,
+        -offsetY /
+          scale,
+      ),
+
+    bottom:
+      Math.min(
+        DASHBOARD_TRAIL_VIEWBOX_HEIGHT,
+        (
+          mapSize.height -
+          offsetY
+        ) /
+          scale,
+      ),
+  };
+}
+
+/*
+ * The traced road moves continuously upward, so we can binary-search
+ * the trail progress that corresponds to a native image Y coordinate.
+ */
+function progressForDashboardY(
+  targetY: number,
+): number {
+  let low =
+    0;
+
+  let high =
+    1;
+
+  for (
+    let iteration =
+      0;
+    iteration <
+    28;
+    iteration +=
+      1
+  ) {
+    const middle =
+      (
+        low +
+        high
+      ) /
+      2;
+
+    const point =
+      pointOnDashboardTrail(
+        middle,
+      );
+
+    if (
+      point.y >
+      targetY
+    ) {
+      low =
+        middle;
+    } else {
+      high =
+        middle;
+    }
+  }
+
+  return (
+    low +
+    high
+  ) /
+  2;
+}
+
+function buildDashboardTrailPoints(
+  count: number,
+  mapSize:
+    DashboardMapSize,
+): {
+  milestones:
+    DashboardTrailPoint[];
+  goal:
+    DashboardTrailPoint;
+} {
+  if (
+    count <=
+    0
+  ) {
+    return {
+      milestones:
+        [],
+      goal:
+        pointOnDashboardTrail(
+          0.82,
+        ),
+    };
+  }
+
+  const visible =
+    getVisibleNativeYRange(
+      mapSize,
+    );
+
+  const visibleHeight =
+    Math.max(
+      1,
+      visible.bottom -
+      visible.top,
+    );
+
+  /*
+   * Keep marker cards away from the very top/bottom crop edges.
+   */
+  const bottomY =
+    visible.bottom -
+    visibleHeight *
+      0.09;
+
+  const topY =
+    visible.top +
+    visibleHeight *
+      0.11;
+
+  const startProgress =
+    progressForDashboardY(
+      bottomY,
+    );
+
+  const goalProgress =
+    progressForDashboardY(
+      topY,
+    );
+
+  const finalMilestoneProgress =
+    startProgress +
+    (
+      goalProgress -
+      startProgress
+    ) *
+      0.84;
+
+  const milestones =
+    count ===
+    1
+      ? [
+          pointOnDashboardTrail(
+            startProgress,
+          ),
+        ]
+      : Array.from(
+          {
+            length:
+              count,
+          },
+          (
+            _,
+            index,
+          ) =>
+            pointOnDashboardTrail(
+              startProgress +
+              (
+                finalMilestoneProgress -
+                startProgress
+              ) *
+                (
+                  index /
+                  (
+                    count -
+                    1
+                  )
+                ),
+            ),
+        );
+
+  return {
+    milestones,
+    goal:
+      pointOnDashboardTrail(
+        goalProgress,
+      ),
+  };
+}
+
+/*
+ * Convert native expedition-terrain.png coordinates to the actual
+ * object-cover coordinates of the dashboard hero.
+ */
+function dashboardPointStyle(
+  point:
+    DashboardTrailPoint,
+  mapSize:
+    DashboardMapSize,
+): {
+  left: string;
+  top: string;
+} {
+  if (
+    mapSize.width <=
+      0 ||
+    mapSize.height <=
+      0
+  ) {
+    return {
+      left:
+        "50%",
+      top:
+        "50%",
+    };
+  }
+
+  const scale =
+    Math.max(
+      mapSize.width /
+        DASHBOARD_TRAIL_VIEWBOX_WIDTH,
+      mapSize.height /
+        DASHBOARD_TRAIL_VIEWBOX_HEIGHT,
+    );
+
+  const renderedWidth =
+    DASHBOARD_TRAIL_VIEWBOX_WIDTH *
+    scale;
+
+  const renderedHeight =
+    DASHBOARD_TRAIL_VIEWBOX_HEIGHT *
+    scale;
+
+  const offsetX =
+    (
+      mapSize.width -
+      renderedWidth
+    ) /
+    2;
+
+  const offsetY =
+    (
+      mapSize.height -
+      renderedHeight
+    ) /
+    2;
+
+  return {
+    left:
+      `${
+        offsetX +
+        point.x *
+          scale
+      }px`,
+
+    top:
+      `${
+        offsetY +
+        point.y *
+          scale
+      }px`,
+  };
+}
+
+
 function DashboardVerticalRoadmap({
   roadmap,
   selectedMilestoneId,
@@ -386,23 +1081,115 @@ function DashboardVerticalRoadmap({
         second.order,
     );
 
-  const verticalHeight =
-    Math.max(
-      640,
-      milestones.length *
-        104 +
-        90,
+  const mapRef =
+    useRef<HTMLElement | null>(
+      null,
     );
 
-  const topPadding =
-    8;
+  const [
+    mapSize,
+    setMapSize,
+  ] =
+    useState<DashboardMapSize>({
+      width:
+        0,
+      height:
+        0,
+    });
 
-  const bottomPadding =
-    91;
+  useEffect(
+    () => {
+      const element =
+        mapRef.current;
+
+      if (!element) {
+        return;
+      }
+
+      const updateSize =
+        (): void => {
+          setMapSize({
+            width:
+              element.clientWidth,
+            height:
+              element.clientHeight,
+          });
+        };
+
+      updateSize();
+
+      if (
+        typeof ResizeObserver ===
+        "undefined"
+      ) {
+        window.addEventListener(
+          "resize",
+          updateSize,
+        );
+
+        return () => {
+          window.removeEventListener(
+            "resize",
+            updateSize,
+          );
+        };
+      }
+
+      const observer =
+        new ResizeObserver(
+          updateSize,
+        );
+
+      observer.observe(
+        element,
+      );
+
+      return () => {
+        observer.disconnect();
+      };
+    },
+    [],
+  );
+
+  const {
+    milestones:
+      trailPoints,
+    goal:
+      goalPoint,
+  } =
+    buildDashboardTrailPoints(
+      milestones.length,
+      mapSize,
+    );
+
+  const trailPath =
+    DASHBOARD_TRAIL_PATH;
+
+  /*
+   * Give the curved trail enough vertical breathing room while still
+   * keeping the dashboard hero compact. The SVG scales responsively
+   * across the entire terrain card.
+   */
+  const mapHeight =
+    Math.max(
+      720,
+      milestones.length *
+        88 +
+        120,
+    );
+
+  const goalStyle =
+    dashboardPointStyle(
+      goalPoint,
+      mapSize,
+    );
 
   return (
     <section
-      aria-label="Vertical scholarship quest map"
+      ref={
+        mapRef
+      }
+      aria-label="Scholarship quest map following the painted terrain trail"
       className={[
         "relative isolate w-full overflow-hidden rounded-[26px]",
         "border border-[#c3d0d9] bg-[#dbeae7]",
@@ -412,7 +1199,7 @@ function DashboardVerticalRoadmap({
       )}
       style={{
         minHeight:
-          `${verticalHeight}px`,
+          `${mapHeight}px`,
       }}
     >
       <img
@@ -429,38 +1216,72 @@ function DashboardVerticalRoadmap({
         className="absolute inset-0 bg-white/10"
       />
 
-      <div
-        aria-hidden="true"
-        className="absolute left-1/2 top-[7%] bottom-[7%] w-[4px] -translate-x-1/2 rounded-full bg-white/90 shadow-sm"
-      />
+      {/* =====================================================
+          Painted-terrain expedition route
 
-      <div
+          This SVG uses the native dimensions of expedition-terrain.png
+          and traces the centre of the actual brown road in the artwork.
+
+          preserveAspectRatio="xMidYMid slice" mirrors CSS object-cover.
+          The white route therefore crops and scales exactly with the image.
+      ====================================================== */}
+      <svg
         aria-hidden="true"
-        className="absolute left-1/2 top-[7%] bottom-[7%] w-px -translate-x-1/2 border-l border-dashed border-[#7a582f]/60"
-      />
+        className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+        viewBox={`0 0 ${DASHBOARD_TRAIL_VIEWBOX_WIDTH} ${DASHBOARD_TRAIL_VIEWBOX_HEIGHT}`}
+        preserveAspectRatio="xMidYMid slice"
+      >
+        {/* soft terrain shadow under the white route */}
+        <path
+          d={
+            trailPath
+          }
+          fill="none"
+          stroke="rgba(122,88,47,0.20)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="13"
+        />
+
+        {/* main white expedition trail */}
+        <path
+          d={
+            trailPath
+          }
+          fill="none"
+          stroke="rgba(255,255,255,0.97)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="7.5"
+        />
+
+        {/* small warm dashed detail so the route still feels mapped */}
+        <path
+          d={
+            trailPath
+          }
+          fill="none"
+          stroke="rgba(122,88,47,0.42)"
+          strokeDasharray="7 10"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.6"
+        />
+      </svg>
 
       {milestones.map(
         (
           milestone,
           index,
         ) => {
-          const ratio =
-            milestones.length <=
-            1
-              ? 0.5
-              : index /
-                (
-                  milestones.length -
-                  1
-                );
+          const point =
+            trailPoints[
+              index
+            ];
 
-          const top =
-            topPadding +
-            ratio *
-              (
-                bottomPadding -
-                topPadding
-              );
+          if (!point) {
+            return null;
+          }
 
           const forceSelectable =
             specialSelectableMilestoneId !==
@@ -472,10 +1293,20 @@ function DashboardVerticalRoadmap({
                 milestone.id,
               );
 
+          /*
+           * Keep labels away from the outer edges:
+           * left/middle nodes label to the right,
+           * right-side nodes label to the left.
+           */
           const labelOnRight =
-            index %
-              2 ===
-            0;
+            point.x <
+            545;
+
+          const pointStyle =
+            dashboardPointStyle(
+              point,
+              mapSize,
+            );
 
           return (
             <div
@@ -484,10 +1315,9 @@ function DashboardVerticalRoadmap({
                   milestone.id,
                 )
               }
-              className="absolute left-1/2 z-20 -translate-x-1/2"
+              className="absolute z-20"
               style={{
-                top:
-                  `${top}%`,
+                ...pointStyle,
                 transform:
                   "translate(-50%, -50%)",
               }}
@@ -537,8 +1367,8 @@ function DashboardVerticalRoadmap({
                       ? "cursor-default opacity-70"
                       : "cursor-pointer group-hover:-translate-y-[calc(50%+2px)]",
                     labelOnRight
-                      ? "left-[calc(100%+18px)]"
-                      : "right-[calc(100%+18px)] text-right",
+                      ? "left-[calc(100%+16px)]"
+                      : "right-[calc(100%+16px)] text-right",
                   ].join(
                     " ",
                   )}
@@ -575,17 +1405,37 @@ function DashboardVerticalRoadmap({
         },
       )}
 
-      <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/80 bg-white/90 px-4 py-2 text-center shadow-md backdrop-blur">
-        <p className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#7a582f]">
-          Scholarship Goal
-        </p>
+      {/* Scholarship goal / Submission Gate */}
+      <div
+        className="absolute z-20"
+        style={{
+          ...goalStyle,
+          transform:
+            "translate(-50%, -50%)",
+        }}
+      >
+        <div className="relative flex flex-col items-center">
+          <div className="relative h-16 w-16">
+            <div className="absolute bottom-0 left-1/2 h-12 w-1 -translate-x-1/2 rounded-full bg-[#7a582f]" />
 
-        <Flag
-          size={15}
-          className="mx-auto mt-1 text-[#e97651]"
-          fill="currentColor"
-          aria-hidden="true"
-        />
+            <Flag
+              size={34}
+              fill="currentColor"
+              aria-hidden="true"
+              className="absolute left-1/2 top-0 -translate-x-[4px] text-[#ba1a1a]"
+            />
+          </div>
+
+          <div className="mt-1 rounded-xl border border-white/80 bg-white/92 px-3 py-2 text-center shadow-md backdrop-blur">
+            <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#7a582f]">
+              Scholarship Goal
+            </p>
+
+            <p className="mt-0.5 text-[11px] font-extrabold text-[#16629b]">
+              Submission Gate
+            </p>
+          </div>
+        </div>
       </div>
     </section>
   );

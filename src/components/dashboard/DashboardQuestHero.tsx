@@ -1,16 +1,8 @@
-import type {
-  ReactNode,
-} from "react";
-
 import {
   ArrowRight,
-  BrainCircuit,
   Compass,
-  Flame,
   Loader2,
   Sparkles,
-  UsersRound,
-  Zap,
 } from "lucide-react";
 
 import expeditionTerrain from "../../assets/expedition-terrain.png";
@@ -42,63 +34,6 @@ type DashboardQuestHeroProps = {
   ) => void;
   onBookMentor: () => void;
 };
-
-function formatStat(
-  value:
-    | number
-    | null
-    | undefined,
-  suffix = "",
-): string {
-  if (
-    typeof value !==
-      "number" ||
-    !Number.isFinite(
-      value,
-    )
-  ) {
-    return "—";
-  }
-
-  return `${Math.max(
-    0,
-    Math.round(
-      value,
-    ),
-  ).toLocaleString()}${suffix}`;
-}
-
-function CompactStat({
-  icon,
-  label,
-  value,
-  helper,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  helper: string;
-}) {
-  return (
-    <div className="rounded-[16px] border border-[#dbe4ea] bg-white px-3.5 py-3 shadow-[0_3px_0_#e4ebef]">
-      <div className="flex items-center gap-2 text-[#16629b]">
-        {icon}
-
-        <p className="text-[9px] font-extrabold uppercase tracking-[0.12em]">
-          {label}
-        </p>
-      </div>
-
-      <p className="mt-2 text-lg font-extrabold leading-none text-[#2c1607]">
-        {value}
-      </p>
-
-      <p className="mt-1 text-[10px] font-semibold text-slate-400">
-        {helper}
-      </p>
-    </div>
-  );
-}
 
 function EmptyQuestMap({
   onOpenQuestTracker,
@@ -214,55 +149,6 @@ export default function DashboardQuestHero({
     user.primary_scholarship_target ??
     "Your selected scholarship";
 
-  const readinessValue =
-    readinessLoading
-      ? "..."
-      : typeof readinessScore ===
-            "number" &&
-          Number.isFinite(
-            readinessScore,
-          )
-        ? `${Math.round(
-            Math.max(
-              0,
-              Math.min(
-                100,
-                readinessScore,
-              ),
-            ),
-          )}%`
-        : "—";
-
-  const xpValue =
-    formatStat(
-      typeof user.xp_points ===
-        "number"
-        ? user.xp_points
-        : null,
-      " XP",
-    );
-
-  const streakValue =
-    typeof user.current_streak ===
-      "number" &&
-    Number.isFinite(
-      user.current_streak,
-    )
-      ? `${Math.max(
-          0,
-          Math.floor(
-            user.current_streak,
-          ),
-        )} ${
-          Math.floor(
-            user.current_streak,
-          ) ===
-          1
-            ? "day"
-            : "days"
-        }`
-      : "—";
-
   return (
     <section
       aria-label="Dashboard scholarship expedition"
@@ -320,17 +206,10 @@ export default function DashboardQuestHero({
           </button>
         </header>
 
-        <div
-          className={[
-            "grid items-start gap-4",
-            "xl:grid-cols-[minmax(0,1fr)_310px]",
-          ].join(
-            " ",
-          )}
-        >
+        <div className="relative">
           <main className="min-w-0">
             {loading ? (
-              <div className="grid min-h-[650px] place-items-center rounded-[26px] border border-[#c3d0d9] bg-[#dbeae7] shadow-[0_7px_0_#d8c6ae]">
+              <div className="grid min-h-[720px] place-items-center rounded-[26px] border border-[#c3d0d9] bg-[#dbeae7] shadow-[0_7px_0_#d8c6ae]">
                 <div className="rounded-[20px] border border-white/80 bg-white/90 px-5 py-4 text-center shadow-lg backdrop-blur">
                   <Loader2
                     size={24}
@@ -368,108 +247,65 @@ export default function DashboardQuestHero({
             )}
           </main>
 
+          {/* =================================================
+              Desktop:
+              one compact explorer card floating over the map.
+          ================================================= */}
           <aside
-            aria-label="Explorer expedition sidebar"
-            className="min-w-0 space-y-3 xl:max-h-[calc(100vh-132px)] xl:overflow-y-auto xl:pr-1"
+            aria-label="Explorer summary and IELTS practice"
+            className={[
+              "pointer-events-none absolute right-4 top-4 z-30 hidden",
+              "w-[300px] xl:block",
+            ].join(
+              " ",
+            )}
           >
-            <ExplorerProfileCard
-              user={
-                user
-              }
-              variant="sidebar"
-            />
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <CompactStat
-                icon={
-                  <BrainCircuit
-                    size={15}
-                    aria-hidden="true"
-                  />
+            <div className="pointer-events-auto space-y-3">
+              <ExplorerProfileCard
+                user={
+                  user
                 }
-                label="Readiness Score"
-                value={
-                  readinessValue
+                variant="overlay"
+                readinessScore={
+                  readinessScore
                 }
-                helper="Scholarship readiness"
-              />
-
-              <CompactStat
-                icon={
-                  <Zap
-                    size={15}
-                    aria-hidden="true"
-                  />
+                readinessLoading={
+                  readinessLoading
                 }
-                label="XP"
-                value={
-                  xpValue
-                }
-                helper="Experience points"
-              />
-
-              <CompactStat
-                icon={
-                  <Flame
-                    size={15}
-                    aria-hidden="true"
-                  />
-                }
-                label="Streak"
-                value={
-                  streakValue
-                }
-                helper="Current streak"
-              />
-            </div>
-
-            <section className="rounded-[18px] border border-[#ead8c8] bg-white p-4 shadow-[0_4px_0_#e7d9cc]">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#fff5e8] text-[#9a6726]">
-                  <UsersRound
-                    size={18}
-                    aria-hidden="true"
-                  />
-                </div>
-
-                <div>
-                  <p className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#7a582f]">
-                    Book a Mentor
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Get guidance from a scholarship mentor.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={
+                onBookMentor={
                   onBookMentor
                 }
-                className={[
-                  "mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2",
-                  "rounded-xl border border-[#bfd8e8] bg-[#f4faff] px-3 py-2",
-                  "text-xs font-extrabold text-[#16629b]",
-                  "transition hover:bg-[#eaf5fb]",
-                ].join(
-                  " ",
-                )}
-              >
-                Book Mentor
+              />
 
-                <ArrowRight
-                  size={14}
-                  aria-hidden="true"
-                />
-              </button>
-            </section>
-
-            <IELTSPracticeQuizCard
-              variant="compact"
-            />
+              <IELTSPracticeQuizCard
+                variant="compact"
+              />
+            </div>
           </aside>
+        </div>
+
+        {/* Mobile/tablet:
+            keep the same single card, but place it below the map. */}
+        <div className="mt-4 space-y-3 xl:hidden">
+          <ExplorerProfileCard
+            user={
+              user
+            }
+            variant="overlay"
+            readinessScore={
+              readinessScore
+            }
+            readinessLoading={
+              readinessLoading
+            }
+            onBookMentor={
+              onBookMentor
+            }
+          />
+
+          <IELTSPracticeQuizCard
+            variant="compact"
+          />
         </div>
       </div>
     </section>
