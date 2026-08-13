@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bot,
   CalendarDays,
@@ -7,16 +7,28 @@ import {
   FileText,
   History,
   MessageSquare,
-  Plus
+  Plus,
 } from "lucide-react";
+import { useLocation } from "react-router";
+
+import { ApiError } from "../../api/apiClient";
+import {
+  createMentorActionPlan,
+  getMentorMentees,
+  getMentorSubmissions,
+  reviewMentorSubmission,
+  type MentorMentee,
+  type MentorSubmission,
+} from "../../api/mentorApi";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
 
-// --- TYPES ---
 type TaskStatus = "In Progress" | "Answered" | "Approval Needed" | "Approved";
 
 type AssignmentItem = {
   id: string;
+  submissionId: string | number | null;
+  milestoneId: number | null;
   title: string;
   mentee: string;
   due: string;
@@ -25,50 +37,71 @@ type AssignmentItem = {
   menteeResponse?: {
     text?: string;
     fileName?: string;
+    fileUrl?: string;
     submittedAt?: string;
   };
 };
 
-// --- MOCK DATA ---
-const initialAssignments: AssignmentItem[] = [
-  {
-    id: "a1",
-    title: "Complete the leadership worksheet",
-    mentee: "Mina Alvarez",
-    due: "2026-08-14",
-    status: "Approval Needed",
-    note: "Use the reflection journal template we discussed.",
-    menteeResponse: {
-      text: "Hi! I've filled out the worksheet focusing on my experience leading the university debate club.",
-      fileName: "Mina_Leadership_Worksheet.pdf",
-      submittedAt: "Today, 10:30 AM",
-    },
-  },
-  {
-    id: "a2",
-    title: "Rework motivation letter outline",
-    mentee: "Ari Chen",
-    due: "2026-08-15",
-    status: "In Progress",
-    note: "Make sure to connect your chemistry background with the scholarship's green energy goals.",
-  },
-  {
-    id: "a3",
-    title: "Draft 3 potential research topics",
-    mentee: "Jordan Lee",
-    due: "2026-08-10",
-    status: "Approved",
-    note: "Keep it under food technology and supply chain.",
-    menteeResponse: {
-      text: "I've decided to focus on sustainable packaging and shelf-life extension.",
-      submittedAt: "Aug 11, 2026",
-    },
-  },
-];
+type LocationState = {
+  autoSelectMentee?: string;
+  bookingId?: string | number;
+};
 
-const activeMenteesList = ["Ari Chen", "Jordan Lee", "Mina Alvarez"];
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message || fallback;
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
+}
 
-// --- SHARED COMPONENT ---
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function statusFor(submission: MentorSubmission): TaskStatus {
+  const status = submission.reviewStatus?.trim().toLowerCase();
+
+  if (status === "approved") return "Approved";
+  if (status === "revision_requested") return "In Progress";
+  if (status === "pending" || !status) return "Approval Needed";
+  return "Answered";
+}
+
+function toAssignment(submission: MentorSubmission): AssignmentItem {
+  const menteeResponse =
+    submission.textResponse || submission.fileName
+      ? {
+          text: submission.textResponse ?? undefined,
+          fileName: submission.fileName ?? undefined,
+          fileUrl: submission.fileUrl ?? undefined,
+          submittedAt: formatDate(submission.submittedAt),
+        }
+      : undefined;
+
+  return {
+    id: `submission-${String(submission.id)}`,
+    submissionId: submission.id,
+    milestoneId: submission.milestoneId,
+    title: submission.taskName ?? `Submission ${String(submission.id)}`,
+    mentee: submission.menteeName ?? "Unknown mentee",
+    due: formatDate(submission.deadline),
+    status: statusFor(submission),
+    note:
+      submission.feedback ??
+      (submission.reviewStatus === "revision_requested"
+        ? "Revision requested by mentor."
+        : "Awaiting mentor review."),
+    menteeResponse,
+  };
+}
+
 function SectionHeader({
   eyebrow,
   title,
@@ -91,59 +124,204 @@ function SectionHeader({
   );
 }
 
-// --- MAIN COMPONENT ---
 export function MentorActionPlansPage() {
-  const [assignments, setAssignments] = useState<AssignmentItem[]>(initialAssignments);
-  const [activeTab, setActiveTab] = useState<"Active" | "History">("Active");
-  
-  // State untuk Approval Modal
-  const [approveModalId, setApproveModalId] = useState<string | null>(null);
+  const location = useLocation();
+  const routeState = (location.state ?? {}) as LocationState;
 
-  // State untuk form draft tugas baru
+  const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
+  const [mentees, setMentees] = useState<MentorMentee[]>([]);
+  const [activeTab, setActiveTab] = useState<"Active" | "History">("Active");
+  const [approveModalId, setApproveModalId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     title: "",
-    mentee: activeMenteesList[0],
+    mentee: "",
     due: "",
     note: "",
   });
 
-  // Fungsi membuat tugas baru
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function loadPage(): Promise<void> {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [menteeResult, pendingResult, approvedResult, revisionResult] =
+        await Promise.allSettled([
+          getMentorMentees(),
+          getMentorSubmissions("pending"),
+          getMentorSubmissions("approved"),
+          getMentorSubmissions("revision_requested"),
+        ]);
+
+      if (menteeResult.status === "fulfilled") {
+        setMentees(menteeResult.value);
+
+        setDraft((current) => {
+          if (current.mentee) return current;
+
+          const autoSelected = routeState.autoSelectMentee
+            ? menteeResult.value.find(
+                (mentee) => mentee.name === routeState.autoSelectMentee,
+              )
+            : null;
+
+          const selected = autoSelected ?? menteeResult.value[0];
+          return {
+            ...current,
+            mentee: selected ? String(selected.id) : "",
+          };
+        });
+      } else {
+        setMentees([]);
+      }
+
+      const submissions = [pendingResult, approvedResult, revisionResult].flatMap(
+        (result) => (result.status === "fulfilled" ? result.value : []),
+      );
+
+      setAssignments(submissions.map(toAssignment));
+
+      if (
+        menteeResult.status === "rejected" &&
+        pendingResult.status === "rejected" &&
+        approvedResult.status === "rejected" &&
+        revisionResult.status === "rejected"
+      ) {
+        setError("The mentor action-plan data could not be loaded.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadPage();
+  }, []);
+
+  const selectedMentee = useMemo(
+    () =>
+      mentees.find((mentee) => String(mentee.id) === draft.mentee) ?? null,
+    [draft.mentee, mentees],
+  );
+
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>,
+  ): Promise<void> {
     event.preventDefault();
+
     if (!draft.title || !draft.mentee || !draft.due) return;
 
-    setAssignments((current) => [
-      {
-        id: `task-${Date.now()}`,
-        title: draft.title,
-        mentee: draft.mentee,
-        due: draft.due,
-        status: "In Progress",
-        note: draft.note || "Keep up the good work!",
-      },
-      ...current,
-    ]);
+    if (!selectedMentee) {
+      setError("Choose an assigned mentee before creating the action plan.");
+      return;
+    }
 
-    setDraft({ title: "", mentee: activeMenteesList[0], due: "", note: "" });
-    setActiveTab("Active"); // Pindah ke tab active kalau baru bikin
-  }
+    const bookingId = routeState.bookingId ?? selectedMentee.bookingId;
 
-  // Fungsi Konfirmasi Approve Tugas dari Modal
-  function confirmApprove() {
-    if (!approveModalId) return;
-    
-    setAssignments((current) =>
-      current.map((task) =>
-        task.id === approveModalId ? { ...task, status: "Approved" } : task
-      )
+    const matchingAssignment = assignments.find(
+      (assignment) =>
+        assignment.mentee === selectedMentee.name && assignment.milestoneId !== null,
     );
-    
-    setApproveModalId(null); // Tutup modal
+
+    const parentMilestoneId =
+      selectedMentee.parentMilestoneId ?? matchingAssignment?.milestoneId ?? null;
+
+    if (
+      bookingId === null ||
+      bookingId === undefined ||
+      parentMilestoneId === null ||
+      parentMilestoneId === undefined
+    ) {
+      setError(
+        "The backend action-plan endpoint requires both a booking ID and parent milestone ID. This mentee does not currently expose that context. Open Action Plans after completing a booked session, or wait until the backend returns those IDs with the mentee/submission data.",
+      );
+      return;
+    }
+
+    const description = draft.note.trim()
+      ? `${draft.title.trim()}\n\nMentor note: ${draft.note.trim()}`
+      : draft.title.trim();
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+
+      await createMentorActionPlan(bookingId, {
+        task_description: description,
+        deadline: draft.due,
+        parent_milestone_id: parentMilestoneId,
+      });
+
+      setAssignments((current) => [
+        {
+          id: `created-${Date.now()}`,
+          submissionId: null,
+          milestoneId: parentMilestoneId,
+          title: draft.title,
+          mentee: selectedMentee.name,
+          due: formatDate(draft.due),
+          status: "In Progress",
+          note: draft.note || "Action plan created.",
+        },
+        ...current,
+      ]);
+
+      setDraft((current) => ({
+        ...current,
+        title: "",
+        due: "",
+        note: "",
+      }));
+
+      setSuccess("Action plan created successfully.");
+      setActiveTab("Active");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Failed to create action plan."));
+    } finally {
+      setSaving(false);
+    }
   }
 
-  // Filter tugas berdasarkan Tab
+  async function confirmApprove(): Promise<void> {
+    if (!approveModalId) return;
+
+    const assignment = assignments.find((task) => task.id === approveModalId);
+    if (!assignment || assignment.submissionId === null) {
+      setApproveModalId(null);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      await reviewMentorSubmission(assignment.submissionId, {
+        status: "approved",
+      });
+
+      setAssignments((current) =>
+        current.map((task) =>
+          task.id === approveModalId ? { ...task, status: "Approved" } : task,
+        ),
+      );
+
+      setApproveModalId(null);
+      setSuccess("Submission approved.");
+    } catch (requestError) {
+      setError(
+        getErrorMessage(requestError, "Failed to approve this submission."),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const displayedTasks = assignments.filter((task) =>
-    activeTab === "Active" ? task.status !== "Approved" : task.status === "Approved"
+    activeTab === "Active" ? task.status !== "Approved" : task.status === "Approved",
   );
 
   return (
@@ -159,20 +337,27 @@ export function MentorActionPlansPage() {
           description="Create clear follow-up tasks, review mentees' submitted answers, and track their progress."
         />
 
+        {error && (
+          <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {success}
+          </div>
+        )}
+
         <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-          
-          {/* =======================================
-              KOLOM KIRI: DAFTAR ACTION PLANS
-          ======================================= */}
           <div className="flex flex-col rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden h-fit">
-            
-            {/* Tabs Header */}
             <div className="flex items-center gap-4 border-b border-slate-200 p-5 bg-slate-50/50">
               <div className="flex rounded-full bg-slate-200/80 p-1">
                 <button
                   onClick={() => setActiveTab("Active")}
                   className={`rounded-full px-5 py-1.5 text-sm font-bold transition-all ${
-                    activeTab === "Active" ? "bg-white text-ally-primary shadow-sm" : "text-slate-600 hover:text-slate-900"
+                    activeTab === "Active"
+                      ? "bg-white text-ally-primary shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   Active Tasks
@@ -180,7 +365,9 @@ export function MentorActionPlansPage() {
                 <button
                   onClick={() => setActiveTab("History")}
                   className={`flex items-center gap-1.5 rounded-full px-5 py-1.5 text-sm font-bold transition-all ${
-                    activeTab === "History" ? "bg-ally-primary text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+                    activeTab === "History"
+                      ? "bg-ally-primary text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   <History size={16} /> History
@@ -188,87 +375,113 @@ export function MentorActionPlansPage() {
               </div>
             </div>
 
-            {/* Task List */}
             <div className="p-5 space-y-4 bg-slate-50/30">
-              {displayedTasks.length === 0 ? (
+              {loading ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 py-12 text-center text-sm text-slate-500">
-                  {activeTab === "Active" ? "No active tasks right now." : "History is empty."}
+                  Loading action-plan submissions...
+                </div>
+              ) : displayedTasks.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 py-12 text-center text-sm text-slate-500">
+                  {activeTab === "Active"
+                    ? "No active tasks right now."
+                    : "History is empty."}
                 </div>
               ) : (
                 displayedTasks.map((task) => (
                   <div
                     key={task.id}
                     className={`rounded-2xl border p-5 transition hover:shadow-sm ${
-                      task.status === "Approved" ? "border-slate-200 bg-slate-50/80" : "border-slate-200 bg-white"
+                      task.status === "Approved"
+                        ? "border-slate-200 bg-slate-50/80"
+                        : "border-slate-200 bg-white"
                     }`}
                   >
-                    {/* Header Card */}
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-lg font-bold text-slate-900">{task.title}</p>
                         <p className="mt-1 text-sm font-medium text-slate-600">
-                          Mentee: <span className="font-bold text-ally-primary">{task.mentee}</span>
+                          Mentee:{" "}
+                          <span className="font-bold text-ally-primary">
+                            {task.mentee}
+                          </span>
                         </p>
                       </div>
-                      
+
                       <span
                         className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${
-                          task.status === "Approval Needed" ? "bg-amber-100 text-amber-700" :
-                          task.status === "In Progress" ? "bg-sky-100 text-sky-700" :
-                          task.status === "Answered" ? "bg-indigo-100 text-indigo-700" :
-                          "bg-emerald-100 text-emerald-700" // Approved
+                          task.status === "Approval Needed"
+                            ? "bg-amber-100 text-amber-700"
+                            : task.status === "In Progress"
+                              ? "bg-sky-100 text-sky-700"
+                              : task.status === "Answered"
+                                ? "bg-indigo-100 text-indigo-700"
+                                : "bg-emerald-100 text-emerald-700"
                         }`}
                       >
                         {task.status}
                       </span>
                     </div>
 
-                    {/* Mentor's Note & Due Date */}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
                       <span className="flex items-center gap-1.5 font-medium">
                         <CalendarDays size={15} className="text-slate-400" />
                         Due: {task.due}
                       </span>
-                      {task.note && (
-                        <span className="italic">"{task.note}"</span>
-                      )}
+                      {task.note && <span className="italic">"{task.note}"</span>}
                     </div>
 
-                    {/* Mentee's Response Box (Muncul jika ada respons/jawaban) */}
                     {task.menteeResponse && (
                       <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
                         <div className="flex items-center justify-between mb-2">
                           <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-800">
                             <MessageSquare size={14} /> Mentee Submission
                           </p>
-                          <span className="text-[10px] font-medium text-indigo-400">{task.menteeResponse.submittedAt}</span>
+                          <span className="text-[10px] font-medium text-indigo-400">
+                            {task.menteeResponse.submittedAt}
+                          </span>
                         </div>
-                        
+
                         {task.menteeResponse.text && (
                           <p className="text-sm text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-indigo-50 shadow-2xs">
                             {task.menteeResponse.text}
                           </p>
                         )}
-                        
+
                         {task.menteeResponse.fileName && (
-                          <button className="mt-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (task.menteeResponse?.fileUrl) {
+                                window.open(
+                                  task.menteeResponse.fileUrl,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                );
+                              } else {
+                                window.alert(
+                                  "This submission did not return an openable document URL.",
+                                );
+                              }
+                            }}
+                            className="mt-3 flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50"
+                          >
                             <FileText size={16} />
                             {task.menteeResponse.fileName}
                           </button>
                         )}
 
-                        {/* Tombol Approve (Hanya muncul jika butuh approval) */}
-                        {task.status === "Approval Needed" && (
-                          <div className="mt-4 flex justify-end border-t border-indigo-100 pt-4">
-                            <button
-                              onClick={() => setApproveModalId(task.id)}
-                              className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
-                            >
-                              <CheckCircle size={16} />
-                              Approve Task
-                            </button>
-                          </div>
-                        )}
+                        {task.status === "Approval Needed" &&
+                          task.submissionId !== null && (
+                            <div className="mt-4 flex justify-end border-t border-indigo-100 pt-4">
+                              <button
+                                onClick={() => setApproveModalId(task.id)}
+                                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
+                              >
+                                <CheckCircle size={16} />
+                                Approve Task
+                              </button>
+                            </div>
+                          )}
                       </div>
                     )}
                   </div>
@@ -277,26 +490,26 @@ export function MentorActionPlansPage() {
             </div>
           </div>
 
-          {/* =======================================
-              KOLOM KANAN: CREATE TASK & GUIDANCE
-          ======================================= */}
           <div className="space-y-6 sticky top-6 self-start">
-            
-            {/* Box Form Create Task */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900">Create new task</h3>
               <p className="mt-1 text-sm text-slate-500">
                 Assign a specific follow-up task to your mentee.
               </p>
-              
-              <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+
+              <form className="mt-5 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slate-600">
                     Task Title <span className="text-rose-500">*</span>
                   </label>
                   <input
                     value={draft.title}
-                    onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        title: event.target.value,
+                      }))
+                    }
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-ally-primary focus:bg-white"
                     placeholder="e.g., Rewrite first paragraph"
                     required
@@ -310,15 +523,26 @@ export function MentorActionPlansPage() {
                   <div className="relative">
                     <select
                       value={draft.mentee}
-                      onChange={(event) => setDraft((current) => ({ ...current, mentee: event.target.value }))}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          mentee: event.target.value,
+                        }))
+                      }
                       className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-4 pr-10 text-sm outline-none transition focus:border-ally-primary focus:bg-white cursor-pointer"
                       required
                     >
-                      {activeMenteesList.map((name) => (
-                        <option key={name} value={name}>{name}</option>
+                      <option value="">Choose mentee</option>
+                      {mentees.map((mentee) => (
+                        <option key={String(mentee.id)} value={String(mentee.id)}>
+                          {mentee.name}
+                        </option>
                       ))}
                     </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                    <ChevronDown
+                      size={16}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"
+                    />
                   </div>
                 </div>
 
@@ -329,17 +553,29 @@ export function MentorActionPlansPage() {
                   <input
                     type="date"
                     value={draft.due}
-                    onChange={(event) => setDraft((current) => ({ ...current, due: event.target.value }))}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        due: event.target.value,
+                      }))
+                    }
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-ally-primary focus:bg-white"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-600">Optional Mentor's Note</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                    Optional Mentor's Note
+                  </label>
                   <textarea
                     value={draft.note}
-                    onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        note: event.target.value,
+                      }))
+                    }
                     className="min-h-24 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-ally-primary focus:bg-white"
                     placeholder="Leave a short encouraging note or specific detail..."
                   />
@@ -347,15 +583,15 @@ export function MentorActionPlansPage() {
 
                 <button
                   type="submit"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ally-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-ally-primary/90"
+                  disabled={saving}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ally-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-ally-primary/90 disabled:opacity-60"
                 >
                   <Plus size={16} />
-                  Assign Task
+                  {saving ? "Saving..." : "Assign Task"}
                 </button>
               </form>
             </div>
 
-            {/* Box Ally Mentor Guidance */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900">Mentor Guidance</h3>
               <div className="mt-4 flex items-start gap-3">
@@ -369,13 +605,9 @@ export function MentorActionPlansPage() {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* =======================================
-            MODAL POP-UP (APPROVE CONFIRMATION)
-        ======================================= */}
         {approveModalId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl animate-fade-in-up text-center">
@@ -389,15 +621,17 @@ export function MentorActionPlansPage() {
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setApproveModalId(null)}
-                  className="flex-1 rounded-full border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  disabled={saving}
+                  className="flex-1 rounded-full border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={confirmApprove}
-                  className="flex-1 rounded-full bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700"
+                  onClick={() => void confirmApprove()}
+                  disabled={saving}
+                  className="flex-1 rounded-full bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
-                  Yes, Approve
+                  {saving ? "Approving..." : "Yes, Approve"}
                 </button>
               </div>
             </div>
@@ -405,7 +639,6 @@ export function MentorActionPlansPage() {
         )}
       </section>
 
-      {/* CSS Styles tambahan untuk animasi Modal */}
       <style>{`
         .animate-fade-in-up {
           animation: fadeInUp 0.3s ease-out forwards;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ExternalLink,
   Eye,
@@ -10,72 +10,111 @@ import {
 } from "lucide-react";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
+import {
+  getMentorSubmissionDocuments,
+  getMentorSubmissions,
+  type MentorSubmissionDocument,
+} from "../../api/mentorApi";
+
+type DocumentCategory = "Essay & Letter" | "Academic Record" | "Recommendation" | "Other";
 
 type GlobalDocument = {
   id: string;
   name: string;
   menteeName: string;
-  category: "Essay & Letter" | "Academic Record" | "Recommendation" | "Other";
+  category: DocumentCategory;
   updated: string;
   size: string;
+  url: string | null;
 };
 
-const globalDocumentsData: GlobalDocument[] = [
-  {
-    id: "doc-1",
-    name: "Motivation_Letter_v2_Draft.pdf",
-    menteeName: "Ari Chen",
-    category: "Essay & Letter",
-    updated: "Updated 2h ago",
-    size: "1.2 MB",
-  },
-  {
-    id: "doc-2",
-    name: "Academic_Transcript_Official.pdf",
-    menteeName: "Ari Chen",
-    category: "Academic Record",
-    updated: "Updated yesterday",
-    size: "2.4 MB",
-  },
-  {
-    id: "doc-3",
-    name: "CV_ATS_Format_Jordan.pdf",
-    menteeName: "Jordan Lee",
-    category: "Academic Record",
-    updated: "Updated yesterday",
-    size: "900 KB",
-  },
-  {
-    id: "doc-4",
-    name: "Recommendation_Letter_Professor.pdf",
-    menteeName: "Mina Alvarez",
-    category: "Recommendation",
-    updated: "Updated 3 days ago",
-    size: "850 KB",
-  },
-  {
-    id: "doc-5",
-    name: "Research_Statement_Draft.docx",
-    menteeName: "Jordan Lee",
-    category: "Essay & Letter",
-    updated: "Updated 4 days ago",
-    size: "512 KB",
-  },
-];
+function formatUpdated(value: string | null): string {
+  if (!value) return "Updated date unavailable";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return `Updated ${parsed.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`;
+}
+
+function categoryFor(document: MentorSubmissionDocument): DocumentCategory {
+  const value = `${document.fileType ?? ""} ${document.name}`.toLowerCase();
+  if (value.includes("recommend") || value.includes("reference")) return "Recommendation";
+  if (value.includes("transcript") || value.includes("certificate") || value.includes("academic") || value.includes("cv")) return "Academic Record";
+  if (value.includes("essay") || value.includes("letter") || value.includes("statement") || value.includes("motivation")) return "Essay & Letter";
+  return "Other";
+}
+
+function toGlobalDocument(document: MentorSubmissionDocument): GlobalDocument {
+  return {
+    id: document.id,
+    name: document.name,
+    menteeName: document.menteeName,
+    category: categoryFor(document),
+    updated: formatUpdated(document.updatedAt),
+    size: document.size ?? "Size unavailable",
+    url: document.url,
+  };
+}
 
 export function MentorDocumentsPage() {
+  const [documents, setDocuments] = useState<GlobalDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
-  // Logika pencarian berdasarkan Nama File ATAU Nama Mentee
-  const filteredDocuments = globalDocumentsData.filter((doc) => {
+  useEffect(() => {
+    let active = true;
+
+    async function loadDocuments() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const results = await Promise.allSettled([
+          getMentorSubmissions("pending"),
+          getMentorSubmissions("approved"),
+          getMentorSubmissions("revision_requested"),
+        ]);
+
+        if (!active) return;
+
+        const submissions = results.flatMap((result) =>
+          result.status === "fulfilled" ? result.value : []
+        );
+
+        setDocuments(getMentorSubmissionDocuments(submissions).map(toGlobalDocument));
+
+        if (results.every((result) => result.status === "rejected")) {
+          const first = results[0];
+          setError(first.status === "rejected" && first.reason instanceof Error
+            ? first.reason.message
+            : "Unable to load mentee submission documents.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadDocuments();
+    return () => { active = false; };
+  }, []);
+
+  const filteredDocuments = useMemo(() => documents.filter((doc) => {
     const matchesSearch =
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.menteeName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory =
       categoryFilter === "All" || doc.category === categoryFilter;
     return matchesSearch && matchesCategory;
-  });
+  }), [categoryFilter, documents, searchQuery]);
+
+  function openDocument(doc: GlobalDocument) {
+    if (!doc.url) {
+      window.alert("This submission did not include an openable document URL.");
+      return;
+    }
+    window.open(doc.url, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <UserLayout
@@ -97,12 +136,19 @@ export function MentorDocumentsPage() {
             </div>
             <button
               type="button"
+              onClick={() => window.alert("The updated backend does not expose a mentor document-upload endpoint. Documents shown here come from mentee milestone submissions.")}
               className="inline-flex items-center gap-2 self-start rounded-full bg-ally-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-ally-primary/90 sm:self-auto"
             >
               <Plus size={16} />
               Upload Document
             </button>
           </div>
+
+          {error && (
+            <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {error}
+            </div>
+          )}
 
           {/* Search & Category Filter Controls */}
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -142,7 +188,11 @@ export function MentorDocumentsPage() {
 
           {/* Document List */}
           <div className="space-y-3">
-            {filteredDocuments.length === 0 ? (
+            {loading ? (
+              <div className="py-12 text-center text-sm text-slate-500">
+                Loading submitted documents...
+              </div>
+            ) : filteredDocuments.length === 0 ? (
               <div className="py-12 text-center text-sm text-slate-500">
                 No documents found matching &ldquo;{searchQuery}&rdquo;.
               </div>
@@ -182,6 +232,7 @@ export function MentorDocumentsPage() {
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     <button
                       type="button"
+                      onClick={() => openDocument(doc)}
                       className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                       <Eye size={13} />
@@ -189,6 +240,7 @@ export function MentorDocumentsPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => openDocument(doc)}
                       className="inline-flex items-center gap-1.5 rounded-full bg-ally-primary px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-ally-primary/90"
                     >
                       <ExternalLink size={13} />

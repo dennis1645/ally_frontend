@@ -5,7 +5,6 @@ import {
   Compass,
   CreditCard,
   LayoutDashboard,
-  Map,
   PanelLeft,
   X,
 } from "lucide-react";
@@ -42,11 +41,6 @@ export const defaultUserSidebarItems: SidebarItem[] = [
     path: "/dashboard",
     icon: LayoutDashboard,
     end: true,
-  },
-  {
-    label: "Quest Tracker",
-    path: "/quests",
-    icon: Map,
   },
   {
     label: "AI Chatbot",

@@ -967,7 +967,7 @@ export default function JourneyLogSpread() {
 
           <div
             id="journal-mood"
-            className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4"
+            className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8"
           >
             {moodOptions.map(
               (
@@ -992,8 +992,10 @@ export default function JourneyLogSpread() {
                         option.value,
                       )
                     }
+                    aria-label={option.value}
+                    title={option.value}
                     className={[
-                      "flex min-h-16 items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left transition",
+                      "flex min-h-14 items-center justify-center rounded-xl border-2 px-2 py-2.5 text-center transition",
                       "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100",
                       isSelected
                         ? "border-[#16629b] bg-[#eef6fb] text-[#16629b] shadow-sm"
@@ -1004,17 +1006,9 @@ export default function JourneyLogSpread() {
                   >
                     <span
                       aria-hidden="true"
-                      className="text-2xl"
+                      className="text-3xl leading-none"
                     >
-                      {
-                        option.emoji
-                      }
-                    </span>
-
-                    <span className="text-xs font-extrabold sm:text-sm">
-                      {
-                        option.value
-                      }
+                      {option.emoji}
                     </span>
                   </button>
                 );
@@ -1269,16 +1263,18 @@ export default function JourneyLogSpread() {
             </h2>
           </div>
 
-          <div className="journey-mood-label">
-            <span className="text-3xl">
+          <div
+            className="journey-mood-label"
+            aria-label={selectedJournal.mood || "Unrecorded mood"}
+            title={selectedJournal.mood || "Unrecorded mood"}
+          >
+            <span
+              aria-hidden="true"
+              className="text-3xl leading-none"
+            >
               {getMoodIcon(
                 selectedJournal.mood,
               )}
-            </span>
-
-            <span>
-              {selectedJournal.mood ||
-                "Unrecorded"}
             </span>
           </div>
         </div>

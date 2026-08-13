@@ -5,13 +5,14 @@ import type {
 import {
   Backpack,
   Bell,
-  Globe,
   LogOut,
   Menu,
   UserRound,
 } from "lucide-react";
 
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -28,6 +29,11 @@ import {
 import {
   API_BASE_URL,
 } from "../../api/apiClient";
+
+import {
+  getUpcomingReminders,
+  type Reminder,
+} from "../../api/reminderApi";
 
 import {
   useAuth,
@@ -127,69 +133,6 @@ function getInitials(
   );
 }
 
-function LanguageSwitcher() {
-  const {
-    i18n,
-  } =
-    useTranslation();
-
-  const currentLanguage =
-    (
-      i18n.resolvedLanguage ??
-      i18n.language ??
-      "en"
-    )
-      .toLowerCase();
-
-  const isIndonesian =
-    currentLanguage.startsWith(
-      "id",
-    );
-
-  const nextLanguage =
-    isIndonesian
-      ? "en"
-      : "id";
-
-  const currentLabel =
-    isIndonesian
-      ? "ID"
-      : "EN";
-
-  return (
-    <button
-      type="button"
-      aria-label={
-        isIndonesian
-          ? "Switch language to English"
-          : "Ganti bahasa ke Indonesia"
-      }
-      title={
-        isIndonesian
-          ? "Switch to English"
-          : "Ganti ke Bahasa Indonesia"
-      }
-      onClick={() => {
-        void i18n.changeLanguage(
-          nextLanguage,
-        );
-      }}
-      className={[
-        "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-3",
-        "border border-slate-200 bg-white",
-        "text-xs font-bold tracking-wider text-slate-700",
-        "transition hover:border-[#bad6e7] hover:bg-[#f3f9fd] hover:text-[#16629b]",
-        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d7edf9]",
-      ].join(
-        " ",
-      )}
-    >
-      <Globe size={16} className="text-slate-500" />
-      <span>{currentLabel}</span>
-    </button>
-  );
-}
-
 export default function Topbar({
   title,
   subtitle,
@@ -223,6 +166,33 @@ export default function Topbar({
       false,
     );
 
+
+  const [
+    reminders,
+    setReminders,
+  ] =
+    useState<Reminder[]>(
+      [],
+    );
+
+  const [
+    remindersLoading,
+    setRemindersLoading,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    remindersError,
+    setRemindersError,
+  ] =
+    useState<
+      string | null
+    >(
+      null,
+    );
+
   const isMentorArea =
     location.pathname.startsWith(
       "/mentor",
@@ -236,6 +206,72 @@ export default function Topbar({
   const showExplorerTools =
     !isMentorArea &&
     !isAdminArea;
+
+
+  const loadReminders =
+    useCallback(
+      async () => {
+        if (
+          !showExplorerTools
+        ) {
+          return;
+        }
+
+        try {
+          setRemindersLoading(
+            true,
+          );
+          setRemindersError(
+            null,
+          );
+
+          const result =
+            await getUpcomingReminders(
+              7,
+            );
+
+          setReminders(
+            result,
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "[Topbar] Unable to load reminders:",
+            error,
+          );
+
+          setRemindersError(
+            error instanceof
+              Error &&
+            error.message.trim()
+              ? error.message
+              : "Unable to load upcoming reminders.",
+          );
+        } finally {
+          setRemindersLoading(
+            false,
+          );
+        }
+      },
+      [
+        showExplorerTools,
+      ],
+    );
+
+  useEffect(
+    () => {
+      if (
+        showExplorerTools
+      ) {
+        void loadReminders();
+      }
+    },
+    [
+      loadReminders,
+      showExplorerTools,
+    ],
+  );
 
   const profilePath =
     isMentorArea
@@ -317,8 +353,6 @@ export default function Topbar({
               }
             </div>
 
-            <LanguageSwitcher />
-
             {showExplorerTools && (
               <>
                 {/* Document Vault / Expedition Backpack */}
@@ -388,8 +422,18 @@ export default function Topbar({
                       setNotificationsOpen(
                         (
                           current,
-                        ) =>
-                          !current,
+                        ) => {
+                          const next =
+                            !current;
+
+                          if (
+                            next
+                          ) {
+                            void loadReminders();
+                          }
+
+                          return next;
+                        },
                       );
                     }}
                     className={[
@@ -405,12 +449,44 @@ export default function Topbar({
                       size={20}
                       aria-hidden="true"
                     />
+
+                    {reminders.length >
+                      0 && (
+                      <span
+                        aria-label={`${reminders.length} upcoming reminders`}
+                        className={[
+                          "absolute -right-1 -top-1",
+                          "grid min-h-5 min-w-5 place-items-center rounded-full",
+                          "border-2 border-white bg-[#d96945] px-1",
+                          "text-[9px] font-extrabold leading-none text-white",
+                        ].join(
+                          " ",
+                        )}
+                      >
+                        {reminders.length >
+                        9
+                          ? "9+"
+                          : reminders.length}
+                      </span>
+                    )}
                   </button>
 
                   <NotificationPanel
                     open={
                       notificationsOpen
                     }
+                    reminders={
+                      reminders
+                    }
+                    loading={
+                      remindersLoading
+                    }
+                    error={
+                      remindersError
+                    }
+                    onRetry={() => {
+                      void loadReminders();
+                    }}
                     onClose={() => {
                       setNotificationsOpen(
                         false,

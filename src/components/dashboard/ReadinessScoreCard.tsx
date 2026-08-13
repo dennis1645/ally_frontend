@@ -124,8 +124,8 @@ export default function ReadinessScoreCard({
           <div className="flex flex-1 flex-col justify-center py-4">
             <p className="text-sm font-bold text-[#2c1607]">
               {unavailable
-                ? "Your latest readiness result isn't available right now."
-                : "Complete your assessment to reveal your readiness score."}
+                ? "Assessment 2 is your readiness checkpoint."
+                : "Complete Assessment 2 to reveal your readiness score."}
             </p>
 
             <button
@@ -139,7 +139,7 @@ export default function ReadinessScoreCard({
                 "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d3eafa]",
               ].join(" ")}
             >
-              Open Assessment
+              Assessment 2
               <ArrowRight
                 size={14}
                 aria-hidden="true"

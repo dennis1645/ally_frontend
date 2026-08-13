@@ -62,6 +62,36 @@ export type AuthBadge = {
    Authenticated user
 ========================================================= */
 
+export type AuthTargetScholarshipData = {
+  id: number;
+  name: string;
+  provider_country?: string | null;
+  description?: string | null;
+  funding_type?: string | null;
+  degree_level?: string | null;
+  start_date?: string | null;
+  eligibility_criteria?: string | null;
+  application_process?: string | null;
+  benefits?: string | null;
+  official_website?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  application_link?: string | null;
+  deadline_date?: string | null;
+  status?: string | null;
+  notes?: string | null;
+  image_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+  pivot?: {
+    user_id?: number | string;
+    scholarship_id?: number | string;
+    [key: string]: unknown;
+  } | null;
+  [key: string]: unknown;
+};
+
 export type AuthUser = {
   id:
     | number
@@ -175,6 +205,21 @@ export type AuthUser = {
 
   primary_scholarship_target?:
     | string
+    | null;
+
+  /*
+   * Canonical selected scholarship returned by GET /api/profile.
+   *
+   * Use target_scholarship_id for API calls.
+   * Use target_scholarship_data / primary_scholarship_target for display.
+   */
+  target_scholarship_id?:
+    | number
+    | string
+    | null;
+
+  target_scholarship_data?:
+    | AuthTargetScholarshipData
     | null;
 
   /* =======================================================

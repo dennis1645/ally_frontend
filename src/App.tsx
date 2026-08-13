@@ -6,6 +6,7 @@ import {
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleRoute from "./components/RoleRoute";
+import EmailVerificationCallbackGate from "./components/auth/EmailVerificationCallbackGate";
 
 import {
   INITIAL_ASSESSMENT_ROUTE,
@@ -16,7 +17,6 @@ import {
   ASSESSMENT_2_ROUTE,
 } from "./routes/assessment2.routes";
 
-import "./i18n";
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import BadgeAdmin from "./pages/admin/BadgeAdmin";
@@ -48,6 +48,7 @@ import EssayPassPage from "./pages/user/EssayPassPage";
 import { DIAGNOSTIC_RESULT_ROUTE } from "./utils/constants";
 import AssessmentResetOnExit from "./utils/AssessmentResetOnExit";
 import MentorProfilePage from "./pages/mentor/MentorProfilePage";
+import UserManagement from "./pages/admin/UserManagement";
 
 // ==============================================================
 // MENTOR PAGES IMPORTS
@@ -95,7 +96,8 @@ export default function App() {
         {/* =====================================================
             AUTHENTICATED ROUTES
         ====================================================== */}
-        <Route element={<ProtectedRoute />}>
+        <Route element={<EmailVerificationCallbackGate />}>
+          <Route element={<ProtectedRoute />}>
           
           {/* =================================================
               USER / EXPLORER ROUTES
@@ -191,7 +193,7 @@ export default function App() {
 
             <Route
               path="/admin/users"
-              element={<EmptyPage title="User Management" description="Manage Explorer, Mentor, and Admin accounts." />}
+              element={<UserManagement />}
             />
             <Route
               path="/admin/users/:userId"
@@ -217,6 +219,7 @@ export default function App() {
               path="/admin/settings"
               element={<EmptyPage title="Admin Settings" description="Manage platform configuration and operational settings." />}
             />
+          </Route>
           </Route>
         </Route>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -11,13 +11,19 @@ import {
 } from "lucide-react";
 
 import { Link } from "react-router";
-// Pastikan path import ini sesuai dengan struktur foldermu
+import { ApiError } from "../../api/apiClient";
+import {
+  getMentorMentees,
+  getMentorSubmissions,
+  type MentorMentee,
+  type MentorSubmission,
+} from "../../api/mentorApi";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
 
-// --- TYPES ---
 type Explorer = {
   id: string;
+  backendId: string | number;
   name: string;
   targetUniv?: string;
   targetMajor?: string;
@@ -28,61 +34,62 @@ type Explorer = {
   assessmentSummary?: string;
   completedDate?: string;
   status: "Active" | "Inactive";
+  bookingId: string | number | null;
 };
 
-// --- MOCK DATA ---
-const allExplorersData: Explorer[] = [
-  {
-    id: "e1",
-    name: "Ari Chen",
-    targetUniv: "TU Delft / ETH Zurich",
-    targetMajor: "Chemical Engineering",
-    targetScholarship: "LPDP / Eiffel Excellence",
-    stage: "Milestone 2.1 - Essay Review",
-    lastSession: "Tue · 10:30 AM",
-    documentsSubmitted: ["Motivation Letter v2.pdf", "Academic Transcript.pdf", "TOEFL Certificate.pdf"],
-    assessmentSummary: "Focuses on detailing real contributions to the country post-graduation.",
-    status: "Active",
-  },
-  {
-    id: "e2",
-    name: "Jordan Lee",
-    targetUniv: "Wageningen University",
-    targetMajor: "Food Technology",
-    targetScholarship: "Holland Scholarship",
-    stage: "Milestone 1 - University Selection",
-    lastSession: null,
-    documentsSubmitted: ["CV ATS Format.pdf", "Research Statement Draft.pdf"],
-    assessmentSummary: "Needs extra guidance in selecting a curriculum aligned with their Bachelor's degree.",
-    status: "Active",
-  },
-  {
-    id: "h1",
-    name: "Mina Alvarez",
-    targetScholarship: "Chevening Scholarship",
-    lastSession: "14 Feb 2026",
-    completedDate: "Feb 2026",
-    status: "Inactive",
-  },
-  {
-    id: "h2",
-    name: "Devon Vance",
-    targetScholarship: "DAAD EPOS",
-    lastSession: "10 Jan 2026",
-    completedDate: "Jan 2026",
-    status: "Inactive",
-  },
-  {
-    id: "h3",
-    name: "Siti Rahma",
-    targetScholarship: "LPDP Reguler",
-    lastSession: "05 Dec 2025",
-    completedDate: "Dec 2025",
-    status: "Inactive",
-  },
-];
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message || fallback;
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
+}
 
-// --- COMPONENT PENDUKUNG ---
+function formatDateTime(value: string | null): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return parsed.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function isInactiveStatus(status: string): boolean {
+  return ["inactive", "completed", "finished", "graduated", "archived"].includes(
+    status.trim().toLowerCase(),
+  );
+}
+
+function toExplorer(mentee: MentorMentee): Explorer {
+  const inactive = isInactiveStatus(mentee.status);
+
+  return {
+    id: String(mentee.id),
+    backendId: mentee.id,
+    name: mentee.name,
+    targetUniv: mentee.targetUniversity ?? "Not provided",
+    targetMajor: mentee.targetMajor ?? "Not provided",
+    targetScholarship: mentee.primaryScholarshipTarget ?? "Not provided",
+    stage:
+      mentee.currentStage ??
+      (mentee.readinessScore !== null
+        ? `Readiness ${mentee.readinessScore}%`
+        : undefined),
+    lastSession: formatDateTime(mentee.lastSessionAt),
+    documentsSubmitted: mentee.documentsSubmitted,
+    assessmentSummary:
+      mentee.assessmentSummary ??
+      mentee.headline ??
+      "No assessment summary has been returned for this explorer yet.",
+    completedDate: formatDateTime(mentee.completedAt) ?? undefined,
+    status: inactive ? "Inactive" : "Active",
+    bookingId: mentee.bookingId,
+  };
+}
+
 function MetricCard({
   title,
   value,
@@ -101,20 +108,81 @@ function MetricCard({
   );
 }
 
-// --- MAIN COMPONENT ---
 export default function MenteeManagementPage() {
+  const [mentees, setMentees] = useState<MentorMentee[]>([]);
+  const [pendingSubmissions, setPendingSubmissions] =
+    useState<MentorSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
+  const [statusFilter, setStatusFilter] =
+    useState<"All" | "Active" | "Inactive">("All");
+
+  useEffect(() => {
+    let active = true;
+
+    async function load(): Promise<void> {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [menteeResult, submissionResult] = await Promise.allSettled([
+          getMentorMentees(),
+          getMentorSubmissions("pending"),
+        ]);
+
+        if (!active) return;
+
+        const errors: string[] = [];
+
+        if (menteeResult.status === "fulfilled") {
+          setMentees(menteeResult.value);
+        } else {
+          setMentees([]);
+          errors.push(getErrorMessage(menteeResult.reason, "Failed to load mentees."));
+        }
+
+        if (submissionResult.status === "fulfilled") {
+          setPendingSubmissions(submissionResult.value);
+        } else {
+          setPendingSubmissions([]);
+          errors.push(
+            getErrorMessage(submissionResult.reason, "Failed to load pending reviews."),
+          );
+        }
+
+        if (errors.length > 0) setError(errors.join(" "));
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const allExplorersData = useMemo(() => mentees.map(toExplorer), [mentees]);
 
   const filteredExplorers = allExplorersData.filter((explorer) => {
-    const matchesSearch = explorer.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = explorer.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "All" || explorer.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const activeCount = allExplorersData.filter((e) => e.status === "Active").length;
   const inactiveCount = allExplorersData.filter((e) => e.status === "Inactive").length;
-  const reviewCount = 2; // Statis sebagai contoh UI
+
+  const reviewNames = new Set(
+    pendingSubmissions
+      .map((submission) => submission.menteeName?.trim())
+      .filter((name): name is string => Boolean(name)),
+  );
+  const reviewCount = reviewNames.size > 0 ? reviewNames.size : pendingSubmissions.length;
 
   return (
     <UserLayout
@@ -123,28 +191,25 @@ export default function MenteeManagementPage() {
       sidebarItems={mentorSidebarItems}
     >
       <section className="min-h-[calc(100vh-80px)] bg-ally-background p-6 lg:p-8">
-
-        {/* Metric Cards */}
         <div className="mb-8 grid gap-4 md:grid-cols-3">
           <MetricCard
             title="Active Assigned Explorers"
-            value={String(activeCount)}
+            value={loading ? "..." : String(activeCount)}
             helper="Assigned by AI & actively guided"
           />
           <MetricCard
             title="History Explorers"
-            value={String(inactiveCount)}
+            value={loading ? "..." : String(inactiveCount)}
             helper="Mentees who have completed their program"
           />
           <MetricCard
             title="Explorers to Review"
-            value={String(reviewCount)}
+            value={loading ? "..." : String(reviewCount)}
             helper="Mentees with new documents ready for review"
           />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.6fr_0.8fr]">
-          {/* Main List Section */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -154,35 +219,54 @@ export default function MenteeManagementPage() {
                 </p>
               </div>
 
-              {/* Search & Filter Controls */}
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
                   <input
                     type="text"
                     placeholder="Search mentee name..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(event) => setSearchQuery(event.target.value)}
                     className="w-48 rounded-full border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-sm outline-none transition focus:border-ally-primary sm:w-64"
                   />
                 </div>
                 <div className="relative">
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    onChange={(event) =>
+                      setStatusFilter(
+                        event.target.value as "All" | "Active" | "Inactive",
+                      )
+                    }
                     className="appearance-none rounded-full border border-slate-200 bg-slate-50 py-2 pl-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-ally-primary cursor-pointer"
                   >
                     <option value="All">All Status</option>
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
-                  <Filter size={14} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                  <Filter
+                    size={14}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"
+                  />
                 </div>
               </div>
             </div>
 
+            {error && (
+              <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {error}
+              </div>
+            )}
+
             <div className="space-y-6">
-              {filteredExplorers.length === 0 ? (
+              {loading ? (
+                <div className="py-10 text-center text-sm text-slate-500">
+                  Loading assigned explorers...
+                </div>
+              ) : filteredExplorers.length === 0 ? (
                 <div className="py-10 text-center text-sm text-slate-500">
                   No explorers found matching your criteria.
                 </div>
@@ -191,8 +275,8 @@ export default function MenteeManagementPage() {
                   <div
                     key={explorer.id}
                     className={`rounded-2xl border p-5 transition ${
-                      explorer.status === "Active" 
-                        ? "border-slate-200 bg-slate-50/70" 
+                      explorer.status === "Active"
+                        ? "border-slate-200 bg-slate-50/70"
                         : "border-slate-100 bg-slate-50/30 opacity-80 grayscale-[20%]"
                     }`}
                   >
@@ -202,7 +286,7 @@ export default function MenteeManagementPage() {
                           <p className="text-lg font-bold text-slate-900">{explorer.name}</p>
                           {explorer.status === "Inactive" && (
                             <span className="text-xs text-slate-400 font-medium">
-                              (Completed: {explorer.completedDate})
+                              (Completed: {explorer.completedDate ?? "—"})
                             </span>
                           )}
                         </div>
@@ -227,16 +311,26 @@ export default function MenteeManagementPage() {
                       <>
                         <div className="mt-4 grid gap-2 rounded-xl bg-white p-3.5 text-sm text-slate-700 shadow-sm border border-slate-100">
                           <div className="flex items-center gap-2">
-                            <GraduationCap size={16} className="text-ally-primary shrink-0" />
+                            <GraduationCap
+                              size={16}
+                              className="text-ally-primary shrink-0"
+                            />
                             <span>
-                              <strong className="font-semibold text-slate-900">Target Univ & Major:</strong>{" "}
+                              <strong className="font-semibold text-slate-900">
+                                Target Univ & Major:
+                              </strong>{" "}
                               {explorer.targetUniv} — {explorer.targetMajor}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <BadgeCheck size={16} className="text-ally-primary shrink-0" />
+                            <BadgeCheck
+                              size={16}
+                              className="text-ally-primary shrink-0"
+                            />
                             <span>
-                              <strong className="font-semibold text-slate-900">Scholarship:</strong>{" "}
+                              <strong className="font-semibold text-slate-900">
+                                Scholarship:
+                              </strong>{" "}
                               {explorer.targetScholarship}
                             </span>
                           </div>
@@ -246,17 +340,19 @@ export default function MenteeManagementPage() {
                           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
                             Assessment Note
                           </p>
-                          <p className="italic">&ldquo;{explorer.assessmentSummary}&rdquo;</p>
+                          <p className="italic">
+                            &ldquo;{explorer.assessmentSummary}&rdquo;
+                          </p>
                         </div>
 
                         <div className="mt-4">
                           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                            Submitted Documents ({explorer.documentsSubmitted?.length || 0})
+                            Submitted Documents ({explorer.documentsSubmitted?.length ?? 0})
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {explorer.documentsSubmitted?.map((doc, idx) => (
+                            {explorer.documentsSubmitted?.map((doc, index) => (
                               <span
-                                key={idx}
+                                key={`${doc}-${index}`}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 shadow-2xs"
                               >
                                 <FileText size={13} className="text-slate-400" />
@@ -270,8 +366,13 @@ export default function MenteeManagementPage() {
 
                     {explorer.status === "Inactive" && (
                       <div className="mt-3 text-sm text-slate-600">
-                        <p><strong>Target Scholarship:</strong> {explorer.targetScholarship}</p>
-                        <p className="mt-1 text-xs text-slate-400 italic">Documents are archived and no longer accessible.</p>
+                        <p>
+                          <strong>Target Scholarship:</strong>{" "}
+                          {explorer.targetScholarship}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400 italic">
+                          Documents are archived and no longer accessible.
+                        </p>
                       </div>
                     )}
 
@@ -279,12 +380,20 @@ export default function MenteeManagementPage() {
                       <span className="flex items-center gap-1.5 text-slate-500">
                         <Clock3 size={15} /> Last session:{" "}
                         <span className="font-medium text-slate-700">
-                          {explorer.lastSession ? explorer.lastSession : "-"}
+                          {explorer.lastSession ?? "-"}
                         </span>
                       </span>
                       {explorer.status === "Active" ? (
                         <Link
-                          to="/mentor/dossier"
+                          to={`/mentor/dossier?menteeId=${encodeURIComponent(
+                            String(explorer.backendId),
+                          )}${
+                            explorer.bookingId !== null
+                              ? `&bookingId=${encodeURIComponent(
+                                  String(explorer.bookingId),
+                                )}`
+                              : ""
+                          }`}
                           className="inline-flex items-center gap-2 font-semibold text-ally-primary hover:underline"
                         >
                           Mentee Overview
@@ -302,11 +411,9 @@ export default function MenteeManagementPage() {
             </div>
           </div>
 
-          {/* Side Panel */}
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-slate-900">Mentor Guidance</h3>
-              
               <div className="mt-5 flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ally-primary text-white shadow-sm">
                   <Bot size={22} />

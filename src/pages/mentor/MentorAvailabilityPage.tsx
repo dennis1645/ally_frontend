@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Calendar as CalendarIcon,
@@ -13,47 +13,104 @@ import {
 } from "lucide-react";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
+import {
+  completeMentorBooking,
+  confirmMentorBooking,
+  createMentorAvailability,
+  getMentorAvailabilities,
+  rejectMentorBooking,
+  rescheduleMentorBooking,
+  type MentorAvailability,
+} from "../../api/mentorApi";
 
 // --- TYPES ---
 type SessionEvent = {
   id: string;
+  bookingId: string | number | null;
   mentee: string;
   topic: string;
-  dateStr: string; // e.g., "2026-08-14"
-  time: string; // e.g., "11:00 AM"
+  dateStr: string;
+  time: string;
+  meetingLink: string | null;
   status: "Pending" | "Confirmed" | "Completed" | "Rejected" | "Rescheduled";
 };
 
-// --- CONSTANTS & MOCK DATA ---
-const TODAY_STR = "2026-08-12"; // Simulasi hari ini: Rabu, 12 Agustus 2026
-
 const HOURS = [
-  "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", 
-  "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", 
+  "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM",
+  "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM",
   "04:00 PM", "05:00 PM"
 ];
 
-// Data Sesi Mentor
-const initialSessions: SessionEvent[] = [
-  { id: "s1", mentee: "Mina Alvarez", topic: "Career clarity session", dateStr: "2026-08-14", time: "11:00 AM", status: "Confirmed" },
-  { id: "s2", mentee: "Devon Vance", topic: "Final Essay Review", dateStr: "2026-08-11", time: "02:00 PM", status: "Confirmed" },
-  { id: "b1", mentee: "Ari Chen", topic: "Scholarship interview prep", dateStr: "2026-08-13", time: "04:00 PM", status: "Pending" },
-  { id: "b2", mentee: "Jordan Lee", topic: "Goal-setting roadmap", dateStr: "2026-08-10", time: "10:00 AM", status: "Pending" },
-];
+function localDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
-// Mock Available Slots (Format: YYYY-MM-DD-Time)
-const initialAvailableSlots = [
-  "2026-08-13-04:00 PM", "2026-08-14-11:00 AM", "2026-08-14-12:00 PM", 
-  "2026-08-11-02:00 PM", "2026-08-10-10:00 AM"
-];
+const TODAY_STR = localDateString();
+
+function time24ToLabel(value: string) {
+  const [hourText, minute = "00"] = value.slice(0, 5).split(":");
+  let hour = Number(hourText);
+  if (Number.isNaN(hour)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${String(hour).padStart(2, "0")}:${minute} ${suffix}`;
+}
+
+function labelTo24(value: string) {
+  const match = /^(\d{1,2}):(\d{2})\s+(AM|PM)$/i.exec(value);
+  if (!match) return value;
+  let hour = Number(match[1]);
+  const minute = match[2];
+  const suffix = match[3].toUpperCase();
+  if (suffix === "AM" && hour === 12) hour = 0;
+  if (suffix === "PM" && hour !== 12) hour += 12;
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function addOneHour(value: string) {
+  const [hourText, minute = "00"] = value.split(":");
+  const hour = Math.min(23, Number(hourText) + 1);
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function slotKey(date: string, timeLabel: string) {
+  return `${date}-${timeLabel}`;
+}
+
+function normalizeStatus(value: string | null): SessionEvent["status"] {
+  const status = value?.trim().toLowerCase();
+  if (["confirmed", "accepted", "scheduled"].includes(status ?? "")) return "Confirmed";
+  if (["completed", "done"].includes(status ?? "")) return "Completed";
+  if (["rejected", "cancelled", "canceled"].includes(status ?? "")) return "Rejected";
+  if (status === "rescheduled") return "Rescheduled";
+  return "Pending";
+}
+
+function toSession(slot: MentorAvailability): SessionEvent | null {
+  if (!slot.isBooked) return null;
+  return {
+    id: slot.bookingId !== null ? `booking-${String(slot.bookingId)}` : `slot-${String(slot.id ?? `${slot.availableDate}-${slot.startTime}`)}`,
+    bookingId: slot.bookingId,
+    mentee: slot.menteeName ?? "Booked explorer",
+    topic: slot.topic ?? "Mentoring session",
+    dateStr: slot.availableDate,
+    time: time24ToLabel(slot.startTime),
+    meetingLink: slot.meetingLink,
+    status: normalizeStatus(slot.bookingStatus),
+  };
+}
 
 // --- MAIN COMPONENT ---
 export function MentorAvailabilityPage() {
   const navigate = useNavigate();
 
   // State Data
-  const [sessions, setSessions] = useState<SessionEvent[]>(initialSessions);
-  const [availableSlots, setAvailableSlots] = useState<string[]>(initialAvailableSlots);
+  const [backendSlots, setBackendSlots] = useState<MentorAvailability[]>([]);
+  const [sessions, setSessions] = useState<SessionEvent[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [calendarMode, setCalendarMode] = useState<"availability" | "booked">("availability");
   
   // State Tanggal Dinamis
@@ -65,6 +122,8 @@ export function MentorAvailabilityPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [joinModalId, setJoinModalId] = useState<string | null>(null);
   const [warningToast, setWarningToast] = useState<string | null>(null);
+  const proofInputRef = useRef<HTMLInputElement | null>(null);
+  const [completionSessionId, setCompletionSessionId] = useState<string | null>(null);
 
   // Mouse Drag State
   const [isDragging, setIsDragging] = useState(false);
@@ -72,26 +131,45 @@ export function MentorAvailabilityPage() {
 
   // --- LOGIKA TANGGAL & KALENDER ---
   const getWeekDays = (offset: number) => {
-    // Mulai dari Senin minggu ini (10 Agustus 2026)
-    const start = new Date("2026-08-10T00:00:00"); 
-    start.setDate(start.getDate() + (offset * 7));
-    
+    const now = new Date();
+    const day = now.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset + offset * 7);
+
     return Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = localDateString(d);
       return {
         id: dateStr,
         day: d.toLocaleDateString("en-US", { weekday: "short" }),
-        dateStr: dateStr,
+        dateStr,
         displayDate: d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-        isPast: dateStr < TODAY_STR
+        isPast: dateStr < TODAY_STR,
       };
     });
   };
 
   const weekDays = getWeekDays(weekOffset);
   const dateRangeStr = `${weekDays[0].displayDate} - ${weekDays[6].displayDate}`;
+
+  async function loadAvailability() {
+    try {
+      const result = await getMentorAvailabilities();
+      setBackendSlots(result);
+      setAvailableSlots(result.map((slot) => slotKey(slot.availableDate, time24ToLabel(slot.startTime))));
+      setSessions(result.flatMap((slot) => {
+        const session = toSession(slot);
+        return session ? [session] : [];
+      }));
+    } catch (error) {
+      setWarningToast(error instanceof Error ? error.message : "Unable to load mentor availability.");
+    }
+  }
+
+  useEffect(() => {
+    void loadAvailability();
+  }, []);
 
   // Membersihkan Toast Warning otomatis
   useEffect(() => {
@@ -103,24 +181,26 @@ export function MentorAvailabilityPage() {
 
   // --- LOGIKA DRAG TO SELECT ---
   const handleMouseDown = (cellId: string, isPast: boolean, isBooked: boolean) => {
-    if (calendarMode !== "availability") return;
-    if (isPast) return;
+    if (calendarMode !== "availability" || isPast) return;
     if (isBooked) {
       setWarningToast("You cannot remove this slot because a mentee has already booked it.");
       return;
     }
-    
+
+    if (availableSlots.includes(cellId)) {
+      setWarningToast("The updated backend does not document a delete-availability endpoint, so existing slots cannot be removed here.");
+      return;
+    }
+
     setIsDragging(true);
-    const isCurrentlyAvailable = availableSlots.includes(cellId);
-    const action = isCurrentlyAvailable ? "remove" : "add";
-    setDragAction(action);
-    updateSlot(cellId, action);
+    setDragAction("add");
+    updateSlot(cellId, "add");
   };
 
   const handleMouseEnter = (cellId: string, isPast: boolean, isBooked: boolean) => {
     if (calendarMode !== "availability") return;
-    if (isDragging && dragAction && !isPast && !isBooked) {
-      updateSlot(cellId, dragAction);
+    if (isDragging && dragAction === "add" && !isPast && !isBooked && !availableSlots.includes(cellId)) {
+      updateSlot(cellId, "add");
     }
   };
 
@@ -130,43 +210,133 @@ export function MentorAvailabilityPage() {
   };
 
   const updateSlot = (cellId: string, action: "add" | "remove") => {
-    setAvailableSlots((prev) => {
-      if (action === "add" && !prev.includes(cellId)) return [...prev, cellId];
-      if (action === "remove") return prev.filter((id) => id !== cellId);
-      return prev;
+    if (action === "remove") return;
+
+    setAvailableSlots((prev) => prev.includes(cellId) ? prev : [...prev, cellId]);
+
+    const date = cellId.slice(0, 10);
+    const timeLabel = cellId.slice(11);
+    const startTime = labelTo24(timeLabel);
+
+    void createMentorAvailability({
+      available_date: date,
+      start_time: startTime,
+      end_time: addOneHour(startTime),
+    }).then(() => loadAvailability()).catch((error) => {
+      setAvailableSlots((prev) => prev.filter((id) => id !== cellId));
+      setWarningToast(error instanceof Error ? error.message : "Unable to save this availability.");
     });
   };
 
   // --- LOGIKA AKSI SESSIONS & MODALS ---
-  
-  // Fungsi yang sempat hilang dikembalikan ke sini
-  function updateSessionStatus(id: string, newStatus: SessionEvent["status"]) {
-    setSessions((current) =>
-      current.map((session) => (session.id === id ? { ...session, status: newStatus } : session))
-    );
-  }
+  const findSession = (id: string) => sessions.find((session) => session.id === id);
 
-  const handleConfirmRequest = () => {
+  const handleConfirmRequest = async () => {
     if (!confirmModalId) return;
-    setSessions(s => s.map(session => session.id === confirmModalId ? { ...session, status: "Confirmed" } : session));
-    setConfirmModalId(null);
+    const session = findSession(confirmModalId);
+    if (!session?.bookingId) {
+      setWarningToast("This booked slot did not return a booking ID.");
+      return;
+    }
+
+    const meetingLink = window.prompt("Enter the Zoom/Google Meet link for this session:", session.meetingLink ?? "");
+    if (!meetingLink?.trim()) return;
+
+    try {
+      await confirmMentorBooking(session.bookingId, { meeting_link: meetingLink.trim() });
+      setSessions((current) => current.map((item) => item.id === session.id ? { ...item, status: "Confirmed", meetingLink: meetingLink.trim() } : item));
+      setConfirmModalId(null);
+    } catch (error) {
+      setWarningToast(error instanceof Error ? error.message : "Unable to confirm this booking.");
+    }
   };
 
-  const handleRejectRequest = () => {
+  const handleRejectRequest = async () => {
     if (!rejectModalId) return;
-    console.log("Reject reason sent to admin:", rejectReason);
-    setSessions(s => s.map(session => session.id === rejectModalId ? { ...session, status: "Rejected" } : session));
-    setRejectModalId(null);
-    setRejectReason("");
+    const session = findSession(rejectModalId);
+    if (!session?.bookingId) {
+      setWarningToast("This booked slot did not return a booking ID.");
+      return;
+    }
+
+    try {
+      await rejectMentorBooking(session.bookingId, { reason: rejectReason.trim() });
+      setSessions((current) => current.map((item) => item.id === session.id ? { ...item, status: "Rejected" } : item));
+      setRejectModalId(null);
+      setRejectReason("");
+    } catch (error) {
+      setWarningToast(error instanceof Error ? error.message : "Unable to reject this booking.");
+    }
   };
 
-  const handleCompleteSession = (id: string, menteeName: string) => {
-    setSessions(s => s.map(session => session.id === id ? { ...session, status: "Completed" } : session));
-    navigate("/mentor/action-plans", { state: { autoSelectMentee: menteeName } });
+  const handleRescheduleRequest = async (session: SessionEvent) => {
+    if (!session.bookingId) {
+      setWarningToast("This booked slot did not return a booking ID.");
+      return;
+    }
+
+    const openSlots = backendSlots.filter((slot) => !slot.isBooked && slot.id !== null);
+    if (openSlots.length === 0) {
+      setWarningToast("Create an open availability slot before rescheduling this booking.");
+      return;
+    }
+
+    const options = openSlots.map((slot, index) => `${index + 1}. ${slot.availableDate} ${time24ToLabel(slot.startTime)}`).join("\n");
+    const choice = window.prompt(`Choose the new slot number:\n${options}`, "1");
+    if (!choice) return;
+    const selected = openSlots[Number(choice) - 1];
+    if (!selected?.id) {
+      setWarningToast("That slot selection is invalid.");
+      return;
+    }
+
+    const availabilityId = Number(selected.id);
+    if (!Number.isInteger(availabilityId) || availabilityId <= 0) {
+      setWarningToast("The backend requires a numeric availability ID for rescheduling.");
+      return;
+    }
+
+    const reason = window.prompt("Reason for rescheduling:", "Schedule adjustment");
+    if (!reason?.trim()) return;
+
+    try {
+      await rescheduleMentorBooking(session.bookingId, { new_availability_id: availabilityId, reason: reason.trim() });
+      await loadAvailability();
+    } catch (error) {
+      setWarningToast(error instanceof Error ? error.message : "Unable to reschedule this booking.");
+    }
+  };
+
+  const handleCompleteSession = (id: string, _menteeName: string) => {
+    const session = findSession(id);
+    if (!session?.bookingId) {
+      setWarningToast("This session did not return a booking ID.");
+      return;
+    }
+    setCompletionSessionId(id);
+    proofInputRef.current?.click();
+  };
+
+  const handleProofSelected = async (file: File | null) => {
+    if (!file || !completionSessionId) return;
+    const session = findSession(completionSessionId);
+    if (!session?.bookingId) return;
+
+    try {
+      await completeMentorBooking(session.bookingId, file);
+      setSessions((current) => current.map((item) => item.id === session.id ? { ...item, status: "Completed" } : item));
+      navigate("/mentor/action-plans", { state: { autoSelectMentee: session.mentee, bookingId: session.bookingId } });
+    } catch (error) {
+      setWarningToast(error instanceof Error ? error.message : "Unable to complete this session.");
+    } finally {
+      setCompletionSessionId(null);
+      if (proofInputRef.current) proofInputRef.current.value = "";
+    }
   };
 
   const upcomingSessions = sessions.filter((s) => s.status === "Confirmed");
   const pendingRequests = sessions.filter((s) => s.status === "Pending");
+  const currentJoinSession = joinModalId ? findSession(joinModalId) : undefined;
 
   return (
     <UserLayout 
@@ -174,6 +344,13 @@ export function MentorAvailabilityPage() {
       subtitle="Schedule and meet your mentees" 
       sidebarItems={mentorSidebarItems}
     >
+      <input
+        ref={proofInputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        className="hidden"
+        onChange={(event) => void handleProofSelected(event.target.files?.[0] ?? null)}
+      />
       
       {/* GLOBAL MOUSE UP HANDLER */}
       <section onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} className="min-h-[calc(100vh-80px)] bg-ally-background p-6 lg:p-8 select-none relative">
@@ -405,7 +582,7 @@ export function MentorAvailabilityPage() {
                               <AlertCircle size={12} /> Date passed. Must reschedule or reject.
                             </p>
                             <div className="grid grid-cols-2 gap-2">
-                              <button onClick={() => updateSessionStatus(booking.id, "Rescheduled")} className="inline-flex justify-center items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50">
+                              <button onClick={() => void handleRescheduleRequest(booking)} className="inline-flex justify-center items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50">
                                 <Clock size={13} /> Reschedule
                               </button>
                               <button onClick={() => setRejectModalId(booking.id)} className="inline-flex justify-center items-center gap-1.5 rounded-full border border-rose-200 bg-white px-2 py-1.5 text-[11px] font-bold text-rose-700 transition hover:bg-rose-50">
@@ -448,7 +625,7 @@ export function MentorAvailabilityPage() {
             <p className="mt-2 text-sm text-center text-slate-500">This will lock the schedule and send an invitation link to the explorer.</p>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setConfirmModalId(null)} className="flex-1 rounded-full border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-              <button onClick={handleConfirmRequest} className="flex-1 rounded-full bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Yes, Confirm</button>
+              <button onClick={() => void handleConfirmRequest()} className="flex-1 rounded-full bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Yes, Confirm</button>
             </div>
           </div>
         </div>
@@ -472,7 +649,7 @@ export function MentorAvailabilityPage() {
             
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => {setRejectModalId(null); setRejectReason("");}} className="rounded-full px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">Cancel</button>
-              <button onClick={handleRejectRequest} disabled={!rejectReason.trim()} className="rounded-full bg-rose-600 px-6 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={() => void handleRejectRequest()} disabled={!rejectReason.trim()} className="rounded-full bg-rose-600 px-6 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 Submit Rejection
               </button>
             </div>
@@ -491,7 +668,15 @@ export function MentorAvailabilityPage() {
             <p className="mt-2 text-sm text-slate-500">We will direct you to the Zoom/Google Meet link for this session.</p>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setJoinModalId(null)} className="flex-1 rounded-full border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-              <button onClick={() => {setJoinModalId(null); alert("Redirecting to Zoom...");}} className="flex-1 rounded-full bg-ally-primary py-2.5 text-sm font-bold text-white hover:bg-ally-primary/90">Go to Meeting</button>
+              <button onClick={() => {
+                if (currentJoinSession?.meetingLink) {
+                  window.open(currentJoinSession.meetingLink, "_blank", "noopener,noreferrer");
+                  setJoinModalId(null);
+                } else {
+                  setJoinModalId(null);
+                  setWarningToast("No meeting link was returned for this confirmed session.");
+                }
+              }} className="flex-1 rounded-full bg-ally-primary py-2.5 text-sm font-bold text-white hover:bg-ally-primary/90">Go to Meeting</button>
             </div>
           </div>
         </div>

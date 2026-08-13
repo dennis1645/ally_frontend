@@ -1,4 +1,8 @@
 export {
+  default as AllyPopup,
+} from "./AllyPopup";
+
+export {
   default as Card,
 } from "./Card";
 
@@ -37,3 +41,6 @@ export type {
 export type {
   SecondaryButtonProps,
 } from "./SecondaryButton";
+export type {
+  AllyPopupProps,
+} from "./AllyPopup";

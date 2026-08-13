@@ -1,10 +1,6 @@
-import { useState, useEffect } from "react";
-import { Compass, Mountain, Globe } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Compass, Mountain } from "lucide-react";
 import { useNavigate } from "react-router";
-
-// 1. Import file JSON terjemahan (pastikan path-nya sesuai dengan letak folder locales-mu)
-import enLocale from "../locales/en/translation.json";
-import idLocale from "../locales/id/translation.json";
 
 import worldMap from "../assets/world-map.png";
 import allyMascot from "../assets/ally-explorer.png";
@@ -17,37 +13,47 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const { user, status } = useAuth();
 
-  // State untuk Bahasa (Default: English)
-  const [language, setLanguage] = useState<"en" | "id">("en");
-
-  // 2. Panggil objek "landing" dari file JSON yang sesuai
-  // Tambahkan 'as any' agar TypeScript berhenti protes
-  const currentTexts = language === "en" ? (enLocale as any).landing : (idLocale as any).landing;
-
   const [displayedTitle, setDisplayedTitle] = useState("");
   const [displayedBody, setDisplayedBody] = useState("");
 
-  // Effect Typewriter (Akan me-restart setiap kali 'language' berubah)
+  // English-only landing page content
+  const texts = {
+    title: "Ready to begin your scholarship journey?",
+    body: "Explore your path, discover your strengths, and prepare for your next opportunity with Ally.",
+    expedition: "Your Scholarship Expedition",
+    beginBtn: "Begin My Expedition",
+    departure: "Your journey starts here",
+  };
+
+  // Typewriter effect
   useEffect(() => {
     let isCancelled = false;
 
-    // Reset teks sebelum mengetik ulang
+    // Reset text before typing
     setDisplayedTitle("");
     setDisplayedBody("");
 
     const typeText = async () => {
-      for (let i = 1; i <= currentTexts.title.length; i++) {
+      // Type title
+      for (let i = 1; i <= texts.title.length; i++) {
         if (isCancelled) return;
-        setDisplayedTitle(currentTexts.title.substring(0, i));
+
+        setDisplayedTitle(texts.title.substring(0, i));
+
         await new Promise((resolve) => setTimeout(resolve, 35));
       }
 
       if (isCancelled) return;
+
+      // Small pause between title and body
       await new Promise((resolve) => setTimeout(resolve, 400));
 
-      for (let i = 1; i <= currentTexts.body.length; i++) {
+      // Type body
+      for (let i = 1; i <= texts.body.length; i++) {
         if (isCancelled) return;
-        setDisplayedBody(currentTexts.body.substring(0, i));
+
+        setDisplayedBody(texts.body.substring(0, i));
+
         await new Promise((resolve) => setTimeout(resolve, 30));
       }
     };
@@ -57,18 +63,15 @@ export default function LandingPage() {
     return () => {
       isCancelled = true;
     };
-  }, [currentTexts.title, currentTexts.body, language]);
+  }, []);
 
   function handleBeginExpedition(): void {
     if (status === "authenticated" && user) {
       navigate(getHomePathForUser(user));
       return;
     }
-    navigate("/choose-adventure");
-  }
 
-  function toggleLanguage() {
-    setLanguage((prev) => (prev === "en" ? "id" : "en"));
+    navigate("/choose-adventure");
   }
 
   return (
@@ -77,22 +80,13 @@ export default function LandingPage() {
       style={{ backgroundImage: `url(${worldMap})` }}
     >
       {/* Light overlay */}
-      <div aria-hidden="true" className="absolute inset-0 bg-white/30" />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-white/30"
+      />
 
-      {/* Tombol Ganti Bahasa (Pojok Kanan Atas) */}
-      <div className="fixed top-6 right-6 z-50 sm:top-8 sm:right-8 lg:right-12">
-        <button
-          onClick={toggleLanguage}
-          className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-2.5 text-sm font-bold text-ally-primary shadow-md backdrop-blur-md transition-transform hover:scale-105 hover:bg-white"
-        >
-          <Globe size={18} />
-          {language === "en" ? "EN" : "ID"}
-        </button>
-      </div>
-
-      {/* Container utama */}
+      {/* Main container */}
       <div className="relative z-10 mx-auto flex h-full w-full max-w-4xl flex-col items-center justify-center gap-3 px-4 py-4 sm:gap-5 sm:px-8 sm:py-6">
-        
         {/* Header / Logo */}
         <header className="flex shrink-0 flex-col items-center text-center">
           <span
@@ -100,28 +94,46 @@ export default function LandingPage() {
             role="img"
             aria-label="Ally"
           >
-            <span aria-hidden="true" className="ally-logo-a font-bold text-[#005a9c]">A</span>
-            <span aria-hidden="true" className="ally-logo-lly font-bold text-[#005a9c]">lly</span>
+            <span
+              aria-hidden="true"
+              className="ally-logo-a font-bold text-[#005a9c]"
+            >
+              A
+            </span>
+
+            <span
+              aria-hidden="true"
+              className="ally-logo-lly font-bold text-[#005a9c]"
+            >
+              lly
+            </span>
           </span>
+
           <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#7a582f] sm:mt-3 sm:text-xs md:text-sm">
-            {currentTexts.expedition}
+            {texts.expedition}
           </p>
         </header>
 
-        {/* Middle Section (Speech Bubble) */}
+        {/* Speech Bubble */}
         <section className="flex w-full shrink-0 flex-col items-center justify-center">
           <div className="relative w-[95%] max-w-xl rounded-2xl border-[3px] border-[#b89c7d] bg-[#fbf6ef] p-4 text-center shadow-lg sm:p-5 md:p-6">
-            <div className="absolute -bottom-[11px] left-1/2 h-5 w-5 -translate-x-1/2 rotate-45 border-b-[3px] border-r-[3px] border-[#b89c7d] bg-[#fbf6ef]" />
+            {/* Speech bubble tail */}
+            <div
+              aria-hidden="true"
+              className="absolute -bottom-[11px] left-1/2 h-5 w-5 -translate-x-1/2 rotate-45 border-b-[3px] border-r-[3px] border-[#b89c7d] bg-[#fbf6ef]"
+            />
+
             <h2 className="min-h-[1.75rem] text-base font-bold leading-snug text-[#2c1607] sm:min-h-[2rem] sm:text-lg md:text-xl lg:text-2xl">
               {displayedTitle}
             </h2>
+
             <p className="mt-2 min-h-[3.5rem] text-xs leading-relaxed text-[#414750] sm:mt-3 sm:min-h-[4rem] sm:text-sm md:text-base">
               {displayedBody}
             </p>
           </div>
         </section>
 
-        {/* Maskot & Tombol CTA */}
+        {/* Ally Mascot & CTA */}
         <div className="flex flex-col items-center">
           <div className="flex h-[130px] w-[130px] shrink-0 items-center justify-center sm:h-[170px] sm:w-[170px] md:h-[200px] md:w-[200px]">
             <img
@@ -137,16 +149,24 @@ export default function LandingPage() {
               size="lg"
               isLoading={status === "loading"}
               loadingText="Preparing..."
-              rightIcon={<Compass size={21} aria-hidden="true" />}
+              rightIcon={
+                <Compass
+                  size={21}
+                  aria-hidden="true"
+                />
+              }
               onClick={handleBeginExpedition}
               className="min-w-[200px] text-sm sm:min-w-[220px] sm:text-base md:min-w-[240px] md:text-lg"
             >
-              {currentTexts.beginBtn}
+              {texts.beginBtn}
             </PrimaryButton>
 
             <div className="mt-2 flex items-center gap-2 text-[11px] font-medium text-[#7a582f]/80 sm:mt-2.5 sm:text-xs md:text-sm">
-              <Mountain size={16} aria-hidden="true" />
-              <span>{currentTexts.departure}</span>
+              <Mountain
+                size={16}
+                aria-hidden="true"
+              />
+              <span>{texts.departure}</span>
             </div>
           </div>
         </div>
