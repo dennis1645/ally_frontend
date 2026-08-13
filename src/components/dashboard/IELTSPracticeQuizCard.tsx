@@ -29,7 +29,15 @@ type QuizState =
   | "complete"
   | "error";
 
-export default function IELTSPracticeQuizCard() {
+export type IELTSPracticeQuizCardProps = {
+  variant?:
+    | "default"
+    | "compact";
+};
+
+export default function IELTSPracticeQuizCard({
+  variant = "default",
+}: IELTSPracticeQuizCardProps) {
   const [
     state,
     setState,
@@ -249,96 +257,167 @@ export default function IELTSPracticeQuizCard() {
 
   return (
     <>
-      <section
-        aria-labelledby="ielts-practice-title"
-        className={[
-          "relative h-full overflow-hidden rounded-[24px]",
-          "border border-[#cfe0ec] bg-white",
-          "p-5 shadow-[0_5px_0_#d7e5ee]",
-          "sm:p-6",
-        ].join(
-          " ",
-        )}
-      >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#e8f5ff] blur-2xl"
-        />
+      {variant ===
+      "compact" ? (
+        <section
+          aria-labelledby="ielts-practice-title"
+          className={[
+            "relative overflow-hidden rounded-[18px]",
+            "border border-[#cfe0ec] bg-white",
+            "p-4 shadow-[0_4px_0_#d7e5ee]",
+          ].join(
+            " ",
+          )}
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[#e8f5ff] blur-2xl"
+          />
 
-        <div className="relative flex h-full flex-col">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#eaf5fb] text-[#16629b]">
-              <BookOpen
-                size={22}
+          <div className="relative">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#eaf5fb] text-[#16629b]">
+                <BookOpen
+                  size={18}
+                  aria-hidden="true"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#7a582f]">
+                  IELTS Practice
+                </p>
+
+                <h2
+                  id="ielts-practice-title"
+                  className="mt-0.5 text-sm font-extrabold text-[#2c1607]"
+                >
+                  Practice Quiz
+                </h2>
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              Practice your English skills for scholarship requirements.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                void startPractice();
+              }}
+              className={[
+                "mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2",
+                "rounded-xl bg-[#16629b] px-3 py-2",
+                "text-xs font-extrabold text-white",
+                "shadow-[0_3px_0_#0d4773]",
+                "transition hover:-translate-y-0.5 hover:bg-[#115787]",
+                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b6ddf5]",
+              ].join(
+                " ",
+              )}
+            >
+              <Play
+                size={14}
+                fill="currentColor"
                 aria-hidden="true"
               />
-            </div>
-
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-[#7a582f]">
-                Language Training
-              </p>
-
-              <h2
-                id="ielts-practice-title"
-                className="mt-0.5 text-lg font-extrabold text-[#2c1607]"
-              >
-                IELTS Practice Quiz
-              </h2>
-            </div>
+              Practice Quiz
+            </button>
           </div>
+        </section>
+      ) : (
+        <section
+          aria-labelledby="ielts-practice-title"
+          className={[
+            "relative h-full overflow-hidden rounded-[24px]",
+            "border border-[#cfe0ec] bg-white",
+            "p-5 shadow-[0_5px_0_#d7e5ee]",
+            "sm:p-6",
+          ].join(
+            " ",
+          )}
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#e8f5ff] blur-2xl"
+          />
 
-          <p className="mt-4 text-sm leading-6 text-slate-500">
-            Sharpen your English skills with today&apos;s short practice drill.
-          </p>
+          <div className="relative flex h-full flex-col">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#eaf5fb] text-[#16629b]">
+                <BookOpen
+                  size={22}
+                  aria-hidden="true"
+                />
+              </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-[#f5f9fc] p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Format
-              </p>
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-[#7a582f]">
+                  Language Training
+                </p>
 
-              <p className="mt-1 text-sm font-extrabold text-[#2c1607]">
-                Quick Quiz
-              </p>
+                <h2
+                  id="ielts-practice-title"
+                  className="mt-0.5 text-lg font-extrabold text-[#2c1607]"
+                >
+                  IELTS Practice Quiz
+                </h2>
+              </div>
             </div>
 
-            <div className="rounded-xl bg-[#fff8ed] p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Focus
-              </p>
+            <p className="mt-4 text-sm leading-6 text-slate-500">
+              Sharpen your English skills with today&apos;s short practice drill.
+            </p>
 
-              <p className="mt-1 text-sm font-extrabold text-[#2c1607]">
-                IELTS / English
-              </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#f5f9fc] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Format
+                </p>
+
+                <p className="mt-1 text-sm font-extrabold text-[#2c1607]">
+                  Quick Quiz
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-[#fff8ed] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Focus
+                </p>
+
+                <p className="mt-1 text-sm font-extrabold text-[#2c1607]">
+                  IELTS / English
+                </p>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                void startPractice();
+              }}
+              className={[
+                "mt-auto inline-flex min-h-11 w-full items-center justify-center gap-2",
+                "rounded-xl bg-[#16629b] px-4 py-3",
+                "pt-3 text-sm font-bold text-white",
+                "shadow-[0_4px_0_#0d4773]",
+                "transition hover:-translate-y-0.5 hover:bg-[#115787]",
+                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b6ddf5]",
+              ].join(
+                " ",
+              )}
+            >
+              <Play
+                size={17}
+                fill="currentColor"
+                aria-hidden="true"
+              />
+              Start Practice
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              void startPractice();
-            }}
-            className={[
-              "mt-auto inline-flex min-h-11 w-full items-center justify-center gap-2",
-              "rounded-xl bg-[#16629b] px-4 py-3",
-              "pt-3 text-sm font-bold text-white",
-              "shadow-[0_4px_0_#0d4773]",
-              "transition hover:-translate-y-0.5 hover:bg-[#115787]",
-              "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#b6ddf5]",
-            ].join(
-              " ",
-            )}
-          >
-            <Play
-              size={17}
-              fill="currentColor"
-              aria-hidden="true"
-            />
-            Start Practice
-          </button>
-        </div>
-      </section>
+        </section>
+      )}
 
       {isOpen && (
         <div

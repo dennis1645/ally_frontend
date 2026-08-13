@@ -10,6 +10,7 @@ import expeditionTerrain from "../../assets/expedition-terrain.png";
 
 import type {
   RoadmapData,
+  RoadmapEntityId,
   RoadmapMilestone,
 } from "../../api/roadmapApi";
 
@@ -22,6 +23,17 @@ export type AscentRoadmapProps = {
   onMilestoneSelect?: (
     milestone: RoadmapMilestone,
   ) => void;
+
+  specialSelectableMilestoneId?:
+    RoadmapEntityId | null;
+
+  variant?:
+    | "full"
+    | "dashboard";
+
+  scholarshipName?:
+    | string
+    | null;
 };
 
 type RoadmapPoint = {
@@ -142,10 +154,12 @@ function statusLabel(
 function MilestoneMarker({
   milestone,
   selected,
+  forceSelectable = false,
   onSelect,
 }: {
   milestone: RoadmapMilestone;
   selected: boolean;
+  forceSelectable?: boolean;
   onSelect?: (
     milestone: RoadmapMilestone,
   ) => void;
@@ -158,7 +172,10 @@ function MilestoneMarker({
     <button
       type="button"
       disabled={
-        locked ||
+        (
+          locked &&
+          !forceSelectable
+        ) ||
         !onSelect
       }
       onClick={() => {
@@ -191,7 +208,9 @@ function MilestoneMarker({
           : "",
 
         locked
-          ? "cursor-default bg-[#e6eaed] text-[#98a3ad]"
+          ? forceSelectable
+            ? "cursor-pointer bg-[#e6eaed] text-[#8d99a2] hover:-translate-y-1"
+            : "cursor-default bg-[#e6eaed] text-[#98a3ad]"
           : "cursor-pointer hover:-translate-y-1",
 
         selected
@@ -238,8 +257,12 @@ function MilestoneMarker({
 
 function Overview({
   roadmap,
+  scholarshipName,
 }: {
   roadmap: RoadmapData;
+  scholarshipName?:
+    | string
+    | null;
 }) {
   const completed =
     roadmap.milestones.filter(
@@ -289,7 +312,9 @@ function Overview({
       </h1>
 
       <p className="mt-2 text-sm leading-6 text-[#667085]">
-        AI-generated roadmap for scholarship #{roadmap.scholarshipId}.
+        {scholarshipName?.trim()
+          ? scholarshipName.trim()
+          : `Scholarship #${roadmap.scholarshipId}`}
       </p>
 
       <div className="my-4 h-px bg-[#e7ddd3]" />
@@ -331,11 +356,271 @@ function Overview({
   );
 }
 
+
+function DashboardVerticalRoadmap({
+  roadmap,
+  selectedMilestoneId,
+  onMilestoneSelect,
+  specialSelectableMilestoneId,
+}: {
+  roadmap: RoadmapData;
+  selectedMilestoneId:
+    | RoadmapEntityId
+    | null;
+  onMilestoneSelect?: (
+    milestone: RoadmapMilestone,
+  ) => void;
+  specialSelectableMilestoneId:
+    | RoadmapEntityId
+    | null;
+}) {
+  const milestones =
+    [
+      ...roadmap.milestones,
+    ].sort(
+      (
+        first,
+        second,
+      ) =>
+        first.order -
+        second.order,
+    );
+
+  const verticalHeight =
+    Math.max(
+      640,
+      milestones.length *
+        104 +
+        90,
+    );
+
+  const topPadding =
+    8;
+
+  const bottomPadding =
+    91;
+
+  return (
+    <section
+      aria-label="Vertical scholarship quest map"
+      className={[
+        "relative isolate w-full overflow-hidden rounded-[26px]",
+        "border border-[#c3d0d9] bg-[#dbeae7]",
+        "shadow-[0_7px_0_#d8c6ae]",
+      ].join(
+        " ",
+      )}
+      style={{
+        minHeight:
+          `${verticalHeight}px`,
+      }}
+    >
+      <img
+        src={
+          expeditionTerrain
+        }
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-white/10"
+      />
+
+      <div
+        aria-hidden="true"
+        className="absolute left-1/2 top-[7%] bottom-[7%] w-[4px] -translate-x-1/2 rounded-full bg-white/90 shadow-sm"
+      />
+
+      <div
+        aria-hidden="true"
+        className="absolute left-1/2 top-[7%] bottom-[7%] w-px -translate-x-1/2 border-l border-dashed border-[#7a582f]/60"
+      />
+
+      {milestones.map(
+        (
+          milestone,
+          index,
+        ) => {
+          const ratio =
+            milestones.length <=
+            1
+              ? 0.5
+              : index /
+                (
+                  milestones.length -
+                  1
+                );
+
+          const top =
+            topPadding +
+            ratio *
+              (
+                bottomPadding -
+                topPadding
+              );
+
+          const forceSelectable =
+            specialSelectableMilestoneId !==
+              null &&
+            String(
+              specialSelectableMilestoneId,
+            ) ===
+              String(
+                milestone.id,
+              );
+
+          const labelOnRight =
+            index %
+              2 ===
+            0;
+
+          return (
+            <div
+              key={
+                String(
+                  milestone.id,
+                )
+              }
+              className="absolute left-1/2 z-20 -translate-x-1/2"
+              style={{
+                top:
+                  `${top}%`,
+                transform:
+                  "translate(-50%, -50%)",
+              }}
+            >
+              <div className="group relative">
+                <MilestoneMarker
+                  milestone={
+                    milestone
+                  }
+                  selected={
+                    String(
+                      selectedMilestoneId,
+                    ) ===
+                    String(
+                      milestone.id,
+                    )
+                  }
+                  forceSelectable={
+                    forceSelectable
+                  }
+                  onSelect={
+                    onMilestoneSelect
+                  }
+                />
+
+                <button
+                  type="button"
+                  disabled={
+                    milestone.status ===
+                      "locked" &&
+                    !forceSelectable
+                  }
+                  onClick={() => {
+                    onMilestoneSelect?.(
+                      milestone,
+                    );
+                  }}
+                  className={[
+                    "absolute top-1/2 w-[132px] -translate-y-1/2",
+                    "rounded-[16px] border border-white/80 bg-white/92",
+                    "px-3 py-2.5 text-left shadow-lg backdrop-blur",
+                    "transition duration-200",
+                    "sm:w-[165px]",
+                    milestone.status ===
+                      "locked" &&
+                    !forceSelectable
+                      ? "cursor-default opacity-70"
+                      : "cursor-pointer group-hover:-translate-y-[calc(50%+2px)]",
+                    labelOnRight
+                      ? "left-[calc(100%+18px)]"
+                      : "right-[calc(100%+18px)] text-right",
+                  ].join(
+                    " ",
+                  )}
+                >
+                  <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#7a582f]">
+                    Milestone{" "}
+                    {index +
+                      1}
+                    {" · "}
+                    {
+                      statusLabel(
+                        milestone,
+                      )
+                    }
+                  </p>
+
+                  <p className="mt-1 line-clamp-2 text-[11px] font-extrabold leading-4 text-[#2c1607] sm:text-xs">
+                    {index ===
+                    1
+                      ? "Assessment 2"
+                      : milestone.title}
+                  </p>
+
+                  <p className="mt-1 text-[9px] font-bold text-[#16629b] sm:text-[10px]">
+                    {Math.round(
+                      milestone.progress,
+                    )}
+                    % complete
+                  </p>
+                </button>
+              </div>
+            </div>
+          );
+        },
+      )}
+
+      <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/80 bg-white/90 px-4 py-2 text-center shadow-md backdrop-blur">
+        <p className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#7a582f]">
+          Scholarship Goal
+        </p>
+
+        <Flag
+          size={15}
+          className="mx-auto mt-1 text-[#e97651]"
+          fill="currentColor"
+          aria-hidden="true"
+        />
+      </div>
+    </section>
+  );
+}
+
 export default function AscentRoadmap({
   roadmap,
   selectedMilestoneId = null,
   onMilestoneSelect,
+  specialSelectableMilestoneId = null,
+  variant = "full",
+  scholarshipName = null,
 }: AscentRoadmapProps) {
+  if (
+    variant ===
+    "dashboard"
+  ) {
+    return (
+      <DashboardVerticalRoadmap
+        roadmap={
+          roadmap
+        }
+        selectedMilestoneId={
+          selectedMilestoneId
+        }
+        onMilestoneSelect={
+          onMilestoneSelect
+        }
+        specialSelectableMilestoneId={
+          specialSelectableMilestoneId
+        }
+      />
+    );
+  }
+
   const points =
     buildPoints(
       roadmap.milestones.length,
@@ -374,6 +659,9 @@ export default function AscentRoadmap({
         <Overview
           roadmap={
             roadmap
+          }
+          scholarshipName={
+            scholarshipName
           }
         />
       </div>
@@ -454,6 +742,16 @@ export default function AscentRoadmap({
                         milestone.id,
                       )
                     }
+                    forceSelectable={
+                      specialSelectableMilestoneId !==
+                        null &&
+                      String(
+                        specialSelectableMilestoneId,
+                      ) ===
+                        String(
+                          milestone.id,
+                        )
+                    }
                     onSelect={
                       onMilestoneSelect
                     }
@@ -486,10 +784,22 @@ export default function AscentRoadmap({
       {/* Mobile list */}
       <div className="relative z-10 space-y-4 px-4 pb-8 pt-[330px] md:hidden">
         {roadmap.milestones.map(
-          (milestone) => {
+          (
+            milestone,
+          ) => {
             const locked =
               milestone.status ===
               "locked";
+
+            const forceSelectable =
+              specialSelectableMilestoneId !==
+                null &&
+              String(
+                specialSelectableMilestoneId,
+              ) ===
+                String(
+                  milestone.id,
+                );
 
             return (
               <div
@@ -517,6 +827,9 @@ export default function AscentRoadmap({
                       milestone.id,
                     )
                   }
+                  forceSelectable={
+                    forceSelectable
+                  }
                   onSelect={
                     onMilestoneSelect
                   }
@@ -524,7 +837,10 @@ export default function AscentRoadmap({
 
                 <button
                   type="button"
-                  disabled={locked}
+                  disabled={
+                    locked &&
+                    !forceSelectable
+                  }
                   onClick={() => {
                     onMilestoneSelect?.(
                       milestone,
@@ -532,7 +848,8 @@ export default function AscentRoadmap({
                   }}
                   className={[
                     "min-w-0 flex-1 text-left",
-                    locked
+                    locked &&
+                    !forceSelectable
                       ? "cursor-default"
                       : "cursor-pointer",
                   ].join(" ")}

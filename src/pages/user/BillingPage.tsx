@@ -7,7 +7,6 @@ import {
   Mountain,
   Package,
   RefreshCcw,
-  Sparkles,
 } from "lucide-react";
 
 import {
@@ -19,9 +18,8 @@ import {
 
 import {
   useNavigate,
+  useSearchParams,
 } from "react-router";
-
-import allyMascot from "../../assets/ally-assessment-mascot.png";
 
 import {
   getShopItemsApi,
@@ -240,10 +238,58 @@ export default function BillingPage() {
   const navigate =
     useNavigate();
 
+  const [
+    searchParams,
+  ] =
+    useSearchParams();
+
   const {
     user,
   } =
     useAuth();
+
+  /* =======================================================
+     Midtrans return safety
+
+     If the Midtrans finish URL is configured to /billing instead
+     of /checkout, forward the return parameters to CheckoutPage,
+     which owns the payment-result handling and success popup.
+  ======================================================= */
+
+  useEffect(
+    () => {
+      const hasPaymentReturn =
+        searchParams.has(
+          "order_id",
+        ) ||
+        searchParams.has(
+          "transaction_status",
+        ) ||
+        searchParams.has(
+          "status_code",
+        );
+
+      if (!hasPaymentReturn) {
+        return;
+      }
+
+      const query =
+        searchParams.toString();
+
+      navigate(
+        query
+          ? `/checkout?${query}`
+          : "/checkout",
+        {
+          replace: true,
+        },
+      );
+    },
+    [
+      navigate,
+      searchParams,
+    ],
+  );
 
   const [
     items,
@@ -716,7 +762,7 @@ export default function BillingPage() {
 
   return (
     <UserLayout
-      title="Subscription"
+      title="Billing"
       subtitle="Expedition Plans"
       topbarProps={{
         showSearch:
@@ -725,48 +771,6 @@ export default function BillingPage() {
     >
       <section className="min-h-[calc(100vh-80px)] bg-[#fff8f5]">
         <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
-
-          {/* =================================================
-              Ally message
-          ================================================== */}
-
-          <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-center">
-            <div className="relative shrink-0 self-start">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border-2 border-[#f1d8c7] bg-[#ffe3d2] p-1.5 shadow-[3px_4px_0_#d1c0aa]">
-                <img
-                  src={
-                    allyMascot
-                  }
-                  alt="Ally explorer mascot"
-                  className="h-full w-full rounded-xl object-contain"
-                />
-              </div>
-
-              <div className="absolute -bottom-2 -right-2 grid h-7 w-7 place-items-center rounded-full border-2 border-[#fff8f5] bg-[#16629b] text-white shadow-sm">
-                <Sparkles
-                  size={14}
-                />
-              </div>
-            </div>
-
-            <div className="relative flex-1">
-              <div
-                aria-hidden="true"
-                className="absolute left-[-9px] top-9 hidden h-5 w-5 rotate-45 border-b border-l border-[#ead3bd] bg-[#faf2ed] md:block"
-              />
-
-              <div className="relative rounded-2xl border-2 border-[#ecdcd1] bg-[#faf2ed] px-6 py-6 shadow-[4px_4px_0_#ecdcd1] sm:px-8">
-                <p className="text-base italic leading-7 text-[#2c1607] sm:text-lg">
-                  &ldquo;Every expedition
-                  begins with the right
-                  equipment. Choose the
-                  plan that helps you
-                  reach your scholarship
-                  summit.&rdquo;
-                </p>
-              </div>
-            </div>
-          </div>
 
           {/* =================================================
               Heading
@@ -1013,21 +1017,14 @@ export default function BillingPage() {
 
                             <button
                               type="button"
-                              disabled={
-                                item.stock_quantity <=
-                                0
-                              }
                               onClick={() => {
                                 handleChooseItem(
                                   item.id,
                                 );
                               }}
-                              className="min-h-14 w-full rounded-xl border-2 border-[#004b6f] bg-[#16629b] px-5 font-bold text-white shadow-[0_5px_0_#004b6f] transition hover:bg-[#1e6da6] active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:border-[#b8c1c8] disabled:bg-[#d8dde1] disabled:text-[#70777d] disabled:shadow-none"
+                              className="min-h-14 w-full rounded-xl border-2 border-[#004b6f] bg-[#16629b] px-5 font-bold text-white shadow-[0_5px_0_#004b6f] transition hover:bg-[#1e6da6] active:translate-y-1 active:shadow-none"
                             >
-                              {item.stock_quantity >
-                              0
-                                ? "Choose This Plan"
-                                : "Unavailable"}
+                              Choose This Plan
                             </button>
                           </article>
                         ),

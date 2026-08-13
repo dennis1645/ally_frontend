@@ -1,501 +1,893 @@
 import {
-  Award,
-  Coins,
-  Gauge,
+  ArrowRight,
+  Edit3,
+  Flame,
   Sparkles,
+  Target,
   Trophy,
+  UserRound,
 } from "lucide-react";
 
 import {
-  useState,
-} from "react";
+  useNavigate,
+} from "react-router";
+
+import {
+  API_BASE_URL,
+} from "../../api/apiClient";
 
 import type {
-  AuthBadge,
   AuthUser,
 } from "../../types/auth";
 
-import {
-  Link,
-} from "react-router";
-
 type ExplorerProfileCardProps = {
   user: AuthUser;
+
+  variant?:
+    | "default"
+    | "hero"
+    | "sidebar";
+
+  /*
+   * DashboardPage already retrieves the latest Deep Diagnostic
+   * result. Prefer that value so this summary does not show an
+   * older readiness_score from the profile response.
+   */
+  readinessScore?:
+    | number
+    | null;
+
+  readinessLoading?:
+    boolean;
 };
 
-function getInitials(
-  name: string,
-): string {
-  const parts =
-    name
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-
-  if (
-    parts.length ===
-    0
-  ) {
-    return "A";
-  }
-
-  return parts
-    .slice(0, 2)
-    .map(
-      (part) =>
-        part
-          .charAt(0)
-          .toUpperCase(),
-    )
-    .join("");
-}
-
-function formatEarnedDate(
+function resolveProfilePictureUrl(
   value:
     | string
+    | null
     | undefined,
 ): string | null {
-  if (!value) {
-    return null;
-  }
-
-  const date =
-    new Date(
-      value,
-    );
-
   if (
-    Number.isNaN(
-      date.getTime(),
-    )
+    !value?.trim()
   ) {
     return null;
   }
 
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      month:
-        "short",
-      day:
-        "numeric",
-      year:
-        "numeric",
-    },
-  ).format(
-    date,
+  const normalized =
+    value.trim();
+
+  if (
+    normalized.startsWith(
+      "http://",
+    ) ||
+    normalized.startsWith(
+      "https://",
+    ) ||
+    normalized.startsWith(
+      "blob:",
+    ) ||
+    normalized.startsWith(
+      "data:",
+    )
+  ) {
+    return normalized;
+  }
+
+  try {
+    const apiOrigin =
+      new URL(
+        API_BASE_URL,
+      ).origin;
+
+    return `${apiOrigin}/${normalized.replace(
+      /^\/+/,
+      "",
+    )}`;
+  } catch {
+    return normalized;
+  }
+}
+
+function getInitials(
+  name:
+    string,
+): string {
+  const initials =
+    name
+      .trim()
+      .split(
+        /\s+/,
+      )
+      .slice(
+        0,
+        2,
+      )
+      .map(
+        (
+          part,
+        ) =>
+          part
+            .charAt(
+              0,
+            )
+            .toUpperCase(),
+      )
+      .join(
+        "",
+      );
+
+  return (
+    initials ||
+    "EX"
   );
 }
 
-function AchievementItem({
-  badge,
-}: {
-  badge: AuthBadge;
-}) {
-  const earnedDate =
-    formatEarnedDate(
-      badge.pivot
-        ?.earned_at,
-    );
+function formatMetric(
+  value:
+    | string
+    | number
+    | null
+    | undefined,
+): string {
+  if (
+    value ===
+      null ||
+    value ===
+      undefined ||
+    value ===
+      ""
+  ) {
+    return "—";
+  }
 
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-[#eee4d8] bg-[#fffdfa] p-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#fff0d6] text-[#9a681f]">
-        {badge.icon_url ? (
-          <img
-            src={
-              badge.icon_url
-            }
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <Award
-            size={19}
-            aria-hidden="true"
-          />
-        )}
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-sm font-extrabold leading-5 text-[#3d2a1d]">
-          {badge.name}
-        </p>
-
-        {badge.description && (
-          <p className="mt-0.5 text-xs leading-5 text-slate-500">
-            {badge.description}
-          </p>
-        )}
-
-        {earnedDate && (
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.09em] text-[#9a681f]">
-            Earned {earnedDate}
-          </p>
-        )}
-      </div>
-    </div>
+  return String(
+    value,
   );
 }
 
 export default function ExplorerProfileCard({
   user,
+  variant = "default",
+  readinessScore,
+  readinessLoading = false,
 }: ExplorerProfileCardProps) {
-  const [
-    achievementsOpen,
-    setAchievementsOpen,
-  ] =
-    useState(
-      false,
+  const navigate =
+    useNavigate();
+
+  const profilePicture =
+    resolveProfilePictureUrl(
+      user.profile_picture_url ??
+        user.profile_picture,
     );
 
   const level =
     user.level ??
-    1;
+    user.expedition_level ??
+    null;
 
-  const xpPoints =
-    typeof user.xp_points ===
+  const currentReadiness =
+    readinessScore ??
+    user.readiness_score ??
+    null;
+
+  const normalizedReadiness =
+    typeof currentReadiness ===
       "number" &&
     Number.isFinite(
-      user.xp_points,
+      currentReadiness,
     )
       ? Math.max(
           0,
-          user.xp_points,
-        )
-      : 0;
-
-  const readinessScore =
-    user.readiness_score;
-
-  const tokenBalance =
-    typeof user.token_balance ===
-      "number" &&
-    Number.isFinite(
-      user.token_balance,
-    )
-      ? Math.max(
-          0,
-          user.token_balance,
+          Math.min(
+            100,
+            currentReadiness,
+          ),
         )
       : null;
 
-  const achievements =
-    Array.isArray(
-      user.badges,
-    )
-      ? user.badges
-      : [];
+  const xp =
+    typeof user.xp_points ===
+    "number"
+      ? user.xp_points
+      : null;
 
-  const initials =
-    getInitials(
-      user.name,
-    );
+  const streak =
+    typeof user.current_streak ===
+    "number"
+      ? user.current_streak
+      : null;
 
-  const explorerMessage =
-    user.headline?.trim() ||
-    `Your expedition begins with ${xpPoints.toLocaleString()} XP and ${
-      readinessScore ?? 0
-    } readiness points.`;
+  const scholarshipTarget =
+    user.primary_scholarship_target ??
+    user.target_scholarship ??
+    null;
 
-  return (
-    <section
-      aria-labelledby="explorer-profile-title"
-      className={[
-        "rounded-[24px] border border-[#f1d9c8]",
-        "bg-white p-6",
-        "shadow-[0_6px_0_#d8c6ae]",
-        "sm:p-8",
-      ].join(
-        " ",
-      )}
-    >
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <div className="relative flex shrink-0 flex-col items-center">
-          <Link
-            to="/profile"
-            aria-label={`Open ${user.name}'s profile`}
-            className={[
-              "group relative shrink-0 rounded-full",
-              "focus-visible:outline-none",
-              "focus-visible:ring-4",
-              "focus-visible:ring-[#9bcaff]",
-            ].join(
-              " ",
-            )}
-          >
-            <div
+  if (
+    variant ===
+    "sidebar"
+  ) {
+    return (
+      <section
+        aria-labelledby="explorer-profile-title"
+        className={[
+          "relative overflow-hidden rounded-[22px]",
+          "border border-[#d9c8b8]",
+          "bg-gradient-to-br from-[#fffdf9] via-white to-[#eef7ff]",
+          "p-4 shadow-[0_5px_0_#dfcdbb]",
+        ].join(
+          " ",
+        )}
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#dceeff]/65 blur-3xl"
+        />
+
+        <div className="relative">
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              aria-label="Open Explorer Passport"
+              onClick={() =>
+                navigate(
+                  "/profile",
+                )
+              }
               className={[
-                "grid h-24 w-24 place-items-center overflow-hidden",
-                "rounded-full border-4 border-[#79b7ef]",
-                "bg-[#e8f3fc] text-2xl font-extrabold text-[#16629b]",
-                "transition-transform duration-200",
-                "group-hover:scale-[1.04]",
+                "grid h-14 w-14 shrink-0 place-items-center overflow-hidden",
+                "rounded-[17px] border-[3px] border-white bg-[#eaf5fb]",
+                "shadow-[0_3px_0_rgba(22,98,155,0.14)]",
+                "transition hover:-translate-y-0.5",
+                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100",
               ].join(
                 " ",
               )}
             >
-              {user.profile_picture_url ? (
+              {profilePicture ? (
                 <img
                   src={
-                    user.profile_picture_url
+                    profilePicture
                   }
                   alt={`${user.name}'s profile`}
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span
-                  aria-label={`${user.name} initials`}
-                >
-                  {initials}
+                <span className="text-base font-extrabold text-[#16629b]">
+                  {
+                    getInitials(
+                      user.name,
+                    )
+                  }
                 </span>
               )}
-            </div>
-          </Link>
+            </button>
 
-          <div
-            className="group relative mt-3"
-            onMouseEnter={() => {
-              setAchievementsOpen(
-                true,
-              );
-            }}
-            onMouseLeave={() => {
-              setAchievementsOpen(
-                false,
-              );
-            }}
-          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#bed9ea] bg-[#eef7fc] px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.11em] text-[#16629b]">
+                  <UserRound
+                    size={11}
+                    aria-hidden="true"
+                  />
+                  Explorer Profile
+                </span>
+
+                <button
+                  type="button"
+                  aria-label="Edit profile"
+                  onClick={() =>
+                    navigate(
+                      "/profile/edit",
+                    )
+                  }
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#c7dceb] bg-white text-[#16629b] shadow-sm transition hover:bg-[#f4faff]"
+                >
+                  <Edit3
+                    size={14}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+
+              <h2
+                id="explorer-profile-title"
+                className="mt-2 truncate text-base font-extrabold text-[#2c1607]"
+              >
+                {user.name}
+              </h2>
+
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {level !==
+                  null && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fff6df] px-2 py-1 text-[10px] font-extrabold text-[#91631f]">
+                    <Trophy
+                      size={11}
+                      aria-hidden="true"
+                    />
+                    Lv.{" "}
+                    {
+                      formatMetric(
+                        level,
+                      )
+                    }
+                  </span>
+                )}
+
+                <span className="truncate text-xs font-medium text-slate-500">
+                  {user.headline?.trim() ||
+                    user.email}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-[#ead8c8] bg-white/75 px-3 py-2.5">
+            <Target
+              size={14}
+              className="mt-0.5 shrink-0 text-[#e49a36]"
+              aria-hidden="true"
+            />
+
+            <div className="min-w-0">
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.11em] text-[#7a582f]">
+                Target Scholarship
+              </p>
+
+              <p className="mt-0.5 line-clamp-2 text-xs font-bold leading-5 text-[#2c1607]">
+                {scholarshipTarget
+                  ? scholarshipTarget
+                  : "No primary scholarship selected yet"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (
+    variant ===
+    "hero"
+  ) {
+    return (
+      <section
+        aria-labelledby="explorer-profile-title"
+        className={[
+          "relative h-full min-h-[430px] overflow-hidden rounded-[28px]",
+          "border border-[#d9c8b8]",
+          "bg-gradient-to-br from-[#fffdf9] via-white to-[#eef7ff]",
+          "p-5 shadow-[0_8px_0_#dfcdbb]",
+          "sm:p-6",
+        ].join(
+          " ",
+        )}
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#dceeff]/65 blur-3xl"
+        />
+
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-16 left-12 h-36 w-36 rounded-full bg-[#ffe4c9]/50 blur-3xl"
+        />
+
+        <div className="relative flex h-full min-h-[382px] flex-col">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                aria-label="Open Explorer Passport"
+                onClick={() =>
+                  navigate(
+                    "/profile",
+                  )
+                }
+                className={[
+                  "grid h-16 w-16 shrink-0 place-items-center overflow-hidden",
+                  "rounded-[18px] border-4 border-white bg-[#eaf5fb]",
+                  "shadow-[0_4px_0_rgba(22,98,155,0.14)]",
+                  "transition hover:-translate-y-0.5",
+                  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100",
+                ].join(
+                  " ",
+                )}
+              >
+                {profilePicture ? (
+                  <img
+                    src={
+                      profilePicture
+                    }
+                    alt={`${user.name}'s profile`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-lg font-extrabold text-[#16629b]">
+                    {
+                      getInitials(
+                        user.name,
+                      )
+                    }
+                  </span>
+                )}
+              </button>
+
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#bed9ea] bg-[#eef7fc] px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#16629b]">
+                  <UserRound
+                    size={12}
+                    aria-hidden="true"
+                  />
+                  Explorer
+                </span>
+
+                <h2
+                  id="explorer-profile-title"
+                  className="mt-1.5 truncate text-lg font-extrabold tracking-tight text-[#2c1607]"
+                >
+                  {user.name}
+                </h2>
+
+                <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                  {user.headline?.trim() ||
+                    user.email}
+                </p>
+              </div>
+            </div>
+
             <button
               type="button"
-              aria-label="View achievements"
-              aria-expanded={
-                achievementsOpen
+              aria-label="Edit profile"
+              onClick={() =>
+                navigate(
+                  "/profile/edit",
+                )
               }
-              aria-haspopup="dialog"
-              onClick={() => {
-                setAchievementsOpen(
-                  (current) =>
-                    !current,
-                );
-              }}
-              onFocus={() => {
-                setAchievementsOpen(
-                  true,
-                );
-              }}
-              className={[
-                "grid h-10 w-10 place-items-center",
-                "rounded-full border border-[#e5c98f]",
-                "bg-[#fff8e8] text-[#895d21]",
-                "shadow-sm transition",
-                "hover:-translate-y-0.5 hover:bg-[#fff2d4]",
-                "focus-visible:outline-none",
-                "focus-visible:ring-4 focus-visible:ring-[#f7d99f]",
-              ].join(
-                " ",
-              )}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[#c7dceb] bg-white text-[#16629b] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#f4faff]"
             >
-              <Award
-                size={19}
-                strokeWidth={2.3}
+              <Edit3
+                size={15}
                 aria-hidden="true"
               />
             </button>
+          </div>
 
-            <div
-              role="dialog"
-              aria-label="Earned achievements"
+          <div className="mt-5 rounded-2xl border border-[#ead8c8] bg-white/80 p-3.5">
+            <div className="flex items-center gap-2 text-[#66584d]">
+              <Target
+                size={15}
+                className="shrink-0 text-[#e49a36]"
+                aria-hidden="true"
+              />
+
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.11em]">
+                Target Scholarship
+              </p>
+            </div>
+
+            <p className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-[#2c1607]">
+              {scholarshipTarget
+                ? scholarshipTarget
+                : "No primary scholarship selected yet"}
+            </p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <ProfileMetric
+              label="Level"
+              value={
+                formatMetric(
+                  level,
+                )
+              }
+              detail="Explorer"
+              tone="blue"
+            />
+
+            <ProfileMetric
+              label="Readiness"
+              value={
+                readinessLoading
+                  ? "..."
+                  : normalizedReadiness !==
+                      null
+                    ? `${Math.round(
+                        normalizedReadiness,
+                      )}%`
+                    : "—"
+              }
+              detail="Score"
+              tone="green"
+            />
+
+            <ProfileMetric
+              label="XP"
+              value={
+                xp !==
+                  null
+                  ? xp.toLocaleString()
+                  : "—"
+              }
+              detail="Experience"
+              tone="gold"
+            />
+
+            <ProfileMetric
+              label="Streak"
+              value={
+                streak !==
+                  null
+                  ? `${streak}d`
+                  : "—"
+              }
+              detail="Current"
+              tone="orange"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                "/profile",
+              )
+            }
+            className="mt-auto inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#bfd8e8] bg-[#f4faff] px-4 py-2.5 text-xs font-extrabold text-[#16629b] transition hover:bg-[#eaf5fb]"
+          >
+            View Explorer Passport
+            <ArrowRight
+              size={14}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      aria-labelledby="explorer-profile-title"
+      className={[
+        "relative overflow-hidden rounded-[26px]",
+        "border border-[#d9c8b8]",
+        "bg-gradient-to-br from-[#fffdf9] via-white to-[#eef7ff]",
+        "p-5 shadow-[0_6px_0_#dfcdbb]",
+        "sm:p-6",
+      ].join(
+        " ",
+      )}
+    >
+      {/* Subtle expedition decoration */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#dceeff]/65 blur-3xl"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-16 left-24 h-36 w-36 rounded-full bg-[#ffe4c9]/50 blur-3xl"
+      />
+
+      <div className="relative">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            {/* Actual explorer profile image */}
+            <button
+              type="button"
+              aria-label="Open Explorer Passport"
+              onClick={() =>
+                navigate(
+                  "/profile",
+                )
+              }
               className={[
-                "absolute left-1/2 top-[calc(100%+10px)] z-50",
-                "w-[290px] -translate-x-1/2",
-                "rounded-2xl border border-[#eadbc8]",
-                "bg-white p-4",
-                "shadow-[0_18px_50px_rgba(44,22,7,0.18)]",
-                "transition-all duration-150",
-                achievementsOpen
-                  ? "visible translate-y-0 opacity-100"
-                  : "pointer-events-none invisible -translate-y-1 opacity-0",
-                "sm:left-0 sm:translate-x-0",
+                "relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden",
+                "rounded-[22px] border-4 border-white bg-[#eaf5fb]",
+                "shadow-[0_4px_0_rgba(22,98,155,0.14)]",
+                "transition hover:-translate-y-0.5",
+                "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100",
+                "sm:h-24 sm:w-24",
               ].join(
                 " ",
               )}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#9a681f]">
-                    Expedition Awards
-                  </p>
+              {profilePicture ? (
+                <img
+                  src={
+                    profilePicture
+                  }
+                  alt={`${user.name}'s profile`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-xl font-extrabold text-[#16629b] sm:text-2xl">
+                  {
+                    getInitials(
+                      user.name,
+                    )
+                  }
+                </span>
+              )}
+            </button>
 
-                  <h3 className="mt-1 text-base font-extrabold text-[#2c1607]">
-                    Your achievements
-                  </h3>
-                </div>
-
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#fff2d8] text-[#9a681f]">
-                  <Trophy
-                    size={18}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={[
+                    "inline-flex items-center gap-1.5 rounded-full",
+                    "border border-[#bed9ea] bg-[#eef7fc]",
+                    "px-2.5 py-1 text-[10px] font-extrabold",
+                    "uppercase tracking-[0.13em] text-[#16629b]",
+                  ].join(
+                    " ",
+                  )}
+                >
+                  <UserRound
+                    size={13}
                     aria-hidden="true"
                   />
-                </div>
+                  Explorer Profile
+                </span>
+
+                {level !==
+                  null && (
+                  <span
+                    className={[
+                      "inline-flex items-center gap-1 rounded-full",
+                      "border border-[#ead19d] bg-[#fff6df]",
+                      "px-2.5 py-1 text-[10px] font-extrabold",
+                      "uppercase tracking-[0.12em] text-[#91631f]",
+                    ].join(
+                      " ",
+                    )}
+                  >
+                    <Trophy
+                      size={12}
+                      aria-hidden="true"
+                    />
+                    Level{" "}
+                    {
+                      formatMetric(
+                        level,
+                      )
+                    }
+                  </span>
+                )}
               </div>
 
-              {achievements.length >
-              0 ? (
-                <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-                  {achievements.map(
-                    (
-                      badge,
-                    ) => (
-                      <AchievementItem
-                        key={
-                          String(
-                            badge.id,
-                          )
-                        }
-                        badge={
-                          badge
-                        }
-                      />
-                    ),
-                  )}
-                </div>
-              ) : (
-                <div className="mt-3 rounded-xl bg-slate-50 px-4 py-4 text-center">
-                  <Award
-                    size={22}
-                    className="mx-auto text-slate-400"
-                    aria-hidden="true"
-                  />
+              <h2
+                id="explorer-profile-title"
+                className="mt-2 truncate text-xl font-extrabold tracking-[-0.02em] text-[#2c1607] sm:text-2xl"
+              >
+                {
+                  user.name
+                }
+              </h2>
 
-                  <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                    No achievements earned yet. Keep progressing through your expedition.
-                  </p>
-                </div>
-              )}
+              <p className="mt-1 truncate text-sm font-medium text-slate-500">
+                {user.headline?.trim() ||
+                  user.email}
+              </p>
+
+              <div className="mt-3 flex min-w-0 items-center gap-2 text-sm text-[#66584d]">
+                <Target
+                  size={16}
+                  className="shrink-0 text-[#e49a36]"
+                  aria-hidden="true"
+                />
+
+                <span className="truncate">
+                  {scholarshipTarget
+                    ? scholarshipTarget
+                    : "No primary scholarship selected yet"}
+                </span>
+              </div>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                "/profile/edit",
+              )
+            }
+            className={[
+              "inline-flex min-h-10 shrink-0 items-center justify-center gap-2",
+              "rounded-xl border border-[#c7dceb] bg-white px-4",
+              "text-sm font-bold text-[#16629b]",
+              "shadow-sm transition",
+              "hover:-translate-y-0.5 hover:bg-[#f4faff]",
+              "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100",
+            ].join(
+              " ",
+            )}
+          >
+            <Edit3
+              size={16}
+              aria-hidden="true"
+            />
+            Edit Profile
+          </button>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2
-              id="explorer-profile-title"
-              className="text-2xl font-extrabold tracking-tight text-[#2c1607] sm:text-3xl"
-            >
-              Explorer {user.name}
-            </h2>
+        {/* Previous profile-style stats */}
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <ProfileMetric
+            label="Level"
+            value={
+              formatMetric(
+                level,
+              )
+            }
+            detail="Explorer level"
+            tone="blue"
+          />
 
-            <span
-              className={[
-                "w-fit rounded-full bg-[#fef0df]",
-                "px-4 py-1.5",
-                "text-xs font-bold uppercase tracking-wider",
-                "text-[#83501f]",
-              ].join(
-                " ",
-              )}
-            >
-              Level {level}
-            </span>
-          </div>
+          <ProfileMetric
+            label="Readiness"
+            value={
+              readinessLoading
+                ? "..."
+                : normalizedReadiness !==
+                    null
+                  ? `${Math.round(
+                      normalizedReadiness,
+                    )}%`
+                  : "—"
+            }
+            detail={
+              readinessLoading
+                ? "Checking score"
+                : "Scholarship score"
+            }
+            tone="green"
+          />
 
-          <p className="mt-3 max-w-2xl text-sm italic leading-6 text-[#60646d] sm:text-base">
-            “{explorerMessage}”
-          </p>
+          <ProfileMetric
+            label="XP"
+            value={
+              xp !==
+                null
+                ? xp.toLocaleString()
+                : "—"
+            }
+            detail="Experience points"
+            tone="gold"
+          />
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            <div
-              className={[
-                "flex items-center gap-3 rounded-2xl",
-                "border border-[#d9e9f6] bg-[#f4f9fd]",
-                "px-4 py-4",
-              ].join(
-                " ",
-              )}
-            >
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#d8ecfb] text-[#16629b]">
-                <Sparkles
-                  size={21}
-                  aria-hidden="true"
-                />
-              </div>
+          <ProfileMetric
+            label="Streak"
+            value={
+              streak !==
+                null
+                ? `${streak}d`
+                : "—"
+            }
+            detail="Current streak"
+            tone="orange"
+          />
+        </div>
 
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#69717a]">
-                  Experience
-                </p>
+        {normalizedReadiness !==
+          null &&
+          !readinessLoading && (
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-center justify-between text-[11px] font-bold text-slate-500">
+              <span>
+                Readiness progress
+              </span>
 
-                <p className="mt-1 truncate text-xl font-extrabold text-[#16629b]">
-                  {xpPoints.toLocaleString()} XP
-                </p>
-              </div>
+              <span className="text-[#16629b]">
+                {
+                  Math.round(
+                    normalizedReadiness,
+                  )
+                }
+                %
+              </span>
             </div>
 
-            <div
-              className={[
-                "flex items-center gap-3 rounded-2xl",
-                "border border-[#f1dbc8] bg-[#fff8f1]",
-                "px-4 py-4",
-              ].join(
-                " ",
-              )}
-            >
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#ffe3cc] text-[#895625]">
-                <Gauge
-                  size={21}
-                  aria-hidden="true"
-                />
-              </div>
-
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#69717a]">
-                  Readiness Score
-                </p>
-
-                <p className="mt-1 truncate text-xl font-extrabold text-[#895625]">
-                  {readinessScore !==
-                    null &&
-                  readinessScore !==
-                    undefined
-                    ? `${readinessScore} points`
-                    : "Not assessed"}
-                </p>
-              </div>
-            </div>
-
-            <div
-              className={[
-                "flex items-center gap-3 rounded-2xl",
-                "border border-[#eadfac] bg-[#fffbed]",
-                "px-4 py-4",
-              ].join(
-                " ",
-              )}
-            >
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#fff0b8] text-[#8a681d]">
-                <Coins
-                  size={21}
-                  aria-hidden="true"
-                />
-              </div>
-
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#69717a]">
-                  Mentor Tokens
-                </p>
-
-                <p className="mt-1 truncate text-xl font-extrabold text-[#8a681d]">
-                  {tokenBalance !==
-                  null
-                    ? tokenBalance.toLocaleString()
-                    : "—"}
-                </p>
-              </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-[#e8edf1]">
+              <div
+                className="h-full rounded-full bg-[#35a66f] transition-[width] duration-500"
+                style={{
+                  width:
+                    `${normalizedReadiness}%`,
+                }}
+              />
             </div>
           </div>
+        )}
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                "/profile",
+              )
+            }
+            className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#16629b] transition hover:gap-2"
+          >
+            View Explorer Passport
+            <ArrowRight
+              size={16}
+              aria-hidden="true"
+            />
+          </button>
         </div>
       </div>
     </section>
+  );
+}
+
+type ProfileMetricProps = {
+  label: string;
+  value: string;
+  detail: string;
+
+  tone:
+    | "blue"
+    | "green"
+    | "gold"
+    | "orange";
+};
+
+function ProfileMetric({
+  label,
+  value,
+  detail,
+  tone,
+}: ProfileMetricProps) {
+  const toneClass =
+    tone ===
+      "green"
+      ? "border-[#cce9d9] bg-[#f0fbf5] text-[#28744e]"
+      : tone ===
+          "gold"
+        ? "border-[#ead8a8] bg-[#fff8e5] text-[#8e651f]"
+        : tone ===
+            "orange"
+          ? "border-[#f0d4bf] bg-[#fff5ee] text-[#a45b32]"
+          : "border-[#cfe1ed] bg-[#f2f9fd] text-[#16629b]";
+
+  return (
+    <div
+      className={[
+        "rounded-2xl border p-3.5",
+        toneClass,
+      ].join(
+        " ",
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        {tone ===
+          "orange" ? (
+          <Flame
+            size={14}
+            aria-hidden="true"
+          />
+        ) : (
+          <Sparkles
+            size={14}
+            aria-hidden="true"
+          />
+        )}
+
+        <span className="text-[10px] font-extrabold uppercase tracking-[0.12em]">
+          {label}
+        </span>
+      </div>
+
+      <p className="mt-2 text-xl font-extrabold leading-none sm:text-2xl">
+        {value}
+      </p>
+
+      <p className="mt-1.5 text-[11px] font-semibold opacity-70">
+        {detail}
+      </p>
+    </div>
   );
 }

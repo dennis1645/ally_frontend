@@ -1,11 +1,4 @@
 import {
-  ArrowRight,
-  Compass,
-  Map as MapIcon,
-  Sparkles,
-} from "lucide-react";
-
-import {
   useEffect,
   useState,
 } from "react";
@@ -22,19 +15,24 @@ import {
 } from "../../api/deepDiagnosticApi";
 
 import {
+  ApiError,
+} from "../../api/apiClient";
+
+import {
+  getRoadmapAccess,
+  parseScholarshipId,
+  type RoadmapData,
+  type RoadmapMilestone,
+} from "../../api/roadmapApi";
+
+import {
   getUpcomingReminders,
   isH1MentorTaskReminder,
   type Reminder,
 } from "../../api/reminderApi";
 
-import allyMascot from "../../assets/ally-assessment-mascot.png";
-
-// import AchievementsCard from "../../components/dashboard/AchievementsCard";
-import ExplorerProfileCard from "../../components/dashboard/ExplorerProfileCard";
-import IELTSPracticeQuizCard from "../../components/dashboard/IELTSPracticeQuizCard";
-import ReadinessScoreCard from "../../components/dashboard/ReadinessScoreCard";
-import StreakStatusCard from "../../components/dashboard/StreakStatusCard";
-import UpcomingDeadlinesCard from "../../components/dashboard/UpcomingDeadlinesCard";
+import DashboardQuestHero from "../../components/dashboard/DashboardQuestHero";
+import Assessment2MilestonePopup from "../../components/assessment/Assessment2MilestonePopup";
 
 import UserLayout from "../../components/layout/UserLayout";
 
@@ -42,10 +40,23 @@ import {
   useAuth,
 } from "../../context/AuthContext";
 
+import type {
+  AuthUser,
+} from "../../types/auth";
+
+import {
+  ASSESSMENT_2_ROUTE,
+} from "../../routes/assessment2.routes";
+
 type ReadinessState = {
   loading: boolean;
   score: number | null;
   unavailable: boolean;
+};
+
+type RoadmapHeroState = {
+  loading: boolean;
+  roadmap: RoadmapData | null;
 };
 
 
@@ -238,26 +249,25 @@ function looksLikeAnalysisFailure(
 
 function DashboardLoadingState() {
   return (
-    <div className="mx-auto w-full max-w-[1220px] animate-pulse space-y-6">
-      {/* Main dashboard skeleton */}
-      <div
-        className={[
-          "grid items-start gap-6",
-          "xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,0.8fr)]",
-        ].join(" ")}
-      >
-        <div className="space-y-6">
-          <div className="h-64 rounded-[24px] bg-white" />
-
-          <div className="h-80 rounded-[26px] bg-white" />
+    <div className="min-h-[calc(100vh-80px)] bg-ally-background px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
+      <div className="mx-auto w-full max-w-[1480px] animate-pulse">
+        <div className="mb-4">
+          <div className="h-4 w-28 rounded bg-white" />
+          <div className="mt-2 h-8 w-80 max-w-full rounded bg-white" />
+          <div className="mt-2 h-4 w-52 rounded bg-white" />
         </div>
 
-        <div className="space-y-4">
-          <div className="h-40 rounded-[22px] bg-white" />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
+          <div className="min-h-[650px] rounded-[26px] bg-white" />
 
-          <div className="h-44 rounded-[22px] bg-white" />
-
-          <div className="h-64 rounded-[24px] bg-white" />
+          <div className="space-y-3">
+            <div className="h-40 rounded-[22px] bg-white" />
+            <div className="h-20 rounded-[16px] bg-white" />
+            <div className="h-20 rounded-[16px] bg-white" />
+            <div className="h-20 rounded-[16px] bg-white" />
+            <div className="h-32 rounded-[18px] bg-white" />
+            <div className="h-36 rounded-[18px] bg-white" />
+          </div>
         </div>
       </div>
     </div>
@@ -288,201 +298,39 @@ function DashboardUnavailableState() {
   );
 }
 
-type NextExpeditionStepProps = {
-  onContinue: () => void;
-};
-
-function NextExpeditionStep({
-  onContinue,
-}: NextExpeditionStepProps) {
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
   return (
-    <section
-      aria-labelledby="next-expedition-step-title"
-      className={[
-        "relative overflow-hidden rounded-[26px]",
-        "border border-[#ead8c8]",
-        "bg-gradient-to-br from-[#fffaf6] via-white to-[#eef7ff]",
-        "p-5 shadow-[0_6px_0_#dfcdbb]",
-        "sm:p-6 lg:p-7",
-      ].join(" ")}
-    >
-      {/* Decorative background */}
-      <div
-        aria-hidden="true"
-        className={[
-          "pointer-events-none absolute",
-          "-right-12 -top-12",
-          "h-40 w-40 rounded-full",
-          "bg-[#dceeff]/70 blur-2xl",
-        ].join(" ")}
-      />
-
-      <div
-        aria-hidden="true"
-        className={[
-          "pointer-events-none absolute",
-          "-bottom-14 left-20",
-          "h-32 w-32 rounded-full",
-          "bg-[#ffe2c9]/60 blur-2xl",
-        ].join(" ")}
-      />
-
-      <div className="relative">
-        {/* Header */}
-        <div className="mb-5 flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#e7f3ff] text-[#16629b]">
-            <MapIcon
-              size={18}
-              aria-hidden="true"
-            />
-          </div>
-
-          <div>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7a582f]">
-              Your Next Expedition Step
-            </p>
-
-            <p className="mt-0.5 text-xs font-medium text-slate-500">
-              Continue from your current scholarship checkpoint
-            </p>
-          </div>
-        </div>
-
-        {/* Ally (left) + speech bubble/milestone/button (right) */}
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          {/* Ally mascot - left column */}
-          <div
-            className={[
-              "flex shrink-0 items-center justify-center",
-              "sm:w-[28%] sm:max-w-[170px]",
-            ].join(" ")}
-          >
-            <div className="relative mx-auto">
-              <div
-                aria-hidden="true"
-                className={[
-                  "absolute inset-x-3 bottom-0",
-                  "h-5 rounded-full",
-                  "bg-[#6f5135]/10 blur-md",
-                ].join(" ")}
-              />
-
-              <img
-                src={allyMascot}
-                alt="Ally the explorer mascot"
-                className={[
-                  "ally-mascot-float relative",
-                  "h-24 w-24 object-contain",
-                  "sm:h-28 sm:w-28",
-                ].join(" ")}
-              />
-            </div>
-          </div>
-
-          {/* Right column: speech bubble, milestone, button */}
-          <div className="min-w-0 flex-1 space-y-4">
-            {/* Speech bubble - points toward Ally */}
-            <div
-              className={[
-                "relative rounded-[22px]",
-                "border border-[#efd0bd]",
-                "bg-[#fff8f3]",
-                "px-5 py-5 shadow-sm",
-                "sm:px-6",
-              ].join(" ")}
-            >
-              {/* Speech bubble pointer, aimed left at Ally */}
-              <span
-                aria-hidden="true"
-                className={[
-                  "absolute left-[-8px] top-1/2 hidden",
-                  "h-4 w-4 -translate-y-1/2 rotate-45",
-                  "border-b border-l border-[#efd0bd]",
-                  "bg-[#fff8f3]",
-                  "sm:block",
-                ].join(" ")}
-              />
-
-              <div className="flex items-start gap-2">
-                <Sparkles
-                  size={18}
-                  aria-hidden="true"
-                  className="mt-1 shrink-0 text-[#e49a36]"
-                />
-
-                <div>
-                  <h2
-                    id="next-expedition-step-title"
-                    className="text-lg font-extrabold leading-7 text-[#2c1607] sm:text-xl"
-                  >
-                    Keep going, Explorer! 
-                  </h2>
-
-                  <p className="mt-2 text-sm leading-6 text-[#66584d] sm:text-[15px]">
-                    Continue exploring scholarships that match
-                    your goals and keep building your preparation
-                    plan.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Current milestone */}
-            <div
-              className={[
-                "rounded-[20px]",
-                "border-2 border-[#72afe0]",
-                "bg-white/90 px-5 py-4",
-                "shadow-[0_8px_22px_rgba(22,98,155,0.13)]",
-              ].join(" ")}
-            >
-              <div className="flex items-center gap-2 text-[#16629b]">
-                <Compass
-                  size={18}
-                  aria-hidden="true"
-                />
-
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.14em]">
-                  Current Milestone: Research Trail
-                </span>
-              </div>
-            </div>
-
-            {/* Continue journey button */}
-            <button
-              type="button"
-              onClick={onContinue}
-              className={[
-                "inline-flex min-h-11",
-                "items-center justify-center gap-2",
-                "rounded-xl bg-[#16629b]",
-                "px-5 py-3",
-                "text-sm font-bold text-white",
-                "shadow-[0_4px_0_#0d4773]",
-                "transition duration-200",
-                "hover:-translate-y-0.5",
-                "hover:bg-[#115787]",
-                "hover:shadow-[0_6px_0_#0d4773]",
-                "active:translate-y-0.5",
-                "active:scale-[0.99]",
-                "active:shadow-[0_2px_0_#0d4773]",
-                "focus-visible:outline-none",
-                "focus-visible:ring-4",
-                "focus-visible:ring-[#9bcaff]",
-              ].join(" ")}
-            >
-              Continue Journey
-
-              <ArrowRight
-                size={17}
-                aria-hidden="true"
-              />
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
   );
+}
+
+function getUserScholarshipId(
+  user: AuthUser,
+): number | null {
+  const direct =
+    parseScholarshipId(
+      user.target_scholarship_id,
+    );
+
+  if (direct) {
+    return direct;
+  }
+
+  if (
+    isRecord(
+      user.target_scholarship_data,
+    )
+  ) {
+    return parseScholarshipId(
+      user.target_scholarship_data.id,
+    );
+  }
+
+  return null;
 }
 
 export default function DashboardPage() {
@@ -497,15 +345,46 @@ export default function DashboardPage() {
   const [
     readiness,
     setReadiness,
-  ] = useState<ReadinessState>({
-    loading: true,
-    score: null,
-    unavailable: false,
-  });
+  ] =
+    useState<ReadinessState>({
+      loading: true,
+      score: null,
+      unavailable: false,
+    });
+
+  const [
+    roadmapHero,
+    setRoadmapHero,
+  ] =
+    useState<RoadmapHeroState>({
+      loading: true,
+      roadmap: null,
+    });
+
+  const [
+    assessment2Complete,
+    setAssessment2Complete,
+  ] =
+    useState<boolean | null>(
+      null,
+    );
+
+  const [
+    assessment2PopupOpen,
+    setAssessment2PopupOpen,
+  ] =
+    useState(
+      false,
+    );
+
+  /* =======================================================
+     Readiness + Assessment 2 status
+  ======================================================= */
 
   useEffect(
     () => {
-      let active = true;
+      let active =
+        true;
 
       async function loadReadiness():
         Promise<void> {
@@ -523,28 +402,47 @@ export default function DashboardPage() {
             return;
           }
 
+          const assessmentCompleted =
+            Boolean(
+              result.id !==
+                null ||
+              result.revisedPercentage !==
+                null ||
+              result.recommendations.length >
+                0 ||
+              result.suggestion?.trim() ||
+              result.assessmentType?.trim(),
+            );
+
+          setAssessment2Complete(
+            assessmentCompleted,
+          );
+
           const score =
             result.revisedPercentage;
 
           const validScore =
-            typeof score === "number" &&
-            Number.isFinite(score) &&
+            typeof score ===
+              "number" &&
+            Number.isFinite(
+              score,
+            ) &&
             !looksLikeAnalysisFailure(
               result.suggestion,
             );
 
           setReadiness({
             loading: false,
-
             score:
               validScore
                 ? score
                 : null,
-
             unavailable:
               !validScore,
           });
-        } catch (error) {
+        } catch (
+          error
+        ) {
           console.error(
             "[Dashboard] Unable to load readiness score:",
             error,
@@ -553,6 +451,15 @@ export default function DashboardPage() {
           if (!active) {
             return;
           }
+
+          setAssessment2Complete(
+            error instanceof
+                ApiError &&
+              error.status ===
+                404
+              ? false
+              : null,
+          );
 
           setReadiness({
             loading: false,
@@ -563,13 +470,19 @@ export default function DashboardPage() {
       }
 
       if (
-        status === "authenticated" &&
+        status ===
+          "authenticated" &&
         user
       ) {
         void loadReadiness();
       } else if (
-        status !== "loading"
+        status !==
+        "loading"
       ) {
+        setAssessment2Complete(
+          null,
+        );
+
         setReadiness({
           loading: false,
           score: null,
@@ -578,7 +491,8 @@ export default function DashboardPage() {
       }
 
       return () => {
-        active = false;
+        active =
+          false;
       };
     },
     [
@@ -586,6 +500,104 @@ export default function DashboardPage() {
       user,
     ],
   );
+
+  /* =======================================================
+     Dashboard Quest Hero roadmap
+
+     This only reads the canonical roadmap. Timeline generation
+     and the Premium mentor-match onboarding remain owned by the
+     existing Quest Tracker flow.
+  ======================================================= */
+
+  useEffect(
+    () => {
+      let active =
+        true;
+
+      async function loadRoadmapHero():
+        Promise<void> {
+        if (
+          status !==
+            "authenticated" ||
+          !user
+        ) {
+          setRoadmapHero({
+            loading: false,
+            roadmap: null,
+          });
+
+          return;
+        }
+
+        const targetId =
+          getUserScholarshipId(
+            user,
+          );
+
+        if (!targetId) {
+          setRoadmapHero({
+            loading: false,
+            roadmap: null,
+          });
+
+          return;
+        }
+
+        setRoadmapHero({
+          loading: true,
+          roadmap: null,
+        });
+
+        try {
+          const access =
+            await getRoadmapAccess(
+              targetId,
+            );
+
+          if (!active) {
+            return;
+          }
+
+          setRoadmapHero({
+            loading: false,
+            roadmap:
+              access.roadmap,
+          });
+        } catch (
+          roadmapError
+        ) {
+          console.warn(
+            "[Dashboard] Unable to load Quest Tracker hero:",
+            roadmapError,
+          );
+
+          if (!active) {
+            return;
+          }
+
+          setRoadmapHero({
+            loading: false,
+            roadmap: null,
+          });
+        }
+      }
+
+      void loadRoadmapHero();
+
+      return () => {
+        active =
+          false;
+      };
+    },
+    [
+      status,
+      user,
+    ],
+  );
+
+  /* =======================================================
+     Existing H-1 mentor-task reminder
+  ======================================================= */
 
   useEffect(
     () => {
@@ -603,8 +615,6 @@ export default function DashboardPage() {
         };
       }
 
-      // Capture the narrowed user so TypeScript preserves non-null
-      // status inside the asynchronous reminder callback.
       const authenticatedUser =
         user;
 
@@ -645,12 +655,6 @@ export default function DashboardPage() {
             return;
           }
 
-          /*
-           * The supplied backend exposes the reminder feed, but no
-           * read/unread mutation endpoint. This local flag prevents
-           * the dashboard alert from repeating all day without
-           * pretending to mark a backend notification as read.
-           */
           unseen.forEach(
             (
               reminder,
@@ -675,7 +679,7 @@ export default function DashboardPage() {
 
           const message =
             unseen.length ===
-            1
+              1
               ? `Your mentor task "${first.title}" is due tomorrow${
                   dateLabel
                     ? ` (${dateLabel})`
@@ -698,7 +702,7 @@ export default function DashboardPage() {
                 "warning",
               title:
                 unseen.length ===
-                1
+                  1
                   ? "Mentor task due tomorrow"
                   : `${unseen.length} mentor tasks due tomorrow`,
               text:
@@ -763,106 +767,145 @@ export default function DashboardPage() {
 
   function handleContinueJourney():
     void {
-    navigate("/quests");
+    navigate(
+      "/quests",
+    );
   }
 
-  function handleOpenAssessment():
+  function handleMilestoneSelect(
+    milestone:
+      RoadmapMilestone,
+  ): void {
+    const orderedMilestones =
+      roadmapHero.roadmap
+        ? [
+            ...roadmapHero
+              .roadmap
+              .milestones,
+          ].sort(
+            (
+              first,
+              second,
+            ) =>
+              first.order -
+              second.order,
+          )
+        : [];
+
+    const milestoneIndex =
+      orderedMilestones.findIndex(
+        (
+          candidate,
+        ) =>
+          String(
+            candidate.id,
+          ) ===
+          String(
+            milestone.id,
+          ),
+      );
+
+    if (
+      milestoneIndex ===
+        1 &&
+      assessment2Complete ===
+        false
+    ) {
+      setAssessment2PopupOpen(
+        true,
+      );
+
+      return;
+    }
+
+    if (
+      milestoneIndex <
+      0
+    ) {
+      handleContinueJourney();
+
+      return;
+    }
+
+    navigate(
+      `/quests?milestone=${
+        milestoneIndex +
+        1
+      }`,
+    );
+  }
+
+  function handleBookMentor():
     void {
     navigate(
-      "/assessment/deep-diagnostic",
+      "/sessions",
     );
   }
 
   return (
-    <UserLayout
-      title="Dashboard"
-      topbarProps={{
-        showSearch: false,
-      }}
-    >
-      <section
-        aria-label="Dashboard content"
-        className={[
-          "min-h-[calc(100vh-80px)]",
-          "bg-ally-background",
-          "px-4 py-6",
-          "sm:px-6 sm:py-8",
-          "lg:px-8",
-        ].join(" ")}
+    <>
+      <UserLayout
+        title="Dashboard"
+        topbarProps={{
+          showSearch:
+            false,
+        }}
       >
-        {status === "loading" ? (
+        {status ===
+        "loading" ? (
           <DashboardLoadingState />
         ) : !user ? (
-          <DashboardUnavailableState />
+          <section className="min-h-[calc(100vh-80px)] bg-ally-background px-4 py-8">
+            <DashboardUnavailableState />
+          </section>
         ) : (
-          <div className="mx-auto w-full max-w-[1220px]">
-            {/* ===============================================
-                PRIMARY DASHBOARD
-
-                LEFT
-                - Explorer Profile
-                - Next Expedition Step
-
-                RIGHT
-                - IELTS Practice
-                - Weekly Streak
-                - Readiness Score
-                - Upcoming Deadlines
-            ================================================ */}
-
-            <div
-              className={[
-                "grid items-start gap-6",
-                "xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,0.8fr)]",
-              ].join(" ")}
-            >
-              {/* Main journey column */}
-              <main className="min-w-0 space-y-6">
-                <ExplorerProfileCard
-                  user={user}
-                />
-
-                <NextExpeditionStep
-                  onContinue={
-                    handleContinueJourney
-                  }
-                />
-              </main>
-
-              {/* Scholarship status rail */}
-              <aside
-                aria-label="Scholarship journey status"
-                className="min-w-0 space-y-4"
-              >
-                <IELTSPracticeQuizCard />
-
-                {/* Streak card now loads its own API data */}
-                <StreakStatusCard />
-
-                <ReadinessScoreCard
-                  score={
-                    readiness.score
-                  }
-                  loading={
-                    readiness.loading
-                  }
-                  unavailable={
-                    readiness.unavailable
-                  }
-                  onOpenAssessment={
-                    handleOpenAssessment
-                  }
-                />
-
-                <UpcomingDeadlinesCard
-                  user={user}
-                />
-
-              </aside>
-            </div>
-          </div>
+          <DashboardQuestHero
+            roadmap={
+              roadmapHero.roadmap
+            }
+            loading={
+              roadmapHero.loading
+            }
+            user={
+              user
+            }
+            readinessScore={
+              readiness.score
+            }
+            readinessLoading={
+              readiness.loading
+            }
+            assessment2Complete={
+              assessment2Complete
+            }
+            onOpenQuestTracker={
+              handleContinueJourney
+            }
+            onMilestoneSelect={
+              handleMilestoneSelect
+            }
+            onBookMentor={
+              handleBookMentor
+            }
+          />
         )}
-      </section>
-    </UserLayout>
+      </UserLayout>
+
+      <Assessment2MilestonePopup
+        isOpen={
+          assessment2PopupOpen
+        }
+        onClose={() => {
+          setAssessment2PopupOpen(
+            false,
+          );
+        }}
+        onStartAssessment={() => {
+          navigate(
+            ASSESSMENT_2_ROUTE,
+          );
+        }}
+      />
+    </>
   );
 }

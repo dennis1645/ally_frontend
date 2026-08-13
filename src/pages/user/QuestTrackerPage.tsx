@@ -1,5 +1,4 @@
 import {
-  CheckCircle2,
   Compass,
   Loader2,
   LockKeyhole,
@@ -19,6 +18,7 @@ import {
 
 import {
   useNavigate,
+  useSearchParams,
 } from "react-router";
 
 import {
@@ -39,14 +39,24 @@ import {
 } from "../../api/deepDiagnosticApi";
 
 import {
+  matchMentorApi,
+  type MentorMatchResult,
+} from "../../api/coachingApi";
+
+import {
   ApiError,
 } from "../../api/apiClient";
 
 import allyMascot from "../../assets/ally-assessment-mascot.png";
 
 import AscentRoadmap from "../../components/quest/AscentRoadmap";
+import MentorMatchModal, {
+  type MentorMatchModalState,
+} from "../../components/quest/MentorMatchModal";
+import Assessment2MilestonePopup from "../../components/assessment/Assessment2MilestonePopup";
 import RoadmapTaskPanel from "../../components/quest/RoadmapTaskPanel";
 import UserLayout from "../../components/layout/UserLayout";
+import AllyPopup from "../../components/ui/AllyPopup";
 
 import {
   useAuth,
@@ -71,12 +81,184 @@ type PremiumGenerationState =
   | "idle"
   | "generating";
 
-const PREMIUM_GENERATION_STEPS = [
-  "Reviewing your scholarship target",
-  "Mapping the full milestone route",
-  "Expanding your premium checkpoints",
-  "Preparing tasks and deadlines",
-] as const;
+const PREMIUM_MENTOR_MATCH_CACHE_PREFIX =
+  "ally.premium-mentor-match";
+
+const PREMIUM_MENTOR_MATCH_SEEN_PREFIX =
+  "ally.premium-mentor-match-seen";
+
+function getPremiumMentorMatchKey(
+  prefix: string,
+  user: AuthUser,
+  scholarshipId: number,
+): string {
+  const premiumFingerprint =
+    typeof user.premium_until ===
+      "string" &&
+    user.premium_until.trim()
+      ? user.premium_until.trim()
+      : "premium-active";
+
+  return [
+    prefix,
+    String(user.id),
+    premiumFingerprint,
+    String(scholarshipId),
+  ].join(":");
+}
+
+function getCachedMentorMatch(
+  user: AuthUser,
+  scholarshipId: number,
+): MentorMatchResult | null {
+  try {
+    const raw =
+      window.localStorage.getItem(
+        getPremiumMentorMatchKey(
+          PREMIUM_MENTOR_MATCH_CACHE_PREFIX,
+          user,
+          scholarshipId,
+        ),
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(raw) as unknown;
+
+    if (
+      !isRecord(parsed) ||
+      typeof parsed.name !==
+        "string" ||
+      !parsed.name.trim()
+    ) {
+      return null;
+    }
+
+    return {
+      id:
+        typeof parsed.id === "string" ||
+        typeof parsed.id === "number"
+          ? parsed.id
+          : null,
+      name:
+        parsed.name.trim(),
+      headline:
+        typeof parsed.headline === "string"
+          ? parsed.headline
+          : null,
+      specialization:
+        typeof parsed.specialization === "string"
+          ? parsed.specialization
+          : null,
+      scholarship:
+        typeof parsed.scholarship === "string"
+          ? parsed.scholarship
+          : null,
+      university:
+        typeof parsed.university === "string"
+          ? parsed.university
+          : null,
+      field:
+        typeof parsed.field === "string"
+          ? parsed.field
+          : null,
+      profilePictureUrl:
+        typeof parsed.profilePictureUrl === "string"
+          ? parsed.profilePictureUrl
+          : null,
+      matchScore:
+        typeof parsed.matchScore === "number" &&
+        Number.isFinite(parsed.matchScore)
+          ? parsed.matchScore
+          : null,
+      matchReasons:
+        Array.isArray(parsed.matchReasons)
+          ? parsed.matchReasons.filter(
+              (
+                reason,
+              ): reason is string =>
+                typeof reason === "string" &&
+                Boolean(reason.trim()),
+            )
+          : [],
+      message:
+        typeof parsed.message === "string"
+          ? parsed.message
+          : null,
+      raw:
+        isRecord(parsed.raw)
+          ? parsed.raw
+          : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function storeCachedMentorMatch(
+  user: AuthUser,
+  scholarshipId: number,
+  match: MentorMatchResult,
+): void {
+  try {
+    window.localStorage.setItem(
+      getPremiumMentorMatchKey(
+        PREMIUM_MENTOR_MATCH_CACHE_PREFIX,
+        user,
+        scholarshipId,
+      ),
+      JSON.stringify(match),
+    );
+  } catch {
+    /*
+     * The backend match still succeeded. Local cache is only used to
+     * avoid repeating the celebration request after a quick reload.
+     */
+  }
+}
+
+function hasSeenPremiumMentorMatch(
+  user: AuthUser,
+  scholarshipId: number,
+): boolean {
+  try {
+    return (
+      window.localStorage.getItem(
+        getPremiumMentorMatchKey(
+          PREMIUM_MENTOR_MATCH_SEEN_PREFIX,
+          user,
+          scholarshipId,
+        ),
+      ) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function markPremiumMentorMatchSeen(
+  user: AuthUser,
+  scholarshipId: number,
+): void {
+  try {
+    window.localStorage.setItem(
+      getPremiumMentorMatchKey(
+        PREMIUM_MENTOR_MATCH_SEEN_PREFIX,
+        user,
+        scholarshipId,
+      ),
+      "1",
+    );
+  } catch {
+    /*
+     * Non-critical. The popup may appear again on a later visit if
+     * browser storage is unavailable.
+     */
+  }
+}
 
 function isRecord(
   value: unknown,
@@ -367,242 +549,76 @@ function RoadmapErrorState({
    Premium full-timeline CTA
 ========================================================= */
 
-function PremiumTimelineGenerator({
-  compact = false,
+function PremiumTimelinePopup({
   isGenerating,
   error,
   onGenerate,
 }: {
-  compact?: boolean;
   isGenerating: boolean;
   error: string | null;
   onGenerate: () => void;
 }) {
-  const [
-    stepIndex,
-    setStepIndex,
-  ] =
-    useState(
-      0,
-    );
-
-  useEffect(
-    () => {
-      if (
-        !isGenerating
-      ) {
-        setStepIndex(
-          0,
-        );
-
-        return;
-      }
-
-      const intervalId =
-        window.setInterval(
-          () => {
-            setStepIndex(
-              (
-                current,
-              ) =>
-                Math.min(
-                  current + 1,
-                  PREMIUM_GENERATION_STEPS.length -
-                    1,
-                ),
-            );
-          },
-          3500,
-        );
-
-      return () => {
-        window.clearInterval(
-          intervalId,
-        );
-      };
-    },
-    [
-      isGenerating,
-    ],
-  );
-
   return (
-    <div
-      className={[
-        "overflow-hidden border border-[#cbdceb] bg-white/95",
-        "shadow-[0_7px_0_rgba(22,98,155,0.10)] backdrop-blur",
-        compact
-          ? "rounded-[24px] p-5 sm:p-6"
-          : "mx-auto w-full max-w-3xl rounded-[28px] p-6 sm:p-8",
-      ].join(
-        " ",
-      )}
+    <AllyPopup
+      isOpen
+      badge="Premium Expedition"
+      badgeIcon={
+        <WandSparkles
+          size={14}
+          aria-hidden="true"
+        />
+      }
+      mascotSrc={
+        allyMascot
+      }
+      mascotAlt="Ally preparing your Premium timeline"
+      mascotAnimated={
+        isGenerating
+      }
+      title={
+        isGenerating
+          ? "Building your timeline..."
+          : "Unlock your full timeline"
+      }
+      description={
+        isGenerating
+          ? "Ally is preparing your complete scholarship roadmap."
+          : "Reveal all checkpoints, tasks, and deadlines for your scholarship journey."
+      }
     >
-      <div
-        className={[
-          "grid items-center gap-6",
-          compact
-            ? "md:grid-cols-[120px_minmax(0,1fr)]"
-            : "md:grid-cols-[180px_minmax(0,1fr)]",
-        ].join(
-          " ",
-        )}
-      >
-        <div className="relative mx-auto">
-          <div
+      {isGenerating ? (
+        <div className="mt-5 flex items-center justify-center gap-2 rounded-xl border border-[#d6e7f2] bg-[#f4f9fc] px-4 py-3 text-sm font-bold text-[#16629b]">
+          <Loader2
+            size={17}
+            className="animate-spin"
             aria-hidden="true"
-            className="absolute inset-x-3 bottom-0 h-6 rounded-full bg-[#7f6a55]/15 blur-md"
           />
 
-          <img
-            src={
-              allyMascot
-            }
-            alt="Ally preparing the premium expedition timeline"
-            className={[
-              "relative z-10 object-contain",
-              compact
-                ? "h-28 w-28"
-                : "h-40 w-40",
-              isGenerating
-                ? "ally-mascot-float"
-                : "",
-            ].join(
-              " ",
-            )}
+          Generating your roadmap...
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={
+            onGenerate
+          }
+          className="squishy-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#16629b] px-5 py-3.5 text-sm font-extrabold text-white shadow-[0_4px_0_#0d4773] transition hover:-translate-y-0.5 hover:bg-[#115787] active:translate-y-0 active:shadow-none"
+        >
+          <WandSparkles
+            size={17}
+            aria-hidden="true"
           />
+
+          Generate Full Timeline
+        </button>
+      )}
+
+      {error && (
+        <div className="mt-4 rounded-xl border border-[#efc8bd] bg-[#fff5f1] px-4 py-3 text-left text-sm leading-5 text-[#9a4c38]">
+          {error}
         </div>
-
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#bad6e7] bg-[#eaf5fb] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#16629b]">
-            <WandSparkles
-              size={14}
-              aria-hidden="true"
-            />
-            Premium Expedition
-          </div>
-
-          <h2
-            className={[
-              "mt-3 font-extrabold tracking-tight text-[#2c1607]",
-              compact
-                ? "text-xl"
-                : "text-2xl sm:text-3xl",
-            ].join(
-              " ",
-            )}
-          >
-            {isGenerating
-              ? "Ally is building your full timeline"
-              : "Generate your full Premium timeline"}
-          </h2>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            {isGenerating
-              ? "Keep this page open while Ally expands your scholarship journey into the complete milestone, checkpoint, task, and deadline map."
-              : "Your Premium account is active. Generate the complete milestone map for your selected scholarship so the rest of your checkpoints and tasks can appear in Quest Tracker."}
-          </p>
-
-          {isGenerating ? (
-            <div className="mt-5 space-y-2.5">
-              {PREMIUM_GENERATION_STEPS.map(
-                (
-                  step,
-                  index,
-                ) => {
-                  const complete =
-                    index <
-                    stepIndex;
-
-                  const active =
-                    index ===
-                    stepIndex;
-
-                  return (
-                    <div
-                      key={
-                        step
-                      }
-                      className={[
-                        "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition",
-                        active
-                          ? "border-[#9fc5de] bg-[#edf7fd]"
-                          : complete
-                            ? "border-[#d5e6dc] bg-[#f2f8f4]"
-                            : "border-slate-100 bg-slate-50/70",
-                      ].join(
-                        " ",
-                      )}
-                    >
-                      <div
-                        className={[
-                          "grid h-7 w-7 shrink-0 place-items-center rounded-full",
-                          active
-                            ? "bg-[#16629b] text-white"
-                            : complete
-                              ? "bg-[#dcefe3] text-[#3f7254]"
-                              : "bg-white text-slate-400",
-                        ].join(
-                          " ",
-                        )}
-                      >
-                        {active ? (
-                          <Loader2
-                            size={14}
-                            className="animate-spin"
-                            aria-hidden="true"
-                          />
-                        ) : complete ? (
-                          <CheckCircle2
-                            size={14}
-                            aria-hidden="true"
-                          />
-                        ) : (
-                          <Compass
-                            size={14}
-                            aria-hidden="true"
-                          />
-                        )}
-                      </div>
-
-                      <span className="text-sm font-bold text-[#4f5e66]">
-                        {step}
-                      </span>
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={
-                onGenerate
-              }
-              className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#16629b] px-5 py-3 text-sm font-extrabold text-white shadow-[0_4px_0_#0d4773] transition hover:-translate-y-0.5 hover:bg-[#115787] active:translate-y-0 active:shadow-none"
-            >
-              <WandSparkles
-                size={17}
-                aria-hidden="true"
-              />
-              Generate My Full Timeline
-            </button>
-          )}
-
-          {error && (
-            <div className="mt-4 rounded-xl border border-[#efc8bd] bg-[#fff5f1] px-4 py-3 text-sm leading-5 text-[#9a4c38]">
-              {error}
-            </div>
-          )}
-
-          {!isGenerating && (
-            <p className="mt-3 text-xs leading-5 text-slate-400">
-              This button sends the timeline generator once, then reloads the canonical saved milestones from the backend.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+      )}
+    </AllyPopup>
   );
 }
 
@@ -613,6 +629,12 @@ function PremiumTimelineGenerator({
 export default function QuestTrackerPage() {
   const navigate =
     useNavigate();
+
+  const [
+    searchParams,
+    setSearchParams,
+  ] =
+    useSearchParams();
 
   const {
     user,
@@ -699,6 +721,64 @@ export default function QuestTrackerPage() {
   ] =
     useState<string | null>(
       null,
+    );
+
+  const [
+    assessment2Complete,
+    setAssessment2Complete,
+  ] =
+    useState<boolean | null>(
+      null,
+    );
+
+  const [
+    assessment2PopupOpen,
+    setAssessment2PopupOpen,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    mentorMatchModalOpen,
+    setMentorMatchModalOpen,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    mentorMatchState,
+    setMentorMatchState,
+  ] =
+    useState<MentorMatchModalState>(
+      "matching",
+    );
+
+  const [
+    mentorMatch,
+    setMentorMatch,
+  ] =
+    useState<MentorMatchResult | null>(
+      null,
+    );
+
+  const [
+    mentorMatchError,
+    setMentorMatchError,
+  ] =
+    useState<string | null>(
+      null,
+    );
+
+  const mentorMatchRequestRef =
+    useRef<Promise<MentorMatchResult> | null>(
+      null,
+    );
+
+  const mentorMatchAutoAttemptedRef =
+    useRef(
+      false,
     );
 
   const [
@@ -789,11 +869,15 @@ export default function QuestTrackerPage() {
           );
 
           try {
-            const assessment2Complete =
+            const assessment2Finished =
               await hasCompletedAssessment2();
 
+            setAssessment2Complete(
+              assessment2Finished,
+            );
+
             setPageState(
-              assessment2Complete
+              assessment2Finished
                 ? "missing_scholarship"
                 : "assessment_required",
             );
@@ -818,6 +902,26 @@ export default function QuestTrackerPage() {
           }
 
           return;
+        }
+
+        try {
+          const assessment2Finished =
+            await hasCompletedAssessment2();
+
+          setAssessment2Complete(
+            assessment2Finished,
+          );
+        } catch (
+          assessmentStatusError
+        ) {
+          console.warn(
+            "[Quest Tracker] Assessment 2 status could not be loaded:",
+            assessmentStatusError,
+          );
+
+          setAssessment2Complete(
+            null,
+          );
         }
 
         const options =
@@ -1024,6 +1128,142 @@ export default function QuestTrackerPage() {
     ],
   );
 
+  useEffect(
+    () => {
+      mentorMatchAutoAttemptedRef.current =
+        false;
+    },
+    [
+      scholarshipId,
+    ],
+  );
+
+  const startMentorMatching =
+    useCallback(
+      async (
+        profile: AuthUser,
+        targetScholarshipId: number,
+        force = false,
+      ): Promise<void> => {
+        if (
+          profile.is_premium !==
+          true
+        ) {
+          return;
+        }
+
+        if (
+          !force &&
+          hasSeenPremiumMentorMatch(
+            profile,
+            targetScholarshipId,
+          )
+        ) {
+          return;
+        }
+
+        if (!force) {
+          mentorMatchAutoAttemptedRef.current =
+            true;
+
+          const cachedMatch =
+            getCachedMentorMatch(
+              profile,
+              targetScholarshipId,
+            );
+
+          if (cachedMatch) {
+            setMentorMatch(
+              cachedMatch,
+            );
+
+            setMentorMatchError(
+              null,
+            );
+
+            setMentorMatchState(
+              "matched",
+            );
+
+            setMentorMatchModalOpen(
+              true,
+            );
+
+            return;
+          }
+        }
+
+        if (
+          mentorMatchRequestRef.current
+        ) {
+          return;
+        }
+
+        setMentorMatch(
+          null,
+        );
+
+        setMentorMatchError(
+          null,
+        );
+
+        setMentorMatchState(
+          "matching",
+        );
+
+        setMentorMatchModalOpen(
+          true,
+        );
+
+        const request =
+          matchMentorApi();
+
+        mentorMatchRequestRef.current =
+          request;
+
+        try {
+          const matchedMentor =
+            await request;
+
+          storeCachedMentorMatch(
+            profile,
+            targetScholarshipId,
+            matchedMentor,
+          );
+
+          setMentorMatch(
+            matchedMentor,
+          );
+
+          setMentorMatchState(
+            "matched",
+          );
+        } catch (
+          caughtError
+        ) {
+          console.error(
+            "[Quest Tracker] Mentor matching failed:",
+            caughtError,
+          );
+
+          setMentorMatchError(
+            caughtError instanceof
+              Error
+              ? caughtError.message
+              : "Ally could not finish your mentor match yet. Please try again.",
+          );
+
+          setMentorMatchState(
+            "error",
+          );
+        } finally {
+          mentorMatchRequestRef.current =
+            null;
+        }
+      },
+      [],
+    );
+
   const refreshRoadmap =
     useCallback(
       async (): Promise<void> => {
@@ -1132,6 +1372,68 @@ export default function QuestTrackerPage() {
       pageState,
       refreshRoadmap,
       scholarshipId,
+    ],
+  );
+
+  /*
+   * The mentor-match celebration is the second Premium unlock moment.
+   *
+   * It only begins after:
+   * - the user is Premium;
+   * - Quest Tracker has finished loading;
+   * - the full Premium timeline no longer needs generation;
+   * - a scholarship target exists.
+   *
+   * That keeps it from competing with the existing Premium timeline CTA.
+   */
+  useEffect(
+    () => {
+      if (
+        status !==
+          "authenticated" ||
+        pageState !==
+          "ready" ||
+        !activeProfile ||
+        !isPremium ||
+        !scholarshipId ||
+        needsFullTimelineGeneration ||
+        generationState ===
+          "generating" ||
+        mentorMatchAutoAttemptedRef.current ||
+        hasSeenPremiumMentorMatch(
+          activeProfile,
+          scholarshipId,
+        )
+      ) {
+        return;
+      }
+
+      const timerId =
+        window.setTimeout(
+          () => {
+            void startMentorMatching(
+              activeProfile,
+              scholarshipId,
+            );
+          },
+          850,
+        );
+
+      return () => {
+        window.clearTimeout(
+          timerId,
+        );
+      };
+    },
+    [
+      activeProfile,
+      generationState,
+      isPremium,
+      needsFullTimelineGeneration,
+      pageState,
+      scholarshipId,
+      startMentorMatching,
+      status,
     ],
   );
 
@@ -1274,9 +1576,214 @@ export default function QuestTrackerPage() {
       ],
     );
 
+  const handleCloseMentorMatch =
+    useCallback(
+      (): void => {
+        if (
+          mentorMatchState ===
+            "matched" &&
+          activeProfile &&
+          scholarshipId
+        ) {
+          markPremiumMentorMatchSeen(
+            activeProfile,
+            scholarshipId,
+          );
+        }
+
+        setMentorMatchModalOpen(
+          false,
+        );
+      },
+      [
+        activeProfile,
+        mentorMatchState,
+        scholarshipId,
+      ],
+    );
+
+  const handleRetryMentorMatch =
+    useCallback(
+      (): void => {
+        if (
+          !activeProfile ||
+          !scholarshipId
+        ) {
+          return;
+        }
+
+        void startMentorMatching(
+          activeProfile,
+          scholarshipId,
+          true,
+        );
+      },
+      [
+        activeProfile,
+        scholarshipId,
+        startMentorMatching,
+      ],
+    );
+
+  useEffect(
+    () => {
+      if (
+        pageState !==
+          "ready" ||
+        !roadmap
+      ) {
+        return;
+      }
+
+      const requestedMilestone =
+        Number(
+          searchParams.get(
+            "milestone",
+          ),
+        );
+
+      if (
+        !Number.isInteger(
+          requestedMilestone,
+        ) ||
+        requestedMilestone <=
+          0
+      ) {
+        return;
+      }
+
+      const requestedIndex =
+        requestedMilestone -
+        1;
+
+      const milestone =
+        roadmap.milestones[
+          requestedIndex
+        ];
+
+      if (!milestone) {
+        const nextParams =
+          new URLSearchParams(
+            searchParams,
+          );
+
+        nextParams.delete(
+          "milestone",
+        );
+
+        nextParams.delete(
+          "open",
+        );
+
+        setSearchParams(
+          nextParams,
+          {
+            replace:
+              true,
+          },
+        );
+
+        return;
+      }
+
+      /*
+       * Wait until Assessment 2 status is known before deciding
+       * what Milestone 2 should do.
+       */
+      if (
+        requestedIndex ===
+          1 &&
+        assessment2Complete ===
+          null
+      ) {
+        return;
+      }
+
+      setSelectedMilestoneId(
+        milestone.id,
+      );
+
+      if (
+        requestedIndex ===
+          1 &&
+        assessment2Complete ===
+          false
+      ) {
+        setAssessment2PopupOpen(
+          true,
+        );
+      }
+
+      const nextParams =
+        new URLSearchParams(
+          searchParams,
+        );
+
+      nextParams.delete(
+        "milestone",
+      );
+
+      nextParams.delete(
+        "open",
+      );
+
+      setSearchParams(
+        nextParams,
+        {
+          replace:
+            true,
+        },
+      );
+    },
+    [
+      assessment2Complete,
+      pageState,
+      roadmap,
+      searchParams,
+      setSearchParams,
+    ],
+  );
+
   function handleMilestoneSelect(
     milestone: RoadmapMilestone,
   ): void {
+    const milestoneIndex =
+      roadmap?.milestones.findIndex(
+        (
+          candidate,
+        ) =>
+          String(
+            candidate.id,
+          ) ===
+          String(
+            milestone.id,
+          ),
+      ) ??
+      -1;
+
+    /*
+     * Milestone 2 is the Assessment 2 checkpoint.
+     * It remains interactive even if the roadmap marks the
+     * milestone as locked, because the assessment is how the
+     * user progresses from this checkpoint.
+     */
+    if (
+      milestoneIndex ===
+        1 &&
+      assessment2Complete ===
+        false
+    ) {
+      setSelectedMilestoneId(
+        milestone.id,
+      );
+
+      setAssessment2PopupOpen(
+        true,
+      );
+
+      return;
+    }
+
     if (
       milestone.status ===
       "locked"
@@ -1293,14 +1800,29 @@ export default function QuestTrackerPage() {
     generationState ===
     "generating";
 
+  const assessmentMilestoneId =
+    assessment2Complete ===
+      false
+      ? roadmap?.milestones[
+          1
+        ]?.id ??
+        null
+      : null;
+
+  const mentorScholarshipName =
+    activeProfile?.target_scholarship_data?.name ??
+    activeProfile?.primary_scholarship_target ??
+    null;
+
   return (
-    <UserLayout
-      title="Quest Tracker"
-      topbarProps={{
-        showSearch:
-          false,
-      }}
-    >
+    <>
+      <UserLayout
+        title="Quest Tracker"
+        topbarProps={{
+          showSearch:
+            false,
+        }}
+      >
       {status ===
         "loading" ||
       pageState ===
@@ -1340,8 +1862,8 @@ export default function QuestTrackerPage() {
       ) : isPremium &&
         needsFullTimelineGeneration &&
         !roadmap ? (
-        <section className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-ally-background px-4 py-8">
-          <PremiumTimelineGenerator
+        <section className="relative min-h-[calc(100vh-80px)] overflow-hidden bg-ally-background">
+          <PremiumTimelinePopup
             isGenerating={
               isGenerating
             }
@@ -1360,20 +1882,17 @@ export default function QuestTrackerPage() {
         >
           {isPremium &&
             needsFullTimelineGeneration && (
-              <div className="relative z-40 mx-auto w-full max-w-[1180px] px-4 pt-5 sm:px-6">
-                <PremiumTimelineGenerator
-                  compact
-                  isGenerating={
-                    isGenerating
-                  }
-                  error={
-                    generationError
-                  }
-                  onGenerate={() => {
-                    void handleGenerateFullTimeline();
-                  }}
-                />
-              </div>
+              <PremiumTimelinePopup
+                isGenerating={
+                  isGenerating
+                }
+                error={
+                  generationError
+                }
+                onGenerate={() => {
+                  void handleGenerateFullTimeline();
+                }}
+              />
             )}
 
           {!isPremium && (
@@ -1420,6 +1939,9 @@ export default function QuestTrackerPage() {
             onMilestoneSelect={
               handleMilestoneSelect
             }
+            specialSelectableMilestoneId={
+              assessmentMilestoneId
+            }
           />
 
           <RoadmapTaskPanel
@@ -1458,6 +1980,51 @@ export default function QuestTrackerPage() {
           }}
         />
       )}
-    </UserLayout>
+      </UserLayout>
+
+      <MentorMatchModal
+        isOpen={
+          mentorMatchModalOpen
+        }
+        state={
+          mentorMatchState
+        }
+        match={
+          mentorMatch
+        }
+        error={
+          mentorMatchError
+        }
+        scholarshipName={
+          mentorScholarshipName
+        }
+        onClose={
+          handleCloseMentorMatch
+        }
+        onRetry={
+          handleRetryMentorMatch
+        }
+      />
+
+      <Assessment2MilestonePopup
+        isOpen={
+          assessment2PopupOpen
+        }
+        onClose={() => {
+          setAssessment2PopupOpen(
+            false,
+          );
+
+          setSelectedMilestoneId(
+            null,
+          );
+        }}
+        onStartAssessment={() => {
+          navigate(
+            ASSESSMENT_2_ROUTE,
+          );
+        }}
+      />
+    </>
   );
 }
