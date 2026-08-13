@@ -38,7 +38,7 @@ function MetricCard({
 export default function MenteeManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mentees, setMentees] = useState<MenteeItem[]>([]);
-  const [bookingMap, setBookingMap] = useState<Record<number, number | string>>({});
+  const [bookingMap, setBookingMap] = useState<Record<string, number | string>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,21 +57,23 @@ export default function MenteeManagementPage() {
           setMentees(menteesRes.value.data);
         }
 
-        const map: Record<number, number | string> = {};
+        const map: Record<string, number | string> = {};
 
         if (statsRes.status === "fulfilled" && statsRes.value?.data?.upcoming_schedules) {
           statsRes.value.data.upcoming_schedules.forEach((sch) => {
             if (sch.mentee?.id) {
-              map[sch.mentee.id] = sch.id;
+              map[String(sch.mentee.id)] = sch.id;
+            }
+            if (sch.mentee?.name) {
+              map[sch.mentee.name.toLowerCase().trim()] = sch.id;
             }
           });
         }
 
         if (invoicesRes.status === "fulfilled" && invoicesRes.value?.data?.history) {
           invoicesRes.value.data.history.forEach((inv) => {
-            if (inv.booking_id) {
-              // Store fallback booking mapping
-              map[inv.booking_id] = inv.booking_id;
+            if (inv.mentee_name) {
+              map[inv.mentee_name.toLowerCase().trim()] = inv.booking_id;
             }
           });
         }
@@ -181,7 +183,11 @@ export default function MenteeManagementPage() {
             <div className="space-y-4">
               {filteredMentees.map((mentee) => {
                 const targetBookingId =
-                  mentee.booking_id || bookingMap[mentee.mentee_id] || mentee.mentee_id;
+                  mentee.booking_id ||
+                  (mentee as unknown as Record<string, unknown>).latest_booking_id ||
+                  bookingMap[String(mentee.mentee_id)] ||
+                  bookingMap[mentee.name.toLowerCase().trim()] ||
+                  "1";
 
                 return (
                   <div
@@ -222,7 +228,7 @@ export default function MenteeManagementPage() {
                           </span>
                         </div>
 
-                        {/* Progres Tugas Mentee (Dihitung dari Backend user_milestones) */}
+                        {/* Progres Tugas Mentee */}
                         {mentee.progress_summary && (
                           <div className="mt-3 flex items-center gap-3 text-xs">
                             <div className="w-48 bg-slate-200 h-2 rounded-full overflow-hidden">
@@ -245,7 +251,7 @@ export default function MenteeManagementPage() {
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <Link
                           to={`/mentor/dossier?bookingId=${targetBookingId}`}
-                          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-ally-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-ally-primary/90"
+                          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-ally-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-ally-primary/90 shadow-sm"
                         >
                           <FolderOpen size={14} /> Lihat Dossier <ArrowRight size={14} />
                         </Link>

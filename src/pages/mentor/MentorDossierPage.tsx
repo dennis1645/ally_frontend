@@ -9,6 +9,7 @@ import {
   Sparkles,
   AlertCircle,
   Loader2,
+  CalendarCheck,
 } from "lucide-react";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
@@ -19,14 +20,22 @@ import {
   rescheduleBookingApi,
   completeBookingApi,
   reviewMenteeApi,
+  getMentorDashboardStatsApi,
+  getMentorInvoicesApi,
   type MentorDossierData,
 } from "../../api/mentorApi";
+
+export type BookingOption = {
+  booking_id: string;
+  label: string;
+};
 
 export function MentorDossierPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const bookingIdParam = searchParams.get("bookingId") || "1";
 
   const [bookingId, setBookingId] = useState<string>(bookingIdParam);
+  const [availableBookings, setAvailableBookings] = useState<BookingOption[]>([]);
   const [dossier, setDossier] = useState<MentorDossierData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +59,54 @@ export function MentorDossierPage() {
   const [reviewData, setReviewData] = useState({ rating: 5, feedback: "" });
   const [isReviewing, setIsReviewing] = useState<boolean>(false);
 
+  // Load available booking sessions from backend
+  useEffect(() => {
+    async function loadAvailableBookings() {
+      try {
+        const [statsRes, invoicesRes] = await Promise.allSettled([
+          getMentorDashboardStatsApi(),
+          getMentorInvoicesApi(),
+        ]);
+
+        const compiled: BookingOption[] = [];
+
+        if (statsRes.status === "fulfilled" && statsRes.value?.data?.upcoming_schedules) {
+          statsRes.value.data.upcoming_schedules.forEach((sch) => {
+            compiled.push({
+              booking_id: String(sch.id),
+              label: `Booking #${sch.id} — ${sch.mentee?.name || "Mentee"} (${sch.session_status})`,
+            });
+          });
+        }
+
+        if (invoicesRes.status === "fulfilled" && invoicesRes.value?.data?.history) {
+          invoicesRes.value.data.history.forEach((inv) => {
+            if (!compiled.some((b) => b.booking_id === String(inv.booking_id))) {
+              compiled.push({
+                booking_id: String(inv.booking_id),
+                label: `Booking #${inv.booking_id} — ${inv.mentee_name} (${inv.consultation_date})`,
+              });
+            }
+          });
+        }
+
+        // Fallbacks
+        if (!compiled.some((b) => b.booking_id === "1")) {
+          compiled.push({ booking_id: "1", label: "Booking ID #1 (Jokowi dodo)" });
+        }
+        if (!compiled.some((b) => b.booking_id === "2")) {
+          compiled.push({ booking_id: "2", label: "Booking ID #2 (Mardha)" });
+        }
+
+        setAvailableBookings(compiled);
+      } catch (err) {
+        console.warn("Failed to load available booking list", err);
+      }
+    }
+
+    loadAvailableBookings();
+  }, []);
+
   // Sync state if search param changes
   useEffect(() => {
     setBookingId(searchParams.get("bookingId") || "1");
@@ -66,12 +123,15 @@ export function MentorDossierPage() {
         if (response.data.meeting_link) {
           setConfirmMeetingLink(response.data.meeting_link);
         }
+      } else {
+        setDossier(null);
       }
     } catch (err: unknown) {
       console.error("Failed to fetch dossier", err);
       setError(
         err instanceof Error ? err.message : "Gagal memuat dossier mentee dari server."
       );
+      setDossier(null);
     } finally {
       setLoading(false);
     }
@@ -108,7 +168,7 @@ export function MentorDossierPage() {
     setSuccessMessage(null);
     try {
       const res = await rejectBookingApi(bookingId);
-      setSuccessMessage(res.message || "Sesi konsultasi ditolak.");
+      setSuccessMessage(res.message || "Booking berhasil ditolak.");
       fetchDossier(bookingId);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Gagal menolak booking.");
@@ -117,8 +177,8 @@ export function MentorDossierPage() {
 
   async function handleRescheduleBooking(e: React.FormEvent) {
     e.preventDefault();
-    if (!rescheduleData.available_date || !rescheduleData.reason) {
-      setError("Silakan isi tanggal dan alasan reschedule.");
+    if (!rescheduleData.available_date || !rescheduleData.reason.trim()) {
+      setError("Tanggal baru dan alasan reschedule wajib diisi.");
       return;
     }
     setIsRescheduling(true);
@@ -126,7 +186,7 @@ export function MentorDossierPage() {
     setSuccessMessage(null);
     try {
       const res = await rescheduleBookingApi(bookingId, rescheduleData);
-      setSuccessMessage(res.message || "Jadwal konsultasi berhasil di-reschedule.");
+      setSuccessMessage(res.message || "Permintaan reschedule berhasil dikirim ke mentee!");
       fetchDossier(bookingId);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Gagal reschedule booking.");
@@ -138,7 +198,7 @@ export function MentorDossierPage() {
   async function handleCompleteBooking(e: React.FormEvent) {
     e.preventDefault();
     if (!sessionProofFile) {
-      setError("Silakan pilih file foto/screenshot bukti sesi.");
+      setError("Silakan unggah foto/tangkapan layar bukti sesi konsultasi.");
       return;
     }
     setIsCompleting(true);
@@ -146,11 +206,13 @@ export function MentorDossierPage() {
     setSuccessMessage(null);
     try {
       const res = await completeBookingApi(bookingId, sessionProofFile);
-      setSuccessMessage(res.message || "Sesi berhasil diselesaikan dan dana telah ditambahkan.");
-      setSessionProofFile(null);
+      setSuccessMessage(
+        res.message ||
+          `Sesi selesai! Fee sebesar Rp ${res.data.earned_fee?.toLocaleString("id-ID")} telah ditambahkan ke saldo Anda.`
+      );
       fetchDossier(bookingId);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal menyelesaikan sesi.");
+      setError(err instanceof Error ? err.message : "Gagal mencairkan fee / menyelesaiakan sesi.");
     } finally {
       setIsCompleting(false);
     }
@@ -159,7 +221,7 @@ export function MentorDossierPage() {
   async function handleReviewMentee(e: React.FormEvent) {
     e.preventDefault();
     if (!reviewData.feedback.trim()) {
-      setError("Silakan isi feedback ulasan untuk mentee.");
+      setError("Silakan tulis masukan/feedback evaluasi mentee.");
       return;
     }
     setIsReviewing(true);
@@ -167,10 +229,10 @@ export function MentorDossierPage() {
     setSuccessMessage(null);
     try {
       const res = await reviewMenteeApi(bookingId, reviewData);
-      setSuccessMessage(res.message || "Evaluasi dan ulasan mentee berhasil disimpan.");
+      setSuccessMessage(res.message || "Evaluasi mentee berhasil dikirim!");
       fetchDossier(bookingId);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan ulasan.");
+      setError(err instanceof Error ? err.message : "Gagal mengirimkan review.");
     } finally {
       setIsReviewing(false);
     }
@@ -185,7 +247,7 @@ export function MentorDossierPage() {
       sidebarItems={mentorSidebarItems}
     >
       <section className="min-h-[calc(100vh-80px)] bg-ally-background p-6 lg:p-8">
-        {/* Top Header */}
+        {/* Top Header & Booking Selector */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <Link
             to="/mentor/mentees"
@@ -195,18 +257,39 @@ export function MentorDossierPage() {
             Kembali ke Daftar Mentee
           </Link>
 
-          {/* Booking ID Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Booking ID Path:</span>
+          {/* Booking ID Selector Dropdown */}
+          <div className="flex flex-wrap items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
+            <CalendarCheck size={16} className="text-ally-primary" />
+            <span className="text-xs font-bold text-slate-700">Pilih Booking ID Sesi:</span>
+            {availableBookings.length > 0 && (
+              <select
+                value={bookingId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setBookingId(val);
+                  setSearchParams({ bookingId: val });
+                }}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-800 outline-none"
+              >
+                {availableBookings.map((b) => (
+                  <option key={b.booking_id} value={b.booking_id}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <span className="text-[11px] text-slate-400 font-medium">Atau ID:</span>
             <input
-              type="number"
+              type="text"
+              placeholder="1"
               value={bookingId}
               onChange={(e) => {
                 const val = e.target.value;
                 setBookingId(val);
                 setSearchParams({ bookingId: val });
               }}
-              className="w-20 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-900 outline-none"
+              className="w-16 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-900 outline-none text-center"
             />
           </div>
         </div>
@@ -233,8 +316,18 @@ export function MentorDossierPage() {
             </span>
           </div>
         ) : !dossier ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-slate-500">
-            Dossier untuk Booking #{bookingId} tidak ditemukan.
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+              <AlertCircle size={24} />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-slate-800">
+                Dossier untuk Booking #{bookingId} tidak ditemukan.
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">
+                Silakan pilih salah satu Booking ID yang tersedia dari pilihan di atas (misal: Booking #1 atau Booking #2).
+              </p>
+            </div>
           </div>
         ) : (
           <>
@@ -273,7 +366,7 @@ export function MentorDossierPage() {
                       href={dossier.meeting_link}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 shadow-sm"
                     >
                       <ExternalLink size={14} /> Join Meeting Link
                     </a>
@@ -349,9 +442,9 @@ export function MentorDossierPage() {
                       <button
                         type="submit"
                         disabled={isConfirming}
-                        className="flex-1 rounded-full bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                        className="rounded-full bg-ally-primary px-4 py-2 text-xs font-bold text-white hover:bg-ally-primary/90 disabled:opacity-50"
                       >
-                        {isConfirming ? "Disimpan..." : "Setujui & Simpan Link"}
+                        {isConfirming ? "Menyimpan..." : "Setujui & Simpan Link"}
                       </button>
                       <button
                         type="button"
@@ -375,7 +468,7 @@ export function MentorDossierPage() {
                         onChange={(e) =>
                           setRescheduleData({ ...rescheduleData, available_date: e.target.value })
                         }
-                        className="rounded-xl border border-slate-200 p-2 text-xs"
+                        className="rounded-xl border border-slate-200 p-2 text-xs outline-none"
                       />
                       <input
                         type="text"
@@ -384,7 +477,7 @@ export function MentorDossierPage() {
                         onChange={(e) =>
                           setRescheduleData({ ...rescheduleData, start_time: e.target.value })
                         }
-                        className="rounded-xl border border-slate-200 p-2 text-xs"
+                        className="rounded-xl border border-slate-200 p-2 text-xs outline-none"
                       />
                       <input
                         type="text"
@@ -393,29 +486,29 @@ export function MentorDossierPage() {
                         onChange={(e) =>
                           setRescheduleData({ ...rescheduleData, end_time: e.target.value })
                         }
-                        className="rounded-xl border border-slate-200 p-2 text-xs"
+                        className="rounded-xl border border-slate-200 p-2 text-xs outline-none"
                       />
                     </div>
-                    <input
-                      type="text"
+                    <textarea
+                      rows={2}
                       placeholder="Alasan reschedule..."
                       value={rescheduleData.reason}
                       onChange={(e) =>
                         setRescheduleData({ ...rescheduleData, reason: e.target.value })
                       }
-                      className="w-full rounded-xl border border-slate-200 p-2 text-xs"
+                      className="w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none"
                     />
                     <button
                       type="submit"
                       disabled={isRescheduling}
-                      className="w-full rounded-full bg-amber-600 py-2 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50"
                     >
-                      {isRescheduling ? "Memproses..." : "Kirim Reschedule ke Mentee"}
+                      {isRescheduling ? "Mengirim..." : "Kirim Reschedule ke Mentee"}
                     </button>
                   </form>
                 </div>
 
-                {/* Complete Session & Proof Upload Panel */}
+                {/* Complete & Claim Fee Panel */}
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h3 className="text-lg font-bold text-slate-900 mb-2">
                     3. Selesaikan Sesi & Upload Bukti (Cairkan Fee)
@@ -423,29 +516,35 @@ export function MentorDossierPage() {
                   <form onSubmit={handleCompleteBooking} className="space-y-3">
                     <input
                       type="file"
-                      accept="image/png, image/jpeg"
-                      onChange={(e) => setSessionProofFile(e.target.files?.[0] || null)}
-                      className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                      accept="image/*"
+                      onChange={(e) =>
+                        setSessionProofFile(e.target.files ? e.target.files[0] : null)
+                      }
+                      className="w-full text-xs text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-xs file:font-bold file:text-slate-700 hover:file:bg-slate-200"
                     />
                     <button
                       type="submit"
                       disabled={isCompleting}
-                      className="w-full rounded-full bg-ally-primary py-2 text-xs font-bold text-white hover:bg-ally-primary/90 disabled:opacity-50"
+                      className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                     >
-                      {isCompleting ? "Mengunggah Bukti..." : "Selesaikan Sesi & Klaim Fee"}
+                      {isCompleting ? "Memproses..." : "Selesaikan Sesi & Klaim Fee"}
                     </button>
                   </form>
                 </div>
 
-                {/* Review Mentee Panel */}
+                {/* Mentee Evaluation & Review Panel */}
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">4. Berikan Evaluasi / Review Mentee</h3>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">
+                    4. Berikan Evaluasi / Review Mentee
+                  </h3>
                   <form onSubmit={handleReviewMentee} className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-600">Rating:</span>
+                      <label className="text-xs font-semibold text-slate-600">Rating:</label>
                       <select
                         value={reviewData.rating}
-                        onChange={(e) => setReviewData({ ...reviewData, rating: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setReviewData({ ...reviewData, rating: Number(e.target.value) })
+                        }
                         className="rounded-xl border border-slate-200 p-1.5 text-xs font-bold"
                       >
                         <option value={5}>5 Bintang ⭐⭐⭐⭐⭐</option>
@@ -457,17 +556,19 @@ export function MentorDossierPage() {
                     </div>
                     <textarea
                       rows={2}
-                      placeholder="Catatan evaluasi mentee pasca-sesi..."
+                      placeholder="Feedback untuk mentee pasca-konsultasi..."
                       value={reviewData.feedback}
-                      onChange={(e) => setReviewData({ ...reviewData, feedback: e.target.value })}
+                      onChange={(e) =>
+                        setReviewData({ ...reviewData, feedback: e.target.value })
+                      }
                       className="w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none"
                     />
                     <button
                       type="submit"
                       disabled={isReviewing}
-                      className="w-full rounded-full bg-slate-900 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+                      className="rounded-full bg-ally-primary px-4 py-2 text-xs font-bold text-white hover:bg-ally-primary/90 disabled:opacity-50"
                     >
-                      {isReviewing ? "Menyimpan..." : "Kirim Review Mentee"}
+                      {isReviewing ? "Kirim Review..." : "Simpan Review Mentee"}
                     </button>
                   </form>
                 </div>
@@ -479,3 +580,5 @@ export function MentorDossierPage() {
     </UserLayout>
   );
 }
+
+export default MentorDossierPage;
