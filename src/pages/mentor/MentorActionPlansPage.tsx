@@ -14,6 +14,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   Info,
+  ListTodo,
 } from "lucide-react";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
@@ -28,7 +29,6 @@ import {
   type MenteeSubmission,
   type MenteeItem,
   type ActionPlanItemInput,
-  type MentorDossierData,
   type MenteeMilestoneProgressItem,
 } from "../../api/mentorApi";
 
@@ -36,7 +36,7 @@ export type BookingOption = {
   booking_id: number | string;
   label: string;
   mentee_name?: string;
-  mentee_id?: number;
+  mentee_id?: number | string;
 };
 
 export function MentorActionPlansPage() {
@@ -63,31 +63,35 @@ export function MentorActionPlansPage() {
   });
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
 
-  // Mentees & Bookings Data State
+  // -------------------------------------------------------------
+  // Step 1 State: Mentee Selection
+  // -------------------------------------------------------------
   const [mentees, setMentees] = useState<MenteeItem[]>([]);
+  const [loadingMentees, setLoadingMentees] = useState<boolean>(true);
   const [selectedMenteeId, setSelectedMenteeId] = useState<string>("");
 
-  const [bookingsList, setBookingsList] = useState<BookingOption[]>([
-    { booking_id: "1", label: "Booking ID #1 — Mentee Konsultasi" },
-    { booking_id: "2", label: "Booking ID #2 — Mentee Sesi Esai" },
-    { booking_id: "3", label: "Booking ID #3 — Mentee Rekomendasi" },
-  ]);
+  // -------------------------------------------------------------
+  // Step 2 State: Booking Check
+  // -------------------------------------------------------------
+  const [allBookings, setAllBookings] = useState<BookingOption[]>([]);
   const [selectedBookingId, setSelectedBookingId] = useState<string>("1");
   const [customBookingId, setCustomBookingId] = useState<string>("");
 
-  // Mentee Dossier & Database Milestones State
-  const [dossier, setDossier] = useState<MentorDossierData | null>(null);
+  // -------------------------------------------------------------
+  // Step 3 State: Print Milestones from Database
+  // -------------------------------------------------------------
   const [loadingDossier, setLoadingDossier] = useState<boolean>(false);
-  const [hasBooking, setHasBooking] = useState<boolean>(true);
+  const [hasBooking, setHasBooking] = useState<boolean>(false);
   const [menteeMilestones, setMenteeMilestones] = useState<
     MenteeMilestoneProgressItem[]
   >([]);
 
-  // Action Plan Creation State
+  // -------------------------------------------------------------
+  // Step 4 State: Multi-Task Action Plans Payload
+  // -------------------------------------------------------------
   const [parentMilestoneId, setParentMilestoneId] = useState<number>(3);
   const [customMilestoneId, setCustomMilestoneId] = useState<string>("");
 
-  // Multi-task Action Plan List
   const [actionPlanTasks, setActionPlanTasks] = useState<ActionPlanItemInput[]>([
     {
       task_title: "Revisi Paragraf Kontribusi Esai",
@@ -124,8 +128,9 @@ export function MentorActionPlansPage() {
     }
   }
 
-  // Fetch mentees list & available bookings
-  async function fetchMenteesAndBookings() {
+  // Initial Data Fetch: Load Mentees & Available Bookings
+  async function fetchInitialData() {
+    setLoadingMentees(true);
     try {
       const [menteesRes, statsRes, invoicesRes] = await Promise.allSettled([
         getMentorMenteesApi(),
@@ -133,18 +138,20 @@ export function MentorActionPlansPage() {
         getMentorInvoicesApi(),
       ]);
 
+      let loadedMentees: MenteeItem[] = [];
       if (menteesRes.status === "fulfilled" && menteesRes.value?.data) {
-        setMentees(menteesRes.value.data);
-        if (menteesRes.value.data.length > 0) {
-          setSelectedMenteeId(String(menteesRes.value.data[0].mentee_id));
+        loadedMentees = menteesRes.value.data;
+        setMentees(loadedMentees);
+        if (loadedMentees.length > 0) {
+          setSelectedMenteeId(String(loadedMentees[0].mentee_id));
         }
       }
 
-      const extractedBookings: BookingOption[] = [];
+      const compiledBookings: BookingOption[] = [];
 
       if (statsRes.status === "fulfilled" && statsRes.value?.data?.upcoming_schedules) {
         statsRes.value.data.upcoming_schedules.forEach((sch) => {
-          extractedBookings.push({
+          compiledBookings.push({
             booking_id: String(sch.id),
             label: `Booking #${sch.id} — ${sch.mentee?.name || "Mentee"} (${sch.session_status})`,
             mentee_name: sch.mentee?.name,
@@ -155,8 +162,8 @@ export function MentorActionPlansPage() {
 
       if (invoicesRes.status === "fulfilled" && invoicesRes.value?.data?.history) {
         invoicesRes.value.data.history.forEach((inv) => {
-          if (!extractedBookings.some((b) => String(b.booking_id) === String(inv.booking_id))) {
-            extractedBookings.push({
+          if (!compiledBookings.some((b) => String(b.booking_id) === String(inv.booking_id))) {
+            compiledBookings.push({
               booking_id: String(inv.booking_id),
               label: `Booking #${inv.booking_id} — ${inv.mentee_name} (${inv.consultation_date})`,
               mentee_name: inv.mentee_name,
@@ -165,51 +172,85 @@ export function MentorActionPlansPage() {
         });
       }
 
-      if (extractedBookings.length > 0) {
-        setBookingsList(extractedBookings);
-        setSelectedBookingId(String(extractedBookings[0].booking_id));
+      // Default fallback booking option if none returned
+      if (compiledBookings.length === 0) {
+        compiledBookings.push(
+          { booking_id: "1", label: "Booking ID #1 (Sample Sesi Konsultasi)" },
+          { booking_id: "2", label: "Booking ID #2 (Sample Sesi Esai)" }
+        );
       }
+
+      setAllBookings(compiledBookings);
+      setSelectedBookingId(String(compiledBookings[0].booking_id));
     } catch (err: unknown) {
-      console.error("Failed to fetch mentees & bookings data", err);
+      console.error("Failed to fetch initial mentor data", err);
+    } finally {
+      setLoadingMentees(false);
     }
   }
 
-  // Active target Booking ID
+  // Filter bookings belonging to currently selected Mentee
+  const activeMentee = mentees.find(
+    (m) => String(m.mentee_id) === selectedMenteeId
+  );
+
+  const menteeBookings = allBookings.filter((b) => {
+    if (!selectedMenteeId) return true;
+    if (b.mentee_id && String(b.mentee_id) === selectedMenteeId) return true;
+    if (
+      b.mentee_name &&
+      activeMentee?.name &&
+      b.mentee_name.toLowerCase().includes(activeMentee.name.toLowerCase())
+    )
+      return true;
+    return false;
+  });
+
+  // Auto-select booking ID when selected mentee changes
+  useEffect(() => {
+    if (menteeBookings.length > 0) {
+      setSelectedBookingId(String(menteeBookings[0].booking_id));
+      setCustomBookingId("");
+    } else if (allBookings.length > 0) {
+      // Fallback to mentee_id as booking_id if no explicit booking mapping
+      setSelectedBookingId(selectedMenteeId || String(allBookings[0].booking_id));
+    }
+  }, [selectedMenteeId]);
+
+  // Active Target Booking ID
   const activeBookingId = customBookingId.trim()
     ? customBookingId.trim()
     : selectedBookingId;
 
-  // Fetch dossier for active booking to load user milestones from database
+  // -------------------------------------------------------------
+  // Step 3 Effect: Fetch Dossier & Print Database Milestones
+  // -------------------------------------------------------------
   useEffect(() => {
-    if (!activeBookingId) return;
+    if (!activeBookingId) {
+      setHasBooking(false);
+      setMenteeMilestones([]);
+      return;
+    }
 
-    async function loadMenteeDossierAndMilestones() {
+    async function fetchMenteeDatabaseMilestones() {
       setLoadingDossier(true);
       try {
         const response = await getMentorDossierApi(activeBookingId);
         if (response?.data) {
-          setDossier(response.data);
           setHasBooking(true);
 
-          // Extract milestones from dossier
           const fetchedMilestones = response.data.milestones_progress || [];
           setMenteeMilestones(fetchedMilestones);
 
           if (fetchedMilestones.length > 0) {
             setParentMilestoneId(fetchedMilestones[0].milestone_id);
           }
-
-          if (response.data.mentee_profile?.id) {
-            setSelectedMenteeId(String(response.data.mentee_profile.id));
-          }
         } else {
-          setDossier(null);
           setHasBooking(false);
           setMenteeMilestones([]);
         }
       } catch (err) {
-        console.warn(`No active booking/dossier found for booking ID #${activeBookingId}`, err);
-        setDossier(null);
+        console.warn(`Booking ID #${activeBookingId} not found in dossier API`, err);
         setHasBooking(false);
         setMenteeMilestones([]);
       } finally {
@@ -217,7 +258,7 @@ export function MentorActionPlansPage() {
       }
     }
 
-    loadMenteeDossierAndMilestones();
+    fetchMenteeDatabaseMilestones();
   }, [activeBookingId]);
 
   useEffect(() => {
@@ -225,7 +266,7 @@ export function MentorActionPlansPage() {
   }, [reviewStatusFilter]);
 
   useEffect(() => {
-    fetchMenteesAndBookings();
+    fetchInitialData();
   }, []);
 
   // Handle Review Submission
@@ -345,25 +386,6 @@ export function MentorActionPlansPage() {
     }
   }
 
-  // Find currently selected mentee details (from dossier or mentee list)
-  const activeMenteeProfile = dossier?.mentee_profile;
-  const selectedMentee =
-    mentees.find((m) => String(m.mentee_id) === selectedMenteeId) ||
-    (activeMenteeProfile
-      ? {
-          mentee_id: activeMenteeProfile.id,
-          name: activeMenteeProfile.name,
-          email: activeMenteeProfile.email,
-          readiness_score: activeMenteeProfile.readiness_score,
-          target_scholarship: activeMenteeProfile.target_scholarship,
-          target_country: "ID",
-          phone_number: "-",
-          total_xp: 0,
-          progress_summary: { total_tasks: 0, completed_tasks: 0, progress_percentage: "0%" },
-          uploaded_documents_count: 0,
-        }
-      : null);
-
   return (
     <UserLayout
       title="Task & Action Plan Audit"
@@ -385,7 +407,7 @@ export function MentorActionPlansPage() {
           </div>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_1.3fr]">
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_1.4fr]">
           {/* Antrean Audit Tugas Mentee */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between">
             <div>
@@ -540,7 +562,9 @@ export function MentorActionPlansPage() {
             </div>
           </div>
 
-          {/* Form Pembuat Action Plan Berbasis Mentee, Booking ID & Parent Milestone */}
+          {/* -------------------------------------------------------------
+              ALUR 3 LANGKAH:Mentee -> Booking Check -> Print Milestone Database
+             ------------------------------------------------------------- */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -558,31 +582,105 @@ export function MentorActionPlansPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mb-6">
-              Pilih Booking Sesi, lalu tentukan Milestone Induk Mentee dari database (<code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700">user_milestones</code>) untuk mencabangkan Action Plan baru.
+              1. Pilih Mentee &rarr; 2. Cek Booking Sesi &rarr; 3. Print Milestone Database Mentee (<code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700">user_milestones</code>) untuk membuat Action Plan.
             </p>
 
             <form onSubmit={handleCreateActionPlan} className="space-y-5">
-              {/* Booking ID Selector */}
+              {/* =========================================================
+                  LANGKAH 1: LANGKAH PERTAMA - PILIH USER / MENTEE
+                 ========================================================= */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                  <CalendarCheck size={14} className="text-ally-primary" />
-                  1. Pilih Booking Sesi Konsultasi
+                  <UserCheck size={16} className="text-ally-primary" />
+                  Langkah 1: Pilih User / Mentee Bimbingan
                 </label>
 
-                <select
-                  value={selectedBookingId}
-                  onChange={(e) => {
-                    setSelectedBookingId(e.target.value);
-                    setCustomBookingId("");
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none mb-2"
-                >
-                  {bookingsList.map((b) => (
-                    <option key={b.booking_id} value={b.booking_id}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
+                {loadingMentees ? (
+                  <div className="flex items-center text-xs text-slate-500 py-2">
+                    <Loader2 className="animate-spin mr-2" size={14} /> Memuat daftar mentee...
+                  </div>
+                ) : mentees.length > 0 ? (
+                  <select
+                    value={selectedMenteeId}
+                    onChange={(e) => setSelectedMenteeId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none"
+                  >
+                    {mentees.map((m) => (
+                      <option key={m.mentee_id} value={m.mentee_id}>
+                        {m.name} ({m.email}) — {m.target_scholarship || "Beasiswa Umum"}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Masukkan ID Mentee"
+                    value={selectedMenteeId}
+                    onChange={(e) => setSelectedMenteeId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold"
+                  />
+                )}
+
+                {/* Profil & Status Mentee Terpilih */}
+                {activeMentee && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 pt-3 border-t border-slate-200/80 text-xs">
+                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
+                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
+                        Readiness Score Mentee
+                      </span>
+                      <span className="font-bold text-emerald-600 text-sm flex items-center gap-1">
+                        <Award size={14} /> {activeMentee.readiness_score || 0}%
+                      </span>
+                    </div>
+                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
+                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
+                        Target Beasiswa
+                      </span>
+                      <span className="font-bold text-slate-800 truncate block">
+                        {activeMentee.target_scholarship || "Beasiswa Umum"} ({activeMentee.target_country || "ID"})
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* =========================================================
+                  LANGKAH 2: LANGKAH KEDUA - CEK ADA BOOKINGNYA ATAU NGGA
+                 ========================================================= */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
+                  <CalendarCheck size={16} className="text-ally-primary" />
+                  Langkah 2: Cek Booking Sesi Mentee Terpilih
+                </label>
+
+                {menteeBookings.length > 0 ? (
+                  <div>
+                    <select
+                      value={selectedBookingId}
+                      onChange={(e) => {
+                        setSelectedBookingId(e.target.value);
+                        setCustomBookingId("");
+                      }}
+                      className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none mb-2"
+                    >
+                      {menteeBookings.map((b) => (
+                        <option key={b.booking_id} value={b.booking_id}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      <span className="font-bold">Tidak ada booking aktif untuk mentee ini.</span>
+                    </div>
+                    <span className="rounded-full bg-rose-200 px-2 py-0.5 text-[10px] font-extrabold uppercase">
+                      Kosong
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-[11px] text-slate-500 font-medium">Atau ID Booking Kustom:</span>
@@ -594,68 +692,93 @@ export function MentorActionPlansPage() {
                     className="w-28 rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold outline-none"
                   />
                   <span className="text-[10px] text-slate-400">
-                    (ID aktif dipanggil: <code className="font-bold text-slate-700">{activeBookingId}</code>)
+                    (Booking ID Aktif: <code className="font-bold text-slate-700">{activeBookingId || "-"}</code>)
                   </span>
                 </div>
 
-                {/* Status Indicator Booking Status */}
+                {/* Status Booking Alert Indicator */}
                 {loadingDossier ? (
                   <div className="mt-3 flex items-center text-xs text-slate-500">
-                    <Loader2 className="animate-spin mr-2" size={14} /> Memuat data dossier & milestone mentee dari database...
+                    <Loader2 className="animate-spin mr-2" size={14} /> Mengecek booking & memuat milestone mentee dari database...
                   </div>
                 ) : !hasBooking ? (
                   <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700 flex items-center gap-2">
                     <AlertCircle size={15} />
-                    <span>Tidak ada booking / dossier ditemukan untuk Booking ID #{activeBookingId}</span>
+                    <span>Booking #{activeBookingId} tidak ditemukan di database. Silakan pilih mentee/booking yang tersedia.</span>
                   </div>
                 ) : (
-                  <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs text-emerald-800 flex items-center gap-2 font-medium">
+                  <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5 text-xs text-emerald-800 flex items-center gap-2 font-medium">
                     <CheckCircle2 size={15} className="text-emerald-600" />
-                    <span>Booking #{activeBookingId} Aktif • Mentee: <strong>{selectedMentee?.name || "Mentee"}</strong></span>
+                    <span>Booking Ada! Sesi Booking ID #{activeBookingId} terverifikasi aktif.</span>
                   </div>
                 )}
               </div>
 
-              {/* Mentee Profile Preview */}
-              {selectedMentee && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                    <UserCheck size={14} className="text-ally-primary" />
-                    Profil & Status Mentee
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
-                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
-                        Mentee
-                      </span>
-                      <span className="font-bold text-slate-800 truncate block">
-                        {selectedMentee.name}
-                      </span>
-                    </div>
-                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
-                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
-                        Readiness Score
-                      </span>
-                      <span className="font-bold text-emerald-600 text-sm flex items-center gap-1">
-                        <Award size={14} /> {selectedMentee.readiness_score || 0}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Milestone Target Selector dari Database Dossier */}
+              {/* =========================================================
+                  LANGKAH 3: LANGKAH KETIGA - PRINT MILESTONE MILIK USER DARI DATABASE
+                 ========================================================= */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                  <Layers size={14} className="text-ally-primary" />
-                  Parent Milestone ID (`user_milestones` Database Mentee)
+                  <Layers size={16} className="text-ally-primary" />
+                  Langkah 3: Print Milestone Database Mentee (`user_milestones`)
                 </label>
 
-                {loadingDossier ? (
-                  <div className="flex items-center text-xs text-slate-500 py-2">
-                    <Loader2 className="animate-spin mr-2" size={14} /> Memuat daftar milestone mentee...
+                {/* Visual Print List Daftar Milestone Mentee dari Database */}
+                <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 border-b border-slate-100 pb-1.5">
+                    <span className="flex items-center gap-1">
+                      <ListTodo size={14} className="text-ally-primary" />
+                      Daftar Milestone Mentee ({menteeMilestones.length} item)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">GET /api/mentor/dossier/{activeBookingId}</span>
                   </div>
-                ) : menteeMilestones.length > 0 ? (
+
+                  {loadingDossier ? (
+                    <div className="py-3 text-center text-xs text-slate-500">
+                      <Loader2 className="animate-spin inline mr-1" size={12} /> Memuat milestone dari database...
+                    </div>
+                  ) : menteeMilestones.length === 0 ? (
+                    <div className="py-2 text-center text-xs text-slate-400 italic">
+                      {hasBooking
+                        ? "Mentee ini belum memiliki milestone utama di database."
+                        : "Tidak ada milestone untuk diprint (Booking tidak aktif)."}
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {menteeMilestones.map((m) => (
+                        <div
+                          key={m.milestone_id}
+                          className="flex items-center justify-between rounded-lg bg-slate-50 p-2 text-xs border border-slate-100"
+                        >
+                          <div className="truncate pr-2">
+                            <span className="font-extrabold text-slate-800 mr-1">
+                              [ID #{m.milestone_id}]
+                            </span>
+                            <span className="font-medium text-slate-700">{m.task_name}</span>
+                          </div>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize shrink-0 ${
+                              m.status === "completed"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : m.status === "in_progress"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-slate-200 text-slate-600"
+                            }`}
+                          >
+                            {m.status || "pending"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Dropdown Selector Parent Milestone dari Database */}
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Pilih Induk Milestone Tempat Action Plan Akan Dicabangkan (`parent_milestone_id`):
+                </label>
+
+                {menteeMilestones.length > 0 ? (
                   <select
                     value={parentMilestoneId}
                     onChange={(e) => {
@@ -676,13 +799,13 @@ export function MentorActionPlansPage() {
                     <span>
                       {!hasBooking
                         ? "Tidak ada booking aktif untuk mentee ini."
-                        : "Mentee ini belum memiliki milestone utama di database."}
+                        : "Mentee belum memiliki milestone di database. Anda dapat mengisi ID Parent manual di bawah."}
                     </span>
                   </div>
                 )}
 
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] text-slate-500 font-medium">Atau ID Milestone Manual:</span>
+                  <span className="text-[11px] text-slate-500 font-medium">Atau ID Parent Kustom:</span>
                   <input
                     type="number"
                     placeholder="Misal: 12"
@@ -700,7 +823,7 @@ export function MentorActionPlansPage() {
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Daftar Tugas Action Plan ({actionPlanTasks.length})
+                    Langkah 4: Buat Daftar Tugas Action Plan ({actionPlanTasks.length})
                   </h4>
                   <button
                     type="button"
