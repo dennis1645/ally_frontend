@@ -254,7 +254,14 @@ export default function DashboardQuestHero({
           <aside
             aria-label="Explorer summary and IELTS practice"
             className={[
-              "pointer-events-none absolute right-4 top-4 z-30 hidden",
+              /*
+               * Keep this floating rail above the roadmap only.
+               *
+               * Topbar is z-30, so using z-[25] here ensures global
+               * UI such as Notifications / Document Vault renders
+               * above the profile + IELTS cards when opened.
+               */
+              "pointer-events-none absolute right-4 top-4 z-[25] hidden",
               "w-[300px] xl:block",
             ].join(
               " ",

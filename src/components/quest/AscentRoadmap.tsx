@@ -927,6 +927,47 @@ function buildDashboardTrailPoints(
       topY,
     );
 
+  /*
+   * Starter onboarding roadmap:
+   *
+   * When the dashboard only has Assessment 1 + Assessment 2,
+   * keep both checkpoints close together near the beginning of
+   * the expedition. The painted trail continues ahead with no
+   * additional checkpoints yet.
+   *
+   * This avoids making Assessment 2 look like it is already far
+   * into the scholarship journey.
+   */
+  if (
+    count ===
+    2
+  ) {
+    const secondMilestoneProgress =
+      startProgress +
+      (
+        goalProgress -
+        startProgress
+      ) *
+        0.16;
+
+    return {
+      milestones: [
+        pointOnDashboardTrail(
+          startProgress,
+        ),
+
+        pointOnDashboardTrail(
+          secondMilestoneProgress,
+        ),
+      ],
+
+      goal:
+        pointOnDashboardTrail(
+          goalProgress,
+        ),
+    };
+  }
+
   const finalMilestoneProgress =
     startProgress +
     (

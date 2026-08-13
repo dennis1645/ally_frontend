@@ -48,6 +48,10 @@ import {
   ASSESSMENT_2_ROUTE,
 } from "../../routes/assessment2.routes";
 
+import {
+  INITIAL_ASSESSMENT_ROUTE,
+} from "../../routes/assessment.routes";
+
 type ReadinessState = {
   loading: boolean;
   score: number | null;
@@ -58,6 +62,150 @@ type RoadmapHeroState = {
   loading: boolean;
   roadmap: RoadmapData | null;
 };
+
+const ASSESSMENT_1_MILESTONE_ID =
+  "dashboard-assessment-1";
+
+const ASSESSMENT_2_MILESTONE_ID =
+  "dashboard-assessment-2";
+
+function normalizeReadinessScore(
+  value: unknown,
+): number | null {
+  if (
+    typeof value !==
+      "number" ||
+    !Number.isFinite(
+      value,
+    )
+  ) {
+    return null;
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      value,
+    ),
+  );
+}
+
+function buildAssessmentStarterRoadmap({
+  assessment1Complete,
+  assessment2Complete,
+}: {
+  assessment1Complete: boolean;
+  assessment2Complete: boolean | null;
+}): RoadmapData {
+  return {
+    /*
+     * This is a frontend-only starter journey shown before the
+     * backend has a scholarship roadmap to return.
+     *
+     * scholarshipId 0 is never sent back to the API.
+     */
+    scholarshipId:
+      0,
+
+    milestones: [
+      {
+        id:
+          ASSESSMENT_1_MILESTONE_ID,
+
+        title:
+          "Assessment 1",
+
+        description:
+          "Initial Scholarship Readiness Assessment",
+
+        status:
+          assessment1Complete
+            ? "completed"
+            : "available",
+
+        backendStatus:
+          null,
+
+        progress:
+          assessment1Complete
+            ? 100
+            : 0,
+
+        completed:
+          assessment1Complete,
+
+        isDiscovered:
+          true,
+
+        order:
+          1,
+
+        targetDate:
+          null,
+
+        xpReward:
+          0,
+
+        tasks:
+          [],
+      },
+
+      {
+        id:
+          ASSESSMENT_2_MILESTONE_ID,
+
+        title:
+          "Assessment 2",
+
+        description:
+          "Deep Scholarship Readiness Assessment",
+
+        /*
+         * Assessment 2 is the active checkpoint for a newly
+         * registered user whether or not they took Assessment 1.
+         *
+         * If Assessment 1 was completed before registration, only
+         * the first checkpoint changes to completed.
+         */
+        status:
+          assessment2Complete ===
+            true
+            ? "completed"
+            : "current",
+
+        backendStatus:
+          null,
+
+        progress:
+          assessment2Complete ===
+            true
+            ? 100
+            : 0,
+
+        completed:
+          assessment2Complete ===
+          true,
+
+        isDiscovered:
+          true,
+
+        order:
+          2,
+
+        targetDate:
+          null,
+
+        xpReward:
+          0,
+
+        tasks:
+          [],
+      },
+    ],
+  };
+}
+
 
 /*
  * Keeps duplicate reminder requests from React StrictMode/remounts
@@ -239,21 +387,12 @@ function looksLikeAnalysisFailure(
     "cannot connect",
     "could not connect",
   ].some(
-    (
-      signal,
-    ) =>
+    (signal) =>
       normalized.includes(
         signal,
       ),
   );
 }
-
-/* =========================================================
-   Loading state
-
-   Matches the new floating-card dashboard layout:
-   one large map with utility cards floating over it.
-========================================================= */
 
 function DashboardLoadingState() {
   return (
@@ -262,9 +401,7 @@ function DashboardLoadingState() {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="h-4 w-28 rounded bg-white" />
-
             <div className="mt-2 h-8 w-80 max-w-full rounded bg-white" />
-
             <div className="mt-2 h-4 w-52 rounded bg-white" />
           </div>
 
@@ -278,15 +415,10 @@ function DashboardLoadingState() {
 
           <div className="absolute right-4 top-4 hidden w-[320px] space-y-3 xl:block">
             <div className="h-40 rounded-[22px] bg-white/95" />
-
             <div className="h-20 rounded-[16px] bg-white/95" />
-
             <div className="h-20 rounded-[16px] bg-white/95" />
-
             <div className="h-20 rounded-[16px] bg-white/95" />
-
             <div className="h-32 rounded-[18px] bg-white/95" />
-
             <div className="h-36 rounded-[18px] bg-white/95" />
           </div>
 
@@ -298,14 +430,11 @@ function DashboardLoadingState() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="h-20 rounded-[16px] bg-white" />
-
             <div className="h-20 rounded-[16px] bg-white" />
-
             <div className="h-20 rounded-[16px] bg-white" />
           </div>
 
           <div className="h-32 rounded-[18px] bg-white" />
-
           <div className="h-36 rounded-[18px] bg-white" />
         </div>
       </div>
@@ -322,9 +451,7 @@ function DashboardUnavailableState() {
           "border border-orange-100 bg-white",
           "p-8 text-center",
           "shadow-[0_6px_0_#d8c6ae]",
-        ].join(
-          " ",
-        )}
+        ].join(" ")}
       >
         <h2 className="text-xl font-extrabold text-[#2c1607]">
           Explorer profile unavailable
@@ -341,18 +468,11 @@ function DashboardUnavailableState() {
 
 function isRecord(
   value: unknown,
-): value is Record<
-  string,
-  unknown
-> {
+): value is Record<string, unknown> {
   return (
-    typeof value ===
-      "object" &&
-    value !==
-      null &&
-    !Array.isArray(
-      value,
-    )
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
   );
 }
 
@@ -388,20 +508,16 @@ export default function DashboardPage() {
   const {
     user,
     status,
-  } =
-    useAuth();
+  } = useAuth();
 
   const [
     readiness,
     setReadiness,
   ] =
     useState<ReadinessState>({
-      loading:
-        true,
-      score:
-        null,
-      unavailable:
-        false,
+      loading: true,
+      score: null,
+      unavailable: false,
     });
 
   const [
@@ -409,19 +525,15 @@ export default function DashboardPage() {
     setRoadmapHero,
   ] =
     useState<RoadmapHeroState>({
-      loading:
-        true,
-      roadmap:
-        null,
+      loading: true,
+      roadmap: null,
     });
 
   const [
     assessment2Complete,
     setAssessment2Complete,
   ] =
-    useState<
-      boolean | null
-    >(
+    useState<boolean | null>(
       null,
     );
 
@@ -444,11 +556,22 @@ export default function DashboardPage() {
 
       async function loadReadiness():
         Promise<void> {
+        /*
+         * GET /api/profile carries Assessment 1's readiness score.
+         *
+         * A numeric readiness_score means the anonymous Initial
+         * Assessment was linked to this account during registration.
+         */
+        const initialScore =
+          normalizeReadinessScore(
+            user?.readiness_score,
+          );
+
         setReadiness({
           loading:
             true,
           score:
-            null,
+            initialScore,
           unavailable:
             false,
         });
@@ -457,9 +580,7 @@ export default function DashboardPage() {
           const result =
             await getDeepDiagnosticResult();
 
-          if (
-            !active
-          ) {
+          if (!active) {
             return;
           }
 
@@ -479,48 +600,59 @@ export default function DashboardPage() {
             assessmentCompleted,
           );
 
-          const score =
-            result.revisedPercentage;
+          const revisedScore =
+            normalizeReadinessScore(
+              result.revisedPercentage,
+            );
 
-          const validScore =
-            typeof score ===
-              "number" &&
-            Number.isFinite(
-              score,
-            ) &&
+          const validDeepDiagnosticScore =
+            revisedScore !==
+              null &&
             !looksLikeAnalysisFailure(
               result.suggestion,
             );
 
+          /*
+           * Once Assessment 2 exists, use its revised score.
+           * Before that, keep Assessment 1's score instead of
+           * displaying an empty readiness value.
+           */
           setReadiness({
             loading:
               false,
             score:
-              validScore
-                ? score
-                : null,
+              validDeepDiagnosticScore
+                ? revisedScore
+                : initialScore,
             unavailable:
-              !validScore,
+              !validDeepDiagnosticScore &&
+              initialScore ===
+                null,
           });
         } catch (
           error
         ) {
-          console.error(
-            "[Dashboard] Unable to load readiness score:",
-            error,
-          );
-
-          if (
-            !active
-          ) {
+          if (!active) {
             return;
           }
 
-          setAssessment2Complete(
+          const assessment2NotFound =
             error instanceof
-                ApiError &&
-              error.status ===
-                404
+              ApiError &&
+            error.status ===
+              404;
+
+          if (
+            !assessment2NotFound
+          ) {
+            console.error(
+              "[Dashboard] Unable to load Assessment 2 readiness score:",
+              error,
+            );
+          }
+
+          setAssessment2Complete(
+            assessment2NotFound
               ? false
               : null,
           );
@@ -529,9 +661,10 @@ export default function DashboardPage() {
             loading:
               false,
             score:
-              null,
+              initialScore,
             unavailable:
-              true,
+              initialScore ===
+              null,
           });
         }
       }
@@ -551,12 +684,9 @@ export default function DashboardPage() {
         );
 
         setReadiness({
-          loading:
-            false,
-          score:
-            null,
-          unavailable:
-            false,
+          loading: false,
+          score: null,
+          unavailable: false,
         });
       }
 
@@ -574,10 +704,9 @@ export default function DashboardPage() {
   /* =======================================================
      Dashboard Quest Hero roadmap
 
-     Dashboard only READS the user's canonical roadmap.
-
-     Premium timeline generation and mentor matching remain
-     owned by the existing Quest Tracker flow.
+     This only reads the canonical roadmap. Timeline generation
+     and the Premium mentor-match onboarding remain owned by the
+     existing Quest Tracker flow.
   ======================================================= */
 
   useEffect(
@@ -593,10 +722,8 @@ export default function DashboardPage() {
           !user
         ) {
           setRoadmapHero({
-            loading:
-              false,
-            roadmap:
-              null,
+            loading: false,
+            roadmap: null,
           });
 
           return;
@@ -607,24 +734,18 @@ export default function DashboardPage() {
             user,
           );
 
-        if (
-          !targetId
-        ) {
+        if (!targetId) {
           setRoadmapHero({
-            loading:
-              false,
-            roadmap:
-              null,
+            loading: false,
+            roadmap: null,
           });
 
           return;
         }
 
         setRoadmapHero({
-          loading:
-            true,
-          roadmap:
-            null,
+          loading: true,
+          roadmap: null,
         });
 
         try {
@@ -633,15 +754,12 @@ export default function DashboardPage() {
               targetId,
             );
 
-          if (
-            !active
-          ) {
+          if (!active) {
             return;
           }
 
           setRoadmapHero({
-            loading:
-              false,
+            loading: false,
             roadmap:
               access.roadmap,
           });
@@ -653,17 +771,13 @@ export default function DashboardPage() {
             roadmapError,
           );
 
-          if (
-            !active
-          ) {
+          if (!active) {
             return;
           }
 
           setRoadmapHero({
-            loading:
-              false,
-            roadmap:
-              null,
+            loading: false,
+            roadmap: null,
           });
         }
       }
@@ -756,9 +870,7 @@ export default function DashboardPage() {
           );
 
           const first =
-            unseen[
-              0
-            ];
+            unseen[0];
 
           const dateLabel =
             formattedReminderDeadline(
@@ -788,47 +900,34 @@ export default function DashboardPage() {
             await Swal.fire({
               icon:
                 "warning",
-
               title:
                 unseen.length ===
                   1
                   ? "Mentor task due tomorrow"
                   : `${unseen.length} mentor tasks due tomorrow`,
-
               text:
                 message,
-
               confirmButtonText:
                 "Open Quest Tracker",
-
               cancelButtonText:
                 "Later",
-
               showCancelButton:
                 true,
-
               reverseButtons:
                 true,
-
               confirmButtonColor:
                 "#16629b",
-
               cancelButtonColor:
                 "#8a735f",
-
               background:
                 "#ffffff",
-
               color:
                 "#2c1607",
-
               customClass: {
                 popup:
                   "rounded-[24px]",
-
                 confirmButton:
                   "rounded-xl px-5 py-2.5 font-bold",
-
                 cancelButton:
                   "rounded-xl px-5 py-2.5 font-bold",
               },
@@ -877,6 +976,58 @@ export default function DashboardPage() {
     milestone:
       RoadmapMilestone,
   ): void {
+    const milestoneId =
+      String(
+        milestone.id,
+      );
+
+    /*
+     * Starter checkpoint 1:
+     * only Assessment 1 itself uses the public initial-diagnostic
+     * route. If it is already completed, leave it as a completed
+     * visual checkpoint.
+     */
+    if (
+      milestoneId ===
+      ASSESSMENT_1_MILESTONE_ID
+    ) {
+      const assessment1Complete =
+        normalizeReadinessScore(
+          user?.readiness_score,
+        ) !==
+        null;
+
+      if (
+        !assessment1Complete
+      ) {
+        navigate(
+          INITIAL_ASSESSMENT_ROUTE,
+        );
+      }
+
+      return;
+    }
+
+    /*
+     * Starter checkpoint 2:
+     * keep the existing centered Assessment 2 popup.
+     */
+    if (
+      milestoneId ===
+      ASSESSMENT_2_MILESTONE_ID
+    ) {
+      if (
+        assessment2Complete !==
+        true
+      ) {
+        setAssessment2PopupOpen(
+          true,
+        );
+      }
+
+      return;
+    }
+
     const orderedMilestones =
       roadmapHero.roadmap
         ? [
@@ -901,17 +1052,9 @@ export default function DashboardPage() {
           String(
             candidate.id,
           ) ===
-          String(
-            milestone.id,
-          ),
+          milestoneId,
       );
 
-    /*
-     * Milestone 2 is Assessment 2.
-     *
-     * Keep this interaction on the Dashboard instead of
-     * immediately sending the user to another page.
-     */
     if (
       milestoneIndex ===
         1 &&
@@ -925,11 +1068,6 @@ export default function DashboardPage() {
       return;
     }
 
-    /*
-     * Fallback:
-     * if for some reason the milestone cannot be found in the
-     * currently loaded roadmap, open the full Quest Tracker.
-     */
     if (
       milestoneIndex <
       0
@@ -954,6 +1092,35 @@ export default function DashboardPage() {
     );
   }
 
+  const assessment1Complete =
+    normalizeReadinessScore(
+      user?.readiness_score,
+    ) !==
+    null;
+
+  /*
+   * First-signup behavior:
+   *
+   * If the backend does not yet have a scholarship roadmap, DO NOT
+   * show the old "open Quest Tracker" setup card/prompt.
+   *
+   * Immediately render the same curvy expedition trail with two
+   * assessment checkpoints:
+   *
+   * Assessment 1 -> completed only when /api/profile has readiness_score
+   * Assessment 2 -> current until the Deep Diagnostic exists
+   */
+  const displayedRoadmap =
+    roadmapHero.roadmap ??
+    (
+      user
+        ? buildAssessmentStarterRoadmap({
+            assessment1Complete,
+            assessment2Complete,
+          })
+        : null
+    );
+
   return (
     <>
       <UserLayout
@@ -973,7 +1140,7 @@ export default function DashboardPage() {
         ) : (
           <DashboardQuestHero
             roadmap={
-              roadmapHero.roadmap
+              displayedRoadmap
             }
             loading={
               roadmapHero.loading
