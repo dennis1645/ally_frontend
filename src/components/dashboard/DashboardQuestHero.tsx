@@ -28,6 +28,8 @@ type DashboardQuestHeroProps = {
   readinessScore: number | null;
   readinessLoading: boolean;
   assessment2Complete: boolean | null;
+  visibleMilestoneCount?: number | null;
+  fogLocked?: boolean;
   onOpenQuestTracker: () => void;
   onMilestoneSelect: (
     milestone: RoadmapMilestone,
@@ -116,6 +118,8 @@ export default function DashboardQuestHero({
   readinessScore,
   readinessLoading,
   assessment2Complete,
+  visibleMilestoneCount = null,
+  fogLocked = false,
   onOpenQuestTracker,
   onMilestoneSelect,
   onBookMentor,
@@ -208,7 +212,45 @@ export default function DashboardQuestHero({
 
         <div className="relative">
           <main className="min-w-0">
-            {loading ? (
+            {roadmap ? (
+              <div className="relative">
+                <AscentRoadmap
+                  roadmap={
+                    roadmap
+                  }
+                  variant="dashboard"
+                  scholarshipName={
+                    scholarshipName
+                  }
+                  specialSelectableMilestoneId={
+                    assessmentMilestoneId
+                  }
+                  dashboardVisibleMilestoneCount={
+                    visibleMilestoneCount
+                  }
+                  dashboardFogLocked={
+                    fogLocked
+                  }
+                  onMilestoneSelect={
+                    onMilestoneSelect
+                  }
+                />
+
+                {loading && (
+                  <div className="pointer-events-none absolute bottom-4 left-4 z-[24]">
+                    <div className="flex items-center gap-2 rounded-full border border-white/90 bg-white/90 px-3.5 py-2 text-[10px] font-extrabold text-[#16629b] shadow-lg backdrop-blur-md">
+                      <Loader2
+                        size={14}
+                        aria-hidden="true"
+                        className="animate-spin"
+                      />
+
+                      Updating your Premium expedition...
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : loading ? (
               <div className="grid min-h-[720px] place-items-center rounded-[26px] border border-[#c3d0d9] bg-[#dbeae7] shadow-[0_7px_0_#d8c6ae]">
                 <div className="rounded-[20px] border border-white/80 bg-white/90 px-5 py-4 text-center shadow-lg backdrop-blur">
                   <Loader2
@@ -222,22 +264,6 @@ export default function DashboardQuestHero({
                   </p>
                 </div>
               </div>
-            ) : roadmap ? (
-              <AscentRoadmap
-                roadmap={
-                  roadmap
-                }
-                variant="dashboard"
-                scholarshipName={
-                  scholarshipName
-                }
-                specialSelectableMilestoneId={
-                  assessmentMilestoneId
-                }
-                onMilestoneSelect={
-                  onMilestoneSelect
-                }
-              />
             ) : (
               <EmptyQuestMap
                 onOpenQuestTracker={

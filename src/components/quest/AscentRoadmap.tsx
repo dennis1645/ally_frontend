@@ -40,6 +40,25 @@ export type AscentRoadmapProps = {
   scholarshipName?:
     | string
     | null;
+
+  /*
+   * Dashboard progressive reveal.
+   *
+   * Milestones after this count remain rendered but are intentionally
+   * covered by the upper fog layer.
+   */
+  dashboardVisibleMilestoneCount?:
+    | number
+    | null;
+
+  /*
+   * Free-preview fog gate.
+   *
+   * true  -> upper roadmap is heavily clouded.
+   * false -> no fog; full roadmap is visible.
+   */
+  dashboardFogLocked?:
+    boolean;
 };
 
 type RoadmapPoint = {
@@ -1098,6 +1117,8 @@ function DashboardVerticalRoadmap({
   selectedMilestoneId,
   onMilestoneSelect,
   specialSelectableMilestoneId,
+  visibleMilestoneCount,
+  fogLocked,
 }: {
   roadmap: RoadmapData;
   selectedMilestoneId:
@@ -1109,6 +1130,13 @@ function DashboardVerticalRoadmap({
   specialSelectableMilestoneId:
     | RoadmapEntityId
     | null;
+
+  visibleMilestoneCount:
+    | number
+    | null;
+
+  fogLocked:
+    boolean;
 }) {
   const milestones =
     [
@@ -1224,6 +1252,129 @@ function DashboardVerticalRoadmap({
       goalPoint,
       mapSize,
     );
+
+  const normalizedVisibleCount =
+    visibleMilestoneCount ===
+      null
+      ? milestones.length
+      : Math.max(
+          0,
+          Math.min(
+            milestones.length,
+            Math.floor(
+              visibleMilestoneCount,
+            ),
+          ),
+        );
+
+  /*
+   * Fog is a PRODUCT GATE, not merely a "there are hidden rows" state.
+   *
+   * After Assessment 2, free users always see dense fog on the upper
+   * expedition map even if the backend currently returns only the two
+   * preview generator milestones. This makes the premium unlock visually
+   * obvious and keeps the unrevealed trail intentionally mysterious.
+   */
+  const hasFoggedFuture =
+    fogLocked;
+
+  /*
+   * Stop the fog ABOVE the fourth visible checkpoint.
+   *
+   * Assessment 1, Assessment 2, generated milestone 1, and generated
+   * milestone 2 stay completely readable. Everything farther up the map
+   * is under the cloud bank.
+   */
+  const fogHeight =
+    (() => {
+      if (
+        !fogLocked ||
+        mapSize.height <=
+          0
+      ) {
+        return 0;
+      }
+
+      const lastVisiblePoint =
+        trailPoints[
+          Math.max(
+            0,
+            normalizedVisibleCount -
+              1,
+          )
+        ];
+
+      if (!lastVisiblePoint) {
+        return Math.round(
+          mapSize.height *
+            0.52,
+        );
+      }
+
+      const lastVisibleTop =
+        Number.parseFloat(
+          dashboardPointStyle(
+            lastVisiblePoint,
+            mapSize,
+          ).top,
+        );
+
+      const firstHiddenPoint =
+        trailPoints[
+          normalizedVisibleCount
+        ];
+
+      if (firstHiddenPoint) {
+        const firstHiddenTop =
+          Number.parseFloat(
+            dashboardPointStyle(
+              firstHiddenPoint,
+              mapSize,
+            ).top,
+          );
+
+        /*
+         * Let the soft cloud edge drift slightly over checkpoint 4.
+         *
+         * The dense part still hides checkpoint 5+, but the feathered
+         * lower cloud can overlap the top of milestone 4 just like the
+         * supplied visual reference.
+         */
+        const midpoint =
+          (
+            lastVisibleTop +
+            firstHiddenTop
+          ) /
+          2;
+
+        return Math.max(
+          0,
+          Math.min(
+            mapSize.height,
+            Math.max(
+              midpoint +
+                48,
+              lastVisibleTop +
+                58,
+            ),
+          ),
+        );
+      }
+
+      /*
+       * If the free backend preview currently contains only four total
+       * checkpoints, still cloud the upper map. Leave a generous clear
+       * halo above checkpoint 4.
+       */
+      return Math.max(
+        0,
+        Math.min(
+          mapSize.height,
+          lastVisibleTop +
+            64,
+        ),
+      );
+    })();
 
   return (
     <section
@@ -1356,7 +1507,18 @@ function DashboardVerticalRoadmap({
                   milestone.id,
                 )
               }
-              className="absolute z-20"
+              className={
+                index <
+                normalizedVisibleCount
+                  ? "absolute z-20"
+                  : "absolute z-[15]"
+              }
+              aria-hidden={
+                index >=
+                normalizedVisibleCount
+                  ? true
+                  : undefined
+              }
               style={{
                 ...pointStyle,
                 transform:
@@ -1377,19 +1539,28 @@ function DashboardVerticalRoadmap({
                     )
                   }
                   forceSelectable={
+                    index <
+                      normalizedVisibleCount &&
                     forceSelectable
                   }
                   onSelect={
-                    onMilestoneSelect
+                    index <
+                    normalizedVisibleCount
+                      ? onMilestoneSelect
+                      : undefined
                   }
                 />
 
                 <button
                   type="button"
                   disabled={
-                    milestone.status ===
-                      "locked" &&
-                    !forceSelectable
+                    index >=
+                      normalizedVisibleCount ||
+                    (
+                      milestone.status ===
+                        "locked" &&
+                      !forceSelectable
+                    )
                   }
                   onClick={() => {
                     onMilestoneSelect?.(
@@ -1446,9 +1617,109 @@ function DashboardVerticalRoadmap({
         },
       )}
 
+      {hasFoggedFuture &&
+        fogHeight >
+          0 && (
+        <div
+          aria-label="Premium roadmap area hidden in soft expedition clouds"
+          className="pointer-events-none absolute inset-x-0 top-0 z-[22] overflow-hidden"
+          style={{
+            height:
+              `${fogHeight}px`,
+
+            /*
+             * No hard rectangular bottom edge.
+             *
+             * The whole cloud bank fades naturally into the visible map.
+             * The roadmap section itself already has overflow-hidden, so
+             * this mist can never escape outside the map card.
+             */
+            WebkitMaskImage:
+              "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 76%, rgba(0,0,0,0.86) 84%, rgba(0,0,0,0.52) 93%, transparent 100%)",
+
+            maskImage:
+              "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 76%, rgba(0,0,0,0.86) 84%, rgba(0,0,0,0.52) 93%, transparent 100%)",
+          }}
+        >
+          {/*
+           * Dense mist layer.
+           *
+           * It is intentionally opaque at the top so hidden milestones,
+           * Submission Gate, and the upper trail cannot be read through it.
+           * It becomes progressively translucent toward the bottom.
+           */}
+          <div
+            className="absolute inset-0 backdrop-blur-[11px]"
+            style={{
+              background: [
+                "radial-gradient(ellipse 46% 28% at 4% 72%, rgba(255,255,255,0.98) 0%, rgba(248,252,252,0.93) 45%, transparent 74%)",
+                "radial-gradient(ellipse 42% 30% at 29% 78%, rgba(255,255,255,0.98) 0%, rgba(243,249,250,0.92) 47%, transparent 76%)",
+                "radial-gradient(ellipse 45% 28% at 56% 72%, rgba(255,255,255,0.97) 0%, rgba(246,250,251,0.91) 48%, transparent 77%)",
+                "radial-gradient(ellipse 44% 30% at 84% 78%, rgba(255,255,255,0.99) 0%, rgba(241,248,249,0.92) 48%, transparent 77%)",
+                "radial-gradient(ellipse 38% 24% at 105% 68%, rgba(255,255,255,0.98) 0%, rgba(244,250,250,0.90) 46%, transparent 76%)",
+                "linear-gradient(to bottom, rgba(249,252,253,0.995) 0%, rgba(244,249,250,0.99) 48%, rgba(239,247,248,0.94) 70%, rgba(247,251,251,0.66) 88%, rgba(255,255,255,0) 100%)",
+              ].join(
+                ", ",
+              ),
+            }}
+          />
+
+          {/* Upper cloud masses — these make the covered map truly cloudy. */}
+          <div className="absolute -left-[16%] -top-[22%] h-[54%] w-[58%] rounded-[50%] bg-white blur-[34px]" />
+          <div className="absolute left-[8%] -top-[18%] h-[48%] w-[52%] rounded-[50%] bg-[#f6fbfc] blur-[38px]" />
+          <div className="absolute left-[38%] -top-[20%] h-[54%] w-[54%] rounded-[50%] bg-white blur-[42px]" />
+          <div className="absolute -right-[18%] -top-[16%] h-[58%] w-[58%] rounded-[50%] bg-[#f5fafb] blur-[40px]" />
+
+          {/* Mid-map fog banks. */}
+          <div className="absolute -left-[10%] top-[22%] h-[42%] w-[50%] rounded-[50%] bg-[#f7fbfc]/95 blur-[34px]" />
+          <div className="absolute left-[18%] top-[25%] h-[44%] w-[54%] rounded-[50%] bg-white/95 blur-[40px]" />
+          <div className="absolute left-[52%] top-[20%] h-[48%] w-[50%] rounded-[50%] bg-[#eff7f8]/95 blur-[38px]" />
+          <div className="absolute -right-[12%] top-[28%] h-[44%] w-[48%] rounded-[50%] bg-white/95 blur-[36px]" />
+
+          {/*
+           * Organic lower cloud edge.
+           *
+           * These puffs sit around the bottom of the fog bank at different
+           * heights, preventing the "hard white rectangle" appearance.
+           */}
+          <div className="absolute -left-[12%] bottom-[-34px] h-36 w-[36%] rounded-[50%] bg-white/95 blur-2xl" />
+          <div className="absolute left-[12%] bottom-[-14px] h-28 w-[30%] rounded-[50%] bg-[#f5fafb]/95 blur-2xl" />
+          <div className="absolute left-[34%] bottom-[-42px] h-40 w-[34%] rounded-[50%] bg-white/95 blur-3xl" />
+          <div className="absolute left-[60%] bottom-[-18px] h-32 w-[31%] rounded-[50%] bg-[#eef6f7]/95 blur-2xl" />
+          <div className="absolute -right-[13%] bottom-[-44px] h-40 w-[34%] rounded-[50%] bg-white/95 blur-3xl" />
+
+          {/* Fine haze makes the cloud feel continuous rather than separate circles. */}
+          <div
+            className="absolute inset-x-0 bottom-0 h-[46%]"
+            style={{
+              background:
+                "linear-gradient(to bottom, rgba(255,255,255,0.18) 0%, rgba(248,252,252,0.58) 42%, rgba(255,255,255,0.42) 67%, rgba(255,255,255,0) 100%)",
+            }}
+          />
+
+          {/*
+           * Keep the premium hint subtle and embedded in the fog,
+           * matching the reference rather than showing a separate card.
+           */}
+          <div className="absolute left-1/2 top-7 -translate-x-1/2 text-center opacity-55">
+            <p className="text-[8px] font-extrabold uppercase tracking-[0.18em] text-[#76878d]">
+              Journey Beyond This Point
+            </p>
+
+            <p className="mt-1 text-[9px] font-bold text-[#7893a0]">
+              Unlock the full roadmap with Premium
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Scholarship goal / Submission Gate */}
       <div
-        className="absolute z-20"
+        className={
+          hasFoggedFuture
+            ? "absolute z-[15]"
+            : "absolute z-20"
+        }
         style={{
           ...goalStyle,
           transform:
@@ -1489,6 +1760,8 @@ export default function AscentRoadmap({
   specialSelectableMilestoneId = null,
   variant = "full",
   scholarshipName = null,
+  dashboardVisibleMilestoneCount = null,
+  dashboardFogLocked = false,
 }: AscentRoadmapProps) {
   if (
     variant ===
@@ -1507,6 +1780,12 @@ export default function AscentRoadmap({
         }
         specialSelectableMilestoneId={
           specialSelectableMilestoneId
+        }
+        visibleMilestoneCount={
+          dashboardVisibleMilestoneCount
+        }
+        fogLocked={
+          dashboardFogLocked
         }
       />
     );

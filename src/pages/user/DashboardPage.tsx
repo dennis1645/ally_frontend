@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -19,9 +20,14 @@ import {
 } from "../../api/apiClient";
 
 import {
+  clearPremiumTimelineGenerationMarker,
+  generateFullPremiumRoadmap,
   getRoadmapAccess,
+  hasPremiumTimelineGenerationMarker,
+  loadOrGenerateRoadmap,
   parseScholarshipId,
   type RoadmapData,
+  type RoadmapLoadOptions,
   type RoadmapMilestone,
 } from "../../api/roadmapApi";
 
@@ -202,6 +208,78 @@ function buildAssessmentStarterRoadmap({
         tasks:
           [],
       },
+    ],
+  };
+}
+
+/*
+ * After Assessment 2 is complete, the dashboard keeps the two
+ * assessment checkpoints at the beginning of the expedition and
+ * appends the canonical roadmap-generator milestones after them.
+ *
+ * We intentionally keep ALL generated milestones in this RoadmapData.
+ * AscentRoadmap will show the first four checkpoints and physically
+ * render the remaining milestones underneath the upper fog layer.
+ */
+function buildProgressiveDashboardRoadmap({
+  backendRoadmap,
+  assessment1Complete,
+  assessment2Complete,
+}: {
+  backendRoadmap: RoadmapData | null;
+  assessment1Complete: boolean;
+  assessment2Complete: boolean | null;
+}): RoadmapData {
+  const assessmentRoadmap =
+    buildAssessmentStarterRoadmap({
+      assessment1Complete,
+      assessment2Complete,
+    });
+
+  if (
+    assessment2Complete !==
+      true ||
+    !backendRoadmap
+  ) {
+    return assessmentRoadmap;
+  }
+
+  const generatedMilestones =
+    [
+      ...backendRoadmap.milestones,
+    ]
+      .sort(
+        (
+          first,
+          second,
+        ) =>
+          first.order -
+          second.order,
+      )
+      .map(
+        (
+          milestone,
+          index,
+        ) => ({
+          ...milestone,
+
+          /*
+           * Assessment 1 and Assessment 2 own positions 1 and 2.
+           * Generated roadmap checkpoints begin at position 3.
+           */
+          order:
+            index +
+            3,
+        }),
+      );
+
+  return {
+    scholarshipId:
+      backendRoadmap.scholarshipId,
+
+    milestones: [
+      ...assessmentRoadmap.milestones,
+      ...generatedMilestones,
     ],
   };
 }
@@ -501,6 +579,137 @@ function getUserScholarshipId(
   return null;
 }
 
+function getRoadmapOptions(
+  user: AuthUser,
+): RoadmapLoadOptions {
+  return {
+    userId:
+      user.id,
+
+    isPremium:
+      user.is_premium ===
+      true,
+
+    premiumUntil:
+      typeof user.premium_until ===
+        "string"
+        ? user.premium_until
+        : null,
+  };
+}
+
+/*
+ * Dashboard auto-generates the full Premium timeline after payment,
+ * while QuestTracker uses an explicit button.
+ *
+ * React StrictMode can mount effects twice in development, so keep a
+ * module-level lock around the explicit premium generator call. The
+ * underlying roadmap API still owns canonical persistence/markers.
+ */
+const dashboardPremiumGenerationLocks =
+  new Map<
+    string,
+    Promise<RoadmapData>
+  >();
+
+function premiumGenerationKey(
+  profile: AuthUser,
+  scholarshipId: number,
+): string {
+  return [
+    String(
+      profile.id,
+    ),
+    String(
+      scholarshipId,
+    ),
+    typeof profile.premium_until ===
+      "string"
+      ? profile.premium_until
+      : "premium-active",
+  ].join(
+    ":",
+  );
+}
+
+async function ensureDashboardPremiumRoadmap(
+  profile: AuthUser,
+  scholarshipId: number,
+): Promise<RoadmapData> {
+  const options =
+    getRoadmapOptions(
+      profile,
+    );
+
+  /*
+   * SAME decision used by QuestTracker:
+   *
+   * If the full-timeline marker already exists, GET the canonical
+   * milestones and use them directly.
+   */
+  const currentAccess =
+    await getRoadmapAccess(
+      scholarshipId,
+    );
+
+  if (
+    hasPremiumTimelineGenerationMarker(
+      options,
+      scholarshipId,
+    ) &&
+    currentAccess.roadmap
+  ) {
+    return currentAccess.roadmap;
+  }
+
+  const lockKey =
+    premiumGenerationKey(
+      profile,
+      scholarshipId,
+    );
+
+  const existing =
+    dashboardPremiumGenerationLocks.get(
+      lockKey,
+    );
+
+  if (existing) {
+    return existing;
+  }
+
+  /*
+   * SAME explicit generator used by QuestTracker's
+   * handleGenerateFullTimeline().
+   *
+   * This is important because it does NOT short-circuit just because
+   * the free preview milestones already exist.
+   */
+  const request =
+    generateFullPremiumRoadmap(
+      scholarshipId,
+      options,
+    ).then(
+      (
+        generated,
+      ) =>
+        generated.roadmap,
+    );
+
+  dashboardPremiumGenerationLocks.set(
+    lockKey,
+    request,
+  );
+
+  try {
+    return await request;
+  } finally {
+    dashboardPremiumGenerationLocks.delete(
+      lockKey,
+    );
+  }
+}
+
+
 export default function DashboardPage() {
   const navigate =
     useNavigate();
@@ -508,6 +717,7 @@ export default function DashboardPage() {
   const {
     user,
     status,
+    refreshProfile,
   } = useAuth();
 
   const [
@@ -543,6 +753,28 @@ export default function DashboardPage() {
   ] =
     useState(
       false,
+    );
+
+  /*
+   * This comes from the freshly re-read GET /api/profile used by the
+   * Quest Tracker flow. It avoids relying on a stale pre-payment
+   * AuthContext value while the Dashboard is synchronizing Premium.
+   */
+  const [
+    roadmapPremiumActive,
+    setRoadmapPremiumActive,
+  ] =
+    useState<boolean | null>(
+      null,
+    );
+
+  /*
+   * Prevent a stale async dashboard request from overwriting a newer
+   * Premium/full-timeline result.
+   */
+  const roadmapRequestVersionRef =
+    useRef(
+      0,
     );
 
   /* =======================================================
@@ -704,13 +936,29 @@ export default function DashboardPage() {
   /* =======================================================
      Dashboard Quest Hero roadmap
 
-     This only reads the canonical roadmap. Timeline generation
-     and the Premium mentor-match onboarding remain owned by the
-     existing Quest Tracker flow.
+     Premium sync intentionally mirrors QuestTrackerPage:
+
+     1. refreshProfile()
+     2. resolve target_scholarship_id
+     3. GET canonical milestones
+     4. free -> reuse/generate preview
+     5. premium + no full-timeline marker ->
+        generateFullPremiumRoadmap()
+     6. premium + marker -> reuse canonical full roadmap
+
+     Unlike the old Dashboard effect, we never clear the currently visible
+     preview roadmap while the Premium timeline is being generated.
   ======================================================= */
 
   useEffect(
     () => {
+      const requestVersion =
+        roadmapRequestVersionRef.current +
+        1;
+
+      roadmapRequestVersionRef.current =
+        requestVersion;
+
       let active =
         true;
 
@@ -721,64 +969,224 @@ export default function DashboardPage() {
             "authenticated" ||
           !user
         ) {
-          setRoadmapHero({
-            loading: false,
-            roadmap: null,
-          });
-
-          return;
-        }
-
-        const targetId =
-          getUserScholarshipId(
-            user,
+          setRoadmapPremiumActive(
+            null,
           );
 
-        if (!targetId) {
           setRoadmapHero({
-            loading: false,
-            roadmap: null,
+            loading:
+              false,
+            roadmap:
+              null,
           });
 
           return;
         }
 
-        setRoadmapHero({
-          loading: true,
-          roadmap: null,
-        });
+        /*
+         * Preserve the current preview map during profile refresh / premium
+         * generation. This prevents the Dashboard from visually collapsing
+         * back to only Assessment 1 + Assessment 2 after payment.
+         */
+        setRoadmapHero(
+          (
+            current,
+          ) => ({
+            loading:
+              true,
+            roadmap:
+              current.roadmap,
+          }),
+        );
 
         try {
-          const access =
-            await getRoadmapAccess(
+          /*
+           * SAME as QuestTracker:
+           * refresh GET /api/profile before making any Premium decision.
+           */
+          let latestProfile =
+            user;
+
+          try {
+            latestProfile =
+              await refreshProfile();
+          } catch (
+            profileError
+          ) {
+            console.warn(
+              "[Dashboard] Could not refresh profile before roadmap sync; using current AuthContext profile:",
+              profileError,
+            );
+          }
+
+          if (
+            !active ||
+            roadmapRequestVersionRef.current !==
+              requestVersion
+          ) {
+            return;
+          }
+
+          const targetId =
+            getUserScholarshipId(
+              latestProfile,
+            );
+
+          const premiumActive =
+            latestProfile.is_premium ===
+            true;
+
+          setRoadmapPremiumActive(
+            premiumActive,
+          );
+
+          if (!targetId) {
+            setRoadmapHero(
+              (
+                current,
+              ) => ({
+                loading:
+                  false,
+                roadmap:
+                  current.roadmap,
+              }),
+            );
+
+            return;
+          }
+
+          /*
+           * Before Assessment 2 is complete, never generate a scholarship
+           * roadmap. Keep the two assessment checkpoints as the starter map.
+           */
+          if (
+            assessment2Complete !==
+            true
+          ) {
+            const access =
+              await getRoadmapAccess(
+                targetId,
+              );
+
+            if (
+              !active ||
+              roadmapRequestVersionRef.current !==
+                requestVersion
+            ) {
+              return;
+            }
+
+            setRoadmapHero({
+              loading:
+                false,
+              roadmap:
+                access.roadmap,
+            });
+
+            return;
+          }
+
+          const options =
+            getRoadmapOptions(
+              latestProfile,
+            );
+
+          let nextRoadmap:
+            RoadmapData;
+
+          if (
+            premiumActive
+          ) {
+            /*
+             * PREMIUM:
+             * replicate QuestTracker's full-timeline API path.
+             *
+             * If the user has just paid and only the old 2-milestone preview
+             * exists, generateFullPremiumRoadmap() explicitly POSTs the
+             * generator again and then reloads the canonical expanded tree.
+             */
+            nextRoadmap =
+              await ensureDashboardPremiumRoadmap(
+                latestProfile,
+                targetId,
+              );
+          } else {
+            /*
+             * FREE:
+             * replicate QuestTracker's preview path.
+             */
+            clearPremiumTimelineGenerationMarker(
+              options,
               targetId,
             );
 
-          if (!active) {
+            const access =
+              await getRoadmapAccess(
+                targetId,
+              );
+
+            if (
+              access.roadmap
+            ) {
+              nextRoadmap =
+                access.roadmap;
+            } else {
+              const preview =
+                await loadOrGenerateRoadmap(
+                  targetId,
+                  options,
+                );
+
+              nextRoadmap =
+                preview.roadmap;
+            }
+          }
+
+          if (
+            !active ||
+            roadmapRequestVersionRef.current !==
+              requestVersion
+          ) {
             return;
           }
 
           setRoadmapHero({
-            loading: false,
+            loading:
+              false,
             roadmap:
-              access.roadmap,
+              nextRoadmap,
           });
         } catch (
           roadmapError
         ) {
           console.warn(
-            "[Dashboard] Unable to load Quest Tracker hero:",
+            "[Dashboard] Unable to synchronize Quest Tracker roadmap:",
             roadmapError,
           );
 
-          if (!active) {
+          if (
+            !active ||
+            roadmapRequestVersionRef.current !==
+              requestVersion
+          ) {
             return;
           }
 
-          setRoadmapHero({
-            loading: false,
-            roadmap: null,
-          });
+          /*
+           * Do NOT replace the existing preview/full roadmap with null.
+           * Keeping the last successful roadmap prevents the UI from
+           * falling back to only the two local assessment checkpoints.
+           */
+          setRoadmapHero(
+            (
+              current,
+            ) => ({
+              loading:
+                false,
+              roadmap:
+                current.roadmap,
+            }),
+          );
         }
       }
 
@@ -790,8 +1198,13 @@ export default function DashboardPage() {
       };
     },
     [
+      assessment2Complete,
+      refreshProfile,
       status,
-      user,
+      user?.id,
+      user?.is_premium,
+      user?.premium_until,
+      user?.target_scholarship_id,
     ],
   );
 
@@ -1111,15 +1524,64 @@ export default function DashboardPage() {
    * Assessment 2 -> current until the Deep Diagnostic exists
    */
   const displayedRoadmap =
-    roadmapHero.roadmap ??
+    user
+      ? buildProgressiveDashboardRoadmap({
+          backendRoadmap:
+            roadmapHero.roadmap,
+
+          assessment1Complete,
+
+          assessment2Complete,
+        })
+      : null;
+
+  /*
+   * Progressive dashboard reveal:
+   *
+   * 1. Assessment 1
+   * 2. Assessment 2
+   * 3. Generated roadmap milestone 1
+   * 4. Generated roadmap milestone 2
+   *
+   * Any generated milestones after #4 stay mounted on the upper trail,
+   * but AscentRoadmap covers them with the fog layer.
+   */
+  const effectivePremiumActive =
+    roadmapPremiumActive ??
     (
-      user
-        ? buildAssessmentStarterRoadmap({
-            assessment1Complete,
-            assessment2Complete,
-          })
-        : null
+      user?.is_premium ===
+      true
     );
+
+  /*
+   * Free users keep the cloud gate.
+   *
+   * A newly upgraded Premium user also keeps the cloud briefly while the
+   * explicit full-timeline generator is still running. The preview map
+   * remains visible underneath. As soon as the canonical expanded roadmap
+   * returns, loading becomes false and the clouds disappear with all
+   * generated milestones intact.
+   */
+  const dashboardFogLocked =
+    assessment2Complete ===
+      true &&
+    (
+      !effectivePremiumActive ||
+      (
+        effectivePremiumActive &&
+        roadmapHero.loading
+      )
+    );
+
+  const dashboardVisibleMilestoneCount =
+    displayedRoadmap
+      ? dashboardFogLocked
+        ? Math.min(
+            4,
+            displayedRoadmap.milestones.length,
+          )
+        : displayedRoadmap.milestones.length
+      : 0;
 
   return (
     <>
@@ -1156,6 +1618,12 @@ export default function DashboardPage() {
             }
             assessment2Complete={
               assessment2Complete
+            }
+            visibleMilestoneCount={
+              dashboardVisibleMilestoneCount
+            }
+            fogLocked={
+              dashboardFogLocked
             }
             onOpenQuestTracker={
               handleContinueJourney

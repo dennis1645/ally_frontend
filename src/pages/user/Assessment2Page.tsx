@@ -26,6 +26,10 @@ import {
 } from "../../api/deepDiagnosticApi";
 
 import {
+  loadOrGenerateRoadmap,
+} from "../../api/roadmapApi";
+
+import {
   ApiError,
 } from "../../api/apiClient";
 
@@ -936,53 +940,115 @@ export default function Assessment2Page() {
 
     try {
       /*
-       * Persist the user's explicit recommendation choice first.
-       *
-       * POST /api/deep-diagnostic/choose-recommendation
-       * {
-       *   accept: true,
-       *   scholarship_id: scholarshipId
-       * }
-       */
-      await chooseDeepDiagnosticRecommendation(
-        scholarshipId,
-        true,
-      );
-
-      /*
-       * Refresh the canonical profile so target_scholarship_id and
-       * is_premium are current before Quest Tracker opens.
-       *
-       * Timeline generation itself is intentionally handled on /quests.
-       * Premium users get an explicit "Generate My Full Timeline" CTA
-       * there instead of silently relying on a background POST.
+       * STEP 1
+       * Persist the user's accepted recommendation.
        */
       try {
-        await refreshProfile();
+        await chooseDeepDiagnosticRecommendation(
+          scholarshipId,
+          true,
+        );
       } catch (
-        profileError
+        error
+      ) {
+        console.error(
+          "[Deep Diagnostic] Unable to accept scholarship recommendation:",
+          error,
+        );
+
+        setRecommendationError(
+          error instanceof Error
+            ? error.message
+            : "That scholarship could not be selected yet. Please try again.",
+        );
+
+        return;
+      }
+
+      /*
+       * STEP 2
+       * Refresh GET /api/profile BEFORE deciding how to generate.
+       *
+       * This gives us the canonical:
+       * - is_premium
+       * - target_scholarship_id
+       * - premium_until
+       */
+      let latestProfile =
+        user;
+
+      try {
+        latestProfile =
+          await refreshProfile();
+      } catch (
+        error
       ) {
         console.warn(
-          "[Deep Diagnostic] Scholarship was accepted, but profile refresh failed:",
-          profileError,
+          "[Deep Diagnostic] Scholarship was selected, but profile refresh failed. Falling back to the current session profile:",
+          error,
         );
       }
 
-      navigate(
-        "/quests",
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "[Deep Diagnostic] Unable to accept scholarship recommendation:",
-        error,
-      );
+      /*
+       * STEP 3
+       * Ensure the roadmap for the accepted scholarship.
+       *
+       * If latestProfile.is_premium === true, roadmapApi will POST
+       * /api/milestones/generate once even when a free-preview roadmap
+       * already exists. That expands/rebuilds the full premium timeline.
+       *
+       * If the user is still free, the normal preview roadmap behavior
+       * is preserved.
+       */
+      try {
+        await loadOrGenerateRoadmap(
+          scholarshipId,
+          {
+            userId:
+              latestProfile.id,
+            isPremium:
+              latestProfile.is_premium ===
+              true,
+            premiumUntil:
+              typeof latestProfile.premium_until ===
+                "string"
+                ? latestProfile.premium_until
+                : null,
+          },
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          "[Deep Diagnostic] Scholarship was accepted, but roadmap generation/loading failed:",
+          error,
+        );
 
-      setRecommendationError(
-        error instanceof Error
-          ? error.message
-          : "That scholarship could not be selected yet. Please try again.",
+        setRecommendationError(
+          error instanceof Error
+            ? `Your scholarship was selected, but Ally could not finish building the roadmap yet. ${error.message}`
+            : "Your scholarship was selected, but Ally could not finish building the roadmap yet. Please try again.",
+        );
+
+        return;
+      }
+
+      /*
+       * STEP 4
+       *
+       * The generated canonical milestones are ready. Send the user directly
+       * back to the Dashboard so the curvy expedition trail can immediately
+       * reveal:
+       *
+       * Assessment 1
+       * Assessment 2
+       * Generated milestone 1
+       * Generated milestone 2
+       *
+       * The remaining generated checkpoints stay above them under fog.
+       */
+      navigate(
+        "/dashboard",
       );
     } finally {
       setChoosingScholarshipId(
