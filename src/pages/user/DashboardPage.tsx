@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -27,9 +28,15 @@ import {
   loadOrGenerateRoadmap,
   parseScholarshipId,
   type RoadmapData,
+  type RoadmapEntityId,
   type RoadmapLoadOptions,
   type RoadmapMilestone,
 } from "../../api/roadmapApi";
+
+import {
+  matchMentorApi,
+  type MentorMatchResult,
+} from "../../api/coachingApi";
 
 import {
   getUpcomingReminders,
@@ -39,6 +46,10 @@ import {
 
 import DashboardQuestHero from "../../components/dashboard/DashboardQuestHero";
 import Assessment2MilestonePopup from "../../components/assessment/Assessment2MilestonePopup";
+import MentorMatchModal, {
+  type MentorMatchModalState,
+} from "../../components/quest/MentorMatchModal";
+import RoadmapTaskPanel from "../../components/quest/RoadmapTaskPanel";
 
 import UserLayout from "../../components/layout/UserLayout";
 
@@ -69,11 +80,238 @@ type RoadmapHeroState = {
   roadmap: RoadmapData | null;
 };
 
+type DashboardDeadlineState = {
+  loading: boolean;
+  reminder: Reminder | null;
+};
+
 const ASSESSMENT_1_MILESTONE_ID =
   "dashboard-assessment-1";
 
 const ASSESSMENT_2_MILESTONE_ID =
   "dashboard-assessment-2";
+
+const PREMIUM_MENTOR_MATCH_CACHE_PREFIX =
+  "ally.premium-mentor-match";
+
+const PREMIUM_MENTOR_MATCH_SEEN_PREFIX =
+  "ally.premium-mentor-match-seen";
+
+function getPremiumMentorMatchKey(
+  prefix: string,
+  user: AuthUser,
+  scholarshipId: number,
+): string {
+  const premiumFingerprint =
+    typeof user.premium_until ===
+      "string" &&
+    user.premium_until.trim()
+      ? user.premium_until.trim()
+      : "premium-active";
+
+  return [
+    prefix,
+    String(
+      user.id,
+    ),
+    premiumFingerprint,
+    String(
+      scholarshipId,
+    ),
+  ].join(
+    ":",
+  );
+}
+
+function getCachedMentorMatch(
+  user: AuthUser,
+  scholarshipId: number,
+): MentorMatchResult | null {
+  try {
+    const raw =
+      window.localStorage.getItem(
+        getPremiumMentorMatchKey(
+          PREMIUM_MENTOR_MATCH_CACHE_PREFIX,
+          user,
+          scholarshipId,
+        ),
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(
+        raw,
+      ) as unknown;
+
+    if (
+      !isRecord(
+        parsed,
+      ) ||
+      typeof parsed.name !==
+        "string" ||
+      !parsed.name.trim()
+    ) {
+      return null;
+    }
+
+    return {
+      id:
+        typeof parsed.id ===
+          "string" ||
+        typeof parsed.id ===
+          "number"
+          ? parsed.id
+          : null,
+
+      name:
+        parsed.name.trim(),
+
+      headline:
+        typeof parsed.headline ===
+          "string"
+          ? parsed.headline
+          : null,
+
+      specialization:
+        typeof parsed.specialization ===
+          "string"
+          ? parsed.specialization
+          : null,
+
+      scholarship:
+        typeof parsed.scholarship ===
+          "string"
+          ? parsed.scholarship
+          : null,
+
+      university:
+        typeof parsed.university ===
+          "string"
+          ? parsed.university
+          : null,
+
+      field:
+        typeof parsed.field ===
+          "string"
+          ? parsed.field
+          : null,
+
+      profilePictureUrl:
+        typeof parsed.profilePictureUrl ===
+          "string"
+          ? parsed.profilePictureUrl
+          : null,
+
+      matchScore:
+        typeof parsed.matchScore ===
+          "number" &&
+        Number.isFinite(
+          parsed.matchScore,
+        )
+          ? parsed.matchScore
+          : null,
+
+      matchReasons:
+        Array.isArray(
+          parsed.matchReasons,
+        )
+          ? parsed.matchReasons.filter(
+              (
+                reason,
+              ): reason is string =>
+                typeof reason ===
+                  "string" &&
+                Boolean(
+                  reason.trim(),
+                ),
+            )
+          : [],
+
+      message:
+        typeof parsed.message ===
+          "string"
+          ? parsed.message
+          : null,
+
+      raw:
+        isRecord(
+          parsed.raw,
+        )
+          ? parsed.raw
+          : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function storeCachedMentorMatch(
+  user: AuthUser,
+  scholarshipId: number,
+  match: MentorMatchResult,
+): void {
+  try {
+    window.localStorage.setItem(
+      getPremiumMentorMatchKey(
+        PREMIUM_MENTOR_MATCH_CACHE_PREFIX,
+        user,
+        scholarshipId,
+      ),
+      JSON.stringify(
+        match,
+      ),
+    );
+  } catch {
+    /*
+     * The backend mentor match already succeeded.
+     * Cache failure should not block the Premium experience.
+     */
+  }
+}
+
+function hasSeenPremiumMentorMatch(
+  user: AuthUser,
+  scholarshipId: number,
+): boolean {
+  try {
+    return (
+      window.localStorage.getItem(
+        getPremiumMentorMatchKey(
+          PREMIUM_MENTOR_MATCH_SEEN_PREFIX,
+          user,
+          scholarshipId,
+        ),
+      ) ===
+      "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function markPremiumMentorMatchSeen(
+  user: AuthUser,
+  scholarshipId: number,
+): void {
+  try {
+    window.localStorage.setItem(
+      getPremiumMentorMatchKey(
+        PREMIUM_MENTOR_MATCH_SEEN_PREFIX,
+        user,
+        scholarshipId,
+      ),
+      "1",
+    );
+  } catch {
+    /*
+     * Non-critical. If browser storage is unavailable, the celebration
+     * may appear again on a later visit.
+     */
+  }
+}
 
 function normalizeReadinessScore(
   value: unknown,
@@ -295,6 +533,18 @@ const h1MentorReminderRequests =
     Promise<Reminder[]>
   >();
 
+/*
+ * Separate read-only cache for the compact deadline overlay.
+ *
+ * Keep this independent from the existing H-1 mentor alert so the
+ * reminder popup behavior remains unchanged.
+ */
+const dashboardDeadlineRequests =
+  new Map<
+    string,
+    Promise<Reminder[]>
+  >();
+
 function localDateKey():
   string {
   const today =
@@ -364,6 +614,86 @@ function getH1MentorReminders(
       );
 
   h1MentorReminderRequests.set(
+    requestKey,
+    request,
+  );
+
+  return request;
+}
+
+function getDashboardDeadlineReminders(
+  userId:
+    | string
+    | number,
+): Promise<Reminder[]> {
+  const requestKey =
+    `${String(
+      userId,
+    )}:${localDateKey()}:30-days`;
+
+  const cached =
+    dashboardDeadlineRequests.get(
+      requestKey,
+    );
+
+  if (cached) {
+    return cached;
+  }
+
+  const request =
+    getUpcomingReminders(
+      30,
+    )
+      .then(
+        (
+          reminders,
+        ) =>
+          reminders
+            .filter(
+              (
+                reminder,
+              ) =>
+                !reminder.isCompleted &&
+                (
+                  reminder.daysRemaining ===
+                    null ||
+                  reminder.daysRemaining >=
+                    0
+                ),
+            )
+            .sort(
+              (
+                first,
+                second,
+              ) => {
+                const firstDays =
+                  first.daysRemaining ??
+                  Number.POSITIVE_INFINITY;
+
+                const secondDays =
+                  second.daysRemaining ??
+                  Number.POSITIVE_INFINITY;
+
+                return (
+                  firstDays -
+                  secondDays
+                );
+              },
+            ),
+      )
+      .catch(
+        (
+          error,
+        ) => {
+          dashboardDeadlineRequests.delete(
+            requestKey,
+          );
+
+          throw error;
+        },
+      );
+
+  dashboardDeadlineRequests.set(
     requestKey,
     request,
   );
@@ -579,6 +909,36 @@ function getUserScholarshipId(
   return null;
 }
 
+function getUserScholarshipName(
+  user:
+    AuthUser | null,
+): string | null {
+  if (!user) {
+    return null;
+  }
+
+  if (
+    typeof user.primary_scholarship_target ===
+      "string" &&
+    user.primary_scholarship_target.trim()
+  ) {
+    return user.primary_scholarship_target.trim();
+  }
+
+  if (
+    isRecord(
+      user.target_scholarship_data,
+    ) &&
+    typeof user.target_scholarship_data.name ===
+      "string" &&
+    user.target_scholarship_data.name.trim()
+  ) {
+    return user.target_scholarship_data.name.trim();
+  }
+
+  return null;
+}
+
 function getRoadmapOptions(
   user: AuthUser,
 ): RoadmapLoadOptions {
@@ -740,6 +1100,15 @@ export default function DashboardPage() {
     });
 
   const [
+    dashboardDeadline,
+    setDashboardDeadline,
+  ] =
+    useState<DashboardDeadlineState>({
+      loading: true,
+      reminder: null,
+    });
+
+  const [
     assessment2Complete,
     setAssessment2Complete,
   ] =
@@ -775,6 +1144,76 @@ export default function DashboardPage() {
   const roadmapRequestVersionRef =
     useRef(
       0,
+    );
+
+  /*
+   * Keep the freshest profile returned by refreshProfile().
+   * Mentor matching uses the same Premium fingerprint + scholarship ID
+   * as QuestTrackerPage.
+   */
+  const [
+    roadmapActiveProfile,
+    setRoadmapActiveProfile,
+  ] =
+    useState<AuthUser | null>(
+      null,
+    );
+
+  const [
+    mentorMatchModalOpen,
+    setMentorMatchModalOpen,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    mentorMatchState,
+    setMentorMatchState,
+  ] =
+    useState<MentorMatchModalState>(
+      "matching",
+    );
+
+  const [
+    mentorMatch,
+    setMentorMatch,
+  ] =
+    useState<MentorMatchResult | null>(
+      null,
+    );
+
+  const [
+    mentorMatchError,
+    setMentorMatchError,
+  ] =
+    useState<string | null>(
+      null,
+    );
+
+  const mentorMatchRequestRef =
+    useRef<Promise<MentorMatchResult> | null>(
+      null,
+    );
+
+  const mentorMatchAutoAttemptedRef =
+    useRef(
+      false,
+    );
+
+  /*
+   * Same selected-milestone model used by QuestTrackerPage.
+   *
+   * Assessment 1 / Assessment 2 keep their dedicated behavior.
+   * Generated roadmap milestones open RoadmapTaskPanel instead of
+   * navigating away from the Dashboard.
+   */
+  const [
+    selectedMilestoneId,
+    setSelectedMilestoneId,
+  ] =
+    useState<RoadmapEntityId | null>(
+      null,
     );
 
   /* =======================================================
@@ -973,6 +1412,10 @@ export default function DashboardPage() {
             null,
           );
 
+          setRoadmapActiveProfile(
+            null,
+          );
+
           setRoadmapHero({
             loading:
               false,
@@ -1026,6 +1469,10 @@ export default function DashboardPage() {
           ) {
             return;
           }
+
+          setRoadmapActiveProfile(
+            latestProfile,
+          );
 
           const targetId =
             getUserScholarshipId(
@@ -1209,6 +1656,410 @@ export default function DashboardPage() {
   );
 
   /* =======================================================
+     Premium Mentor Matching
+
+     This mirrors the QuestTracker flow:
+     - only Premium
+     - only after the full Premium timeline is ready
+     - waits until the cloud is gone / roadmap loading is finished
+     - reuses the same localStorage cache + seen keys
+     - uses the same POST mentor-match API
+  ======================================================= */
+
+  useEffect(
+    () => {
+      mentorMatchAutoAttemptedRef.current =
+        false;
+    },
+    [
+      roadmapActiveProfile?.id,
+      roadmapActiveProfile?.premium_until,
+      roadmapActiveProfile?.target_scholarship_id,
+    ],
+  );
+
+  const startMentorMatching =
+    useCallback(
+      async (
+        profile: AuthUser,
+        targetScholarshipId: number,
+        force = false,
+      ): Promise<void> => {
+        if (
+          profile.is_premium !==
+          true
+        ) {
+          return;
+        }
+
+        if (
+          !force &&
+          hasSeenPremiumMentorMatch(
+            profile,
+            targetScholarshipId,
+          )
+        ) {
+          return;
+        }
+
+        if (!force) {
+          mentorMatchAutoAttemptedRef.current =
+            true;
+
+          const cachedMatch =
+            getCachedMentorMatch(
+              profile,
+              targetScholarshipId,
+            );
+
+          if (cachedMatch) {
+            setMentorMatch(
+              cachedMatch,
+            );
+
+            setMentorMatchError(
+              null,
+            );
+
+            setMentorMatchState(
+              "matched",
+            );
+
+            setMentorMatchModalOpen(
+              true,
+            );
+
+            return;
+          }
+        }
+
+        if (
+          mentorMatchRequestRef.current
+        ) {
+          return;
+        }
+
+        setMentorMatch(
+          null,
+        );
+
+        setMentorMatchError(
+          null,
+        );
+
+        setMentorMatchState(
+          "matching",
+        );
+
+        setMentorMatchModalOpen(
+          true,
+        );
+
+        const request =
+          matchMentorApi();
+
+        mentorMatchRequestRef.current =
+          request;
+
+        try {
+          const matchedMentor =
+            await request;
+
+          storeCachedMentorMatch(
+            profile,
+            targetScholarshipId,
+            matchedMentor,
+          );
+
+          setMentorMatch(
+            matchedMentor,
+          );
+
+          setMentorMatchState(
+            "matched",
+          );
+        } catch (
+          caughtError
+        ) {
+          console.error(
+            "[Dashboard] Mentor matching failed:",
+            caughtError,
+          );
+
+          setMentorMatchError(
+            caughtError instanceof
+              Error
+              ? caughtError.message
+              : "Ally could not finish your mentor match yet. Please try again.",
+          );
+
+          setMentorMatchState(
+            "error",
+          );
+        } finally {
+          mentorMatchRequestRef.current =
+            null;
+        }
+      },
+      [],
+    );
+
+  /*
+   * The popup starts only AFTER the Premium reveal has completed.
+   *
+   * roadmapHero.loading === false is the moment when:
+   * - generateFullPremiumRoadmap() has finished,
+   * - the canonical full milestone list has been set,
+   * - dashboardFogLocked becomes false,
+   * - the upper roadmap is visible.
+   *
+   * Then we wait the same 850ms used by QuestTracker so the user can
+   * visually register the newly revealed milestones before the mentor
+   * matching popup appears.
+   */
+  useEffect(
+    () => {
+      if (
+        status !==
+          "authenticated" ||
+        assessment2Complete !==
+          true ||
+        !roadmapActiveProfile ||
+        roadmapActiveProfile.is_premium !==
+          true ||
+        roadmapPremiumActive !==
+          true ||
+        roadmapHero.loading ||
+        !roadmapHero.roadmap ||
+        mentorMatchAutoAttemptedRef.current
+      ) {
+        return;
+      }
+
+      const scholarshipId =
+        getUserScholarshipId(
+          roadmapActiveProfile,
+        );
+
+      if (!scholarshipId) {
+        return;
+      }
+
+      /*
+       * Do not begin mentor matching until the SAME full-timeline marker
+       * used by QuestTracker confirms the Premium roadmap reveal is done.
+       */
+      if (
+        !hasPremiumTimelineGenerationMarker(
+          getRoadmapOptions(
+            roadmapActiveProfile,
+          ),
+          scholarshipId,
+        ) ||
+        hasSeenPremiumMentorMatch(
+          roadmapActiveProfile,
+          scholarshipId,
+        )
+      ) {
+        return;
+      }
+
+      const timerId =
+        window.setTimeout(
+          () => {
+            void startMentorMatching(
+              roadmapActiveProfile,
+              scholarshipId,
+            );
+          },
+          850,
+        );
+
+      return () => {
+        window.clearTimeout(
+          timerId,
+        );
+      };
+    },
+    [
+      assessment2Complete,
+      roadmapActiveProfile,
+      roadmapHero.loading,
+      roadmapHero.roadmap,
+      roadmapPremiumActive,
+      startMentorMatching,
+      status,
+    ],
+  );
+
+  const handleCloseMentorMatch =
+    useCallback(
+      (): void => {
+        /*
+         * Same behavior as QuestTracker: the matching state cannot be
+         * dismissed in the middle of the request.
+         */
+        if (
+          mentorMatchState ===
+          "matching"
+        ) {
+          return;
+        }
+
+        const scholarshipId =
+          roadmapActiveProfile
+            ? getUserScholarshipId(
+                roadmapActiveProfile,
+              )
+            : null;
+
+        if (
+          mentorMatchState ===
+            "matched" &&
+          roadmapActiveProfile &&
+          scholarshipId
+        ) {
+          markPremiumMentorMatchSeen(
+            roadmapActiveProfile,
+            scholarshipId,
+          );
+        }
+
+        setMentorMatchModalOpen(
+          false,
+        );
+      },
+      [
+        mentorMatchState,
+        roadmapActiveProfile,
+      ],
+    );
+
+  const handleRetryMentorMatch =
+    useCallback(
+      (): void => {
+        if (
+          !roadmapActiveProfile
+        ) {
+          return;
+        }
+
+        const scholarshipId =
+          getUserScholarshipId(
+            roadmapActiveProfile,
+          );
+
+        if (!scholarshipId) {
+          return;
+        }
+
+        void startMentorMatching(
+          roadmapActiveProfile,
+          scholarshipId,
+          true,
+        );
+      },
+      [
+        roadmapActiveProfile,
+        startMentorMatching,
+      ],
+    );
+
+  /* =======================================================
+     Compact dashboard deadline overlay
+
+     Uses the existing reminder API only. This does not alter the
+     established H-1 SweetAlert reminder behavior below.
+  ======================================================= */
+
+  useEffect(
+    () => {
+      let active =
+        true;
+
+      if (
+        status !==
+          "authenticated" ||
+        !user
+      ) {
+        setDashboardDeadline({
+          loading:
+            false,
+          reminder:
+            null,
+        });
+
+        return () => {
+          active =
+            false;
+        };
+      }
+
+      setDashboardDeadline(
+        (
+          current,
+        ) => ({
+          loading:
+            true,
+          reminder:
+            current.reminder,
+        }),
+      );
+
+      void getDashboardDeadlineReminders(
+        user.id,
+      )
+        .then(
+          (
+            reminders,
+          ) => {
+            if (!active) {
+              return;
+            }
+
+            setDashboardDeadline({
+              loading:
+                false,
+              reminder:
+                reminders[0] ??
+                null,
+            });
+          },
+        )
+        .catch(
+          (
+            error,
+          ) => {
+            console.warn(
+              "[Dashboard] Unable to load deadline overlay:",
+              error,
+            );
+
+            if (!active) {
+              return;
+            }
+
+            setDashboardDeadline({
+              loading:
+                false,
+              reminder:
+                null,
+            });
+          },
+        );
+
+      return () => {
+        active =
+          false;
+      };
+    },
+    [
+      status,
+      user?.id,
+    ],
+  );
+
+  /* =======================================================
      Existing H-1 mentor-task reminder
   ======================================================= */
 
@@ -1378,6 +2229,58 @@ export default function DashboardPage() {
     ],
   );
 
+  /*
+   * Same GET-only roadmap refresh pattern used by QuestTrackerPage.
+   *
+   * RoadmapTaskPanel owns the task/submission APIs. After it mutates a
+   * task, this callback reloads the canonical milestones so progress,
+   * completion state, and task data update on the Dashboard immediately.
+   */
+  const refreshDashboardRoadmap =
+    useCallback(
+      async (): Promise<void> => {
+        const latestProfile =
+          await refreshProfile();
+
+        const scholarshipId =
+          getUserScholarshipId(
+            latestProfile,
+          );
+
+        if (!scholarshipId) {
+          return;
+        }
+
+        const access =
+          await getRoadmapAccess(
+            scholarshipId,
+          );
+
+        setRoadmapActiveProfile(
+          latestProfile,
+        );
+
+        setRoadmapPremiumActive(
+          latestProfile.is_premium ===
+            true,
+        );
+
+        if (
+          access.roadmap
+        ) {
+          setRoadmapHero({
+            loading:
+              false,
+            roadmap:
+              access.roadmap,
+          });
+        }
+      },
+      [
+        refreshProfile,
+      ],
+    );
+
   function handleContinueJourney():
     void {
     navigate(
@@ -1404,6 +2307,9 @@ export default function DashboardPage() {
       milestoneId ===
       ASSESSMENT_1_MILESTONE_ID
     ) {
+      setSelectedMilestoneId(
+        null,
+      );
       const assessment1Complete =
         normalizeReadinessScore(
           user?.readiness_score,
@@ -1429,6 +2335,9 @@ export default function DashboardPage() {
       milestoneId ===
       ASSESSMENT_2_MILESTONE_ID
     ) {
+      setSelectedMilestoneId(
+        null,
+      );
       if (
         assessment2Complete !==
         true
@@ -1490,11 +2399,19 @@ export default function DashboardPage() {
       return;
     }
 
-    navigate(
-      `/quests?milestone=${
-        milestoneIndex +
-        1
-      }`,
+    /*
+     * Match QuestTrackerPage behavior:
+     * locked milestones do not open the task panel.
+     */
+    if (
+      milestone.status ===
+      "locked"
+    ) {
+      return;
+    }
+
+    setSelectedMilestoneId(
+      milestone.id,
     );
   }
 
@@ -1504,6 +2421,12 @@ export default function DashboardPage() {
       "/sessions",
     );
   }
+
+  const mentorScholarshipName =
+    getUserScholarshipName(
+      roadmapActiveProfile ??
+      user,
+    );
 
   const assessment1Complete =
     normalizeReadinessScore(
@@ -1546,6 +2469,23 @@ export default function DashboardPage() {
    * Any generated milestones after #4 stay mounted on the upper trail,
    * but AscentRoadmap covers them with the fog layer.
    */
+  const selectedMilestone =
+    selectedMilestoneId ===
+      null
+      ? null
+      : roadmapHero.roadmap?.milestones.find(
+          (
+            milestone,
+          ) =>
+            String(
+              milestone.id,
+            ) ===
+            String(
+              selectedMilestoneId,
+            ),
+        ) ??
+        null;
+
   const effectivePremiumActive =
     roadmapPremiumActive ??
     (
@@ -1625,6 +2565,15 @@ export default function DashboardPage() {
             fogLocked={
               dashboardFogLocked
             }
+            nextDeadline={
+              dashboardDeadline.reminder
+            }
+            deadlineLoading={
+              dashboardDeadline.loading
+            }
+            selectedMilestoneId={
+              selectedMilestoneId
+            }
             onOpenQuestTracker={
               handleContinueJourney
             }
@@ -1636,6 +2585,28 @@ export default function DashboardPage() {
             }
           />
         )}
+
+        <RoadmapTaskPanel
+          milestone={
+            selectedMilestone
+          }
+          isPremium={
+            effectivePremiumActive
+          }
+          onUpgrade={() => {
+            navigate(
+              "/billing",
+            );
+          }}
+          onClose={() => {
+            setSelectedMilestoneId(
+              null,
+            );
+          }}
+          onRoadmapRefresh={
+            refreshDashboardRoadmap
+          }
+        />
       </UserLayout>
 
       <Assessment2MilestonePopup
@@ -1652,6 +2623,30 @@ export default function DashboardPage() {
             ASSESSMENT_2_ROUTE,
           );
         }}
+      />
+
+      <MentorMatchModal
+        isOpen={
+          mentorMatchModalOpen
+        }
+        state={
+          mentorMatchState
+        }
+        match={
+          mentorMatch
+        }
+        error={
+          mentorMatchError
+        }
+        scholarshipName={
+          mentorScholarshipName
+        }
+        onClose={
+          handleCloseMentorMatch
+        }
+        onRetry={
+          handleRetryMentorMatch
+        }
       />
     </>
   );

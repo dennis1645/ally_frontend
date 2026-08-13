@@ -1553,6 +1553,9 @@ function DashboardVerticalRoadmap({
 
                 <button
                   type="button"
+                  tabIndex={
+                    -1
+                  }
                   disabled={
                     index >=
                       normalizedVisibleCount ||
@@ -1568,22 +1571,42 @@ function DashboardVerticalRoadmap({
                     );
                   }}
                   className={[
-                    "absolute top-1/2 w-[132px] -translate-y-1/2",
-                    "rounded-[16px] border border-white/80 bg-white/92",
-                    "px-3 py-2.5 text-left shadow-lg backdrop-blur",
-                    "transition duration-200",
+                    /*
+                     * Milestone information is a hover tooltip now.
+                     *
+                     * Default:
+                     * - checkpoint icon only
+                     * - card is fully hidden and takes no pointer input
+                     *
+                     * Hover/focus:
+                     * - hovering the MilestoneMarker reveals its card
+                     * - keyboard focus on the marker reveals it as well
+                     *
+                     * Clicking remains owned by the checkpoint icon.
+                     */
+                    "pointer-events-none invisible absolute top-1/2",
+                    "w-[132px] -translate-y-1/2 translate-x-0",
+                    "rounded-[16px] border border-white/80 bg-white/95",
+                    "px-3 py-2.5 text-left shadow-lg backdrop-blur-md",
+                    "opacity-0",
+                    "transition-all duration-150 ease-out",
                     "sm:w-[165px]",
+                    "group-hover:visible group-hover:opacity-100",
+                    "group-focus-within:visible group-focus-within:opacity-100",
+                    "group-hover:-translate-y-[calc(50%+2px)]",
+                    "group-focus-within:-translate-y-[calc(50%+2px)]",
                     milestone.status ===
                       "locked" &&
                     !forceSelectable
-                      ? "cursor-default opacity-70"
-                      : "cursor-pointer group-hover:-translate-y-[calc(50%+2px)]",
+                      ? "cursor-default"
+                      : "",
                     labelOnRight
                       ? "left-[calc(100%+16px)]"
                       : "right-[calc(100%+16px)] text-right",
                   ].join(
                     " ",
                   )}
+                  aria-hidden="true"
                 >
                   <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#7a582f]">
                     Milestone{" "}
