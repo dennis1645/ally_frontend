@@ -1,7 +1,7 @@
 import {
   ArrowRight,
   Compass,
-  Map,
+  Map as MapIcon,
   Sparkles,
 } from "lucide-react";
 
@@ -9,6 +9,9 @@ import {
   useEffect,
   useState,
 } from "react";
+
+import Swal from "sweetalert2";
+import "sweetalert2/dist/sweetalert2.min.css";
 
 import {
   useNavigate,
@@ -18,30 +21,191 @@ import {
   getDeepDiagnosticResult,
 } from "../../api/deepDiagnosticApi";
 
+import {
+  getUpcomingReminders,
+  isH1MentorTaskReminder,
+  type Reminder,
+} from "../../api/reminderApi";
+
 import allyMascot from "../../assets/ally-assessment-mascot.png";
 
-import AchievementsCard from "../../components/dashboard/AchievementsCard";
+// import AchievementsCard from "../../components/dashboard/AchievementsCard";
 import ExplorerProfileCard from "../../components/dashboard/ExplorerProfileCard";
-import MentorTasksCard from "../../components/dashboard/MentorTasksCard";
 import IELTSPracticeQuizCard from "../../components/dashboard/IELTSPracticeQuizCard";
 import ReadinessScoreCard from "../../components/dashboard/ReadinessScoreCard";
 import StreakStatusCard from "../../components/dashboard/StreakStatusCard";
 import UpcomingDeadlinesCard from "../../components/dashboard/UpcomingDeadlinesCard";
+
 import UserLayout from "../../components/layout/UserLayout";
 
 import {
   useAuth,
 } from "../../context/AuthContext";
 
-import {
-  dashboardFallback,
-} from "../../mocks/dashboardFallback";
-
 type ReadinessState = {
   loading: boolean;
   score: number | null;
   unavailable: boolean;
 };
+
+
+/*
+ * Keeps duplicate reminder requests from React StrictMode/remounts
+ * from opening the same SweetAlert twice in one dashboard visit.
+ */
+const h1MentorReminderRequests =
+  new Map<
+    string,
+    Promise<Reminder[]>
+  >();
+
+function localDateKey():
+  string {
+  const today =
+    new Date();
+
+  return [
+    today.getFullYear(),
+    String(
+      today.getMonth() +
+        1,
+    ).padStart(
+      2,
+      "0",
+    ),
+    String(
+      today.getDate(),
+    ).padStart(
+      2,
+      "0",
+    ),
+  ].join(
+    "-",
+  );
+}
+
+function getH1MentorReminders(
+  userId:
+    | string
+    | number,
+): Promise<Reminder[]> {
+  const requestKey =
+    `${String(
+      userId,
+    )}:${localDateKey()}`;
+
+  const cached =
+    h1MentorReminderRequests.get(
+      requestKey,
+    );
+
+  if (cached) {
+    return cached;
+  }
+
+  const request =
+    getUpcomingReminders(
+      1,
+    )
+      .then(
+        (
+          reminders,
+        ) =>
+          reminders.filter(
+            isH1MentorTaskReminder,
+          ),
+      )
+      .catch(
+        (
+          error,
+        ) => {
+          h1MentorReminderRequests.delete(
+            requestKey,
+          );
+
+          throw error;
+        },
+      );
+
+  h1MentorReminderRequests.set(
+    requestKey,
+    request,
+  );
+
+  return request;
+}
+
+function reminderAlertStorageKey(
+  userId:
+    | string
+    | number,
+  reminder: Reminder,
+): string {
+  return [
+    "ally",
+    "mentor-task-h1-alert",
+    String(
+      userId,
+    ),
+    localDateKey(),
+    reminder.id,
+  ].join(
+    ":",
+  );
+}
+
+function formattedReminderDeadline(
+  deadline:
+    | string
+    | null,
+): string | null {
+  if (!deadline) {
+    return null;
+  }
+
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})/.exec(
+      deadline,
+    );
+
+  const parsed =
+    match
+      ? new Date(
+          Number(
+            match[1],
+          ),
+          Number(
+            match[2],
+          ) -
+            1,
+          Number(
+            match[3],
+          ),
+        )
+      : new Date(
+          deadline,
+        );
+
+  if (
+    Number.isNaN(
+      parsed.getTime(),
+    )
+  ) {
+    return deadline;
+  }
+
+  return parsed.toLocaleDateString(
+    undefined,
+    {
+      month:
+        "short",
+      day:
+        "numeric",
+      year:
+        "numeric",
+    },
+  );
+}
 
 function looksLikeAnalysisFailure(
   suggestion: string | null,
@@ -65,9 +229,7 @@ function looksLikeAnalysisFailure(
     "cannot connect",
     "could not connect",
   ].some(
-    (
-      signal,
-    ) =>
+    (signal) =>
       normalized.includes(
         signal,
       ),
@@ -77,6 +239,7 @@ function looksLikeAnalysisFailure(
 function DashboardLoadingState() {
   return (
     <div className="mx-auto w-full max-w-[1220px] animate-pulse space-y-6">
+      {/* Main dashboard skeleton */}
       <div
         className={[
           "grid items-start gap-6",
@@ -85,26 +248,15 @@ function DashboardLoadingState() {
       >
         <div className="space-y-6">
           <div className="h-64 rounded-[24px] bg-white" />
+
           <div className="h-80 rounded-[26px] bg-white" />
         </div>
 
         <div className="space-y-4">
           <div className="h-40 rounded-[22px] bg-white" />
+
           <div className="h-44 rounded-[22px] bg-white" />
-          <div className="h-64 rounded-[24px] bg-white" />
-        </div>
-      </div>
 
-      <div
-        className={[
-          "grid items-start gap-6",
-          "xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.75fr)]",
-        ].join(" ")}
-      >
-        <div className="h-[420px] rounded-[24px] bg-white" />
-
-        <div className="space-y-6">
-          <div className="h-64 rounded-[24px] bg-white" />
           <div className="h-64 rounded-[24px] bg-white" />
         </div>
       </div>
@@ -128,7 +280,8 @@ function DashboardUnavailableState() {
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          Your profile information could not be loaded. Please reload the dashboard.
+          Your profile information could not be loaded.
+          Please reload the dashboard.
         </p>
       </div>
     </div>
@@ -153,20 +306,32 @@ function NextExpeditionStep({
         "sm:p-6 lg:p-7",
       ].join(" ")}
     >
+      {/* Decorative background */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#dceeff]/70 blur-2xl"
+        className={[
+          "pointer-events-none absolute",
+          "-right-12 -top-12",
+          "h-40 w-40 rounded-full",
+          "bg-[#dceeff]/70 blur-2xl",
+        ].join(" ")}
       />
 
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-14 left-20 h-32 w-32 rounded-full bg-[#ffe2c9]/60 blur-2xl"
+        className={[
+          "pointer-events-none absolute",
+          "-bottom-14 left-20",
+          "h-32 w-32 rounded-full",
+          "bg-[#ffe2c9]/60 blur-2xl",
+        ].join(" ")}
       />
 
       <div className="relative">
+        {/* Header */}
         <div className="mb-5 flex items-center gap-2">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#e7f3ff] text-[#16629b]">
-            <Map
+            <MapIcon
               size={18}
               aria-hidden="true"
             />
@@ -183,117 +348,136 @@ function NextExpeditionStep({
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_245px] lg:items-center">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative mx-auto shrink-0 sm:mx-0">
+        {/* Ally (left) + speech bubble/milestone/button (right) */}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          {/* Ally mascot - left column */}
+          <div
+            className={[
+              "flex shrink-0 items-center justify-center",
+              "sm:w-[28%] sm:max-w-[170px]",
+            ].join(" ")}
+          >
+            <div className="relative mx-auto">
               <div
                 aria-hidden="true"
-                className="absolute inset-x-3 bottom-0 h-5 rounded-full bg-[#6f5135]/10 blur-md"
+                className={[
+                  "absolute inset-x-3 bottom-0",
+                  "h-5 rounded-full",
+                  "bg-[#6f5135]/10 blur-md",
+                ].join(" ")}
               />
 
               <img
                 src={allyMascot}
                 alt="Ally the explorer mascot"
-                className="ally-mascot-float relative h-28 w-28 object-contain sm:h-32 sm:w-32"
+                className={[
+                  "ally-mascot-float relative",
+                  "h-24 w-24 object-contain",
+                  "sm:h-28 sm:w-28",
+                ].join(" ")}
               />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div
-                className={[
-                  "relative rounded-[22px]",
-                  "border border-[#efd0bd] bg-[#fff8f3]",
-                  "px-5 py-5 shadow-sm",
-                  "sm:px-6",
-                ].join(" ")}
-              >
-                <span
-                  aria-hidden="true"
-                  className={[
-                    "absolute left-[-8px] top-1/2 hidden",
-                    "h-4 w-4 -translate-y-1/2 rotate-45",
-                    "border-b border-l border-[#efd0bd]",
-                    "bg-[#fff8f3] sm:block",
-                  ].join(" ")}
-                />
-
-                <div className="flex items-start gap-2">
-                  <Sparkles
-                    size={18}
-                    aria-hidden="true"
-                    className="mt-1 shrink-0 text-[#e49a36]"
-                  />
-
-                  <div>
-                    <h2
-                      id="next-expedition-step-title"
-                      className="text-lg font-extrabold leading-7 text-[#2c1607] sm:text-xl"
-                    >
-                      Keep going, Explorer! Your Research Trail is waiting.
-                    </h2>
-
-                    <p className="mt-2 text-sm leading-6 text-[#66584d] sm:text-[15px]">
-                      Continue exploring scholarships that match your goals and keep building your preparation plan.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onContinue}
-                className={[
-                  "mt-4 inline-flex min-h-11 items-center justify-center gap-2",
-                  "rounded-xl bg-[#16629b] px-5 py-3",
-                  "text-sm font-bold text-white",
-                  "shadow-[0_4px_0_#0d4773]",
-                  "transition duration-200",
-                  "hover:-translate-y-0.5 hover:bg-[#115787]",
-                  "hover:shadow-[0_6px_0_#0d4773]",
-                  "active:translate-y-0.5 active:scale-[0.99]",
-                  "active:shadow-[0_2px_0_#0d4773]",
-                  "focus-visible:outline-none focus-visible:ring-4",
-                  "focus-visible:ring-[#9bcaff]",
-                ].join(" ")}
-              >
-                Continue Journey
-                <ArrowRight
-                  size={17}
-                  aria-hidden="true"
-                />
-              </button>
             </div>
           </div>
 
-          <div
-            className={[
-              "rounded-[22px] border-2 border-[#72afe0]",
-              "bg-white/90 p-5",
-              "shadow-[0_8px_22px_rgba(22,98,155,0.13)]",
-            ].join(" ")}
-          >
-            <div className="flex items-center gap-2 text-[#16629b]">
-              <Compass
-                size={18}
+          {/* Right column: speech bubble, milestone, button */}
+          <div className="min-w-0 flex-1 space-y-4">
+            {/* Speech bubble - points toward Ally */}
+            <div
+              className={[
+                "relative rounded-[22px]",
+                "border border-[#efd0bd]",
+                "bg-[#fff8f3]",
+                "px-5 py-5 shadow-sm",
+                "sm:px-6",
+              ].join(" ")}
+            >
+              {/* Speech bubble pointer, aimed left at Ally */}
+              <span
                 aria-hidden="true"
+                className={[
+                  "absolute left-[-8px] top-1/2 hidden",
+                  "h-4 w-4 -translate-y-1/2 rotate-45",
+                  "border-b border-l border-[#efd0bd]",
+                  "bg-[#fff8f3]",
+                  "sm:block",
+                ].join(" ")}
               />
 
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.14em]">
-                Current Milestone
-              </span>
+              <div className="flex items-start gap-2">
+                <Sparkles
+                  size={18}
+                  aria-hidden="true"
+                  className="mt-1 shrink-0 text-[#e49a36]"
+                />
+
+                <div>
+                  <h2
+                    id="next-expedition-step-title"
+                    className="text-lg font-extrabold leading-7 text-[#2c1607] sm:text-xl"
+                  >
+                    Keep going, Explorer! 
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-[#66584d] sm:text-[15px]">
+                    Continue exploring scholarships that match
+                    your goals and keep building your preparation
+                    plan.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <h3 className="mt-4 text-xl font-extrabold text-[#2c1607]">
-              Research Trail
-            </h3>
+            {/* Current milestone */}
+            <div
+              className={[
+                "rounded-[20px]",
+                "border-2 border-[#72afe0]",
+                "bg-white/90 px-5 py-4",
+                "shadow-[0_8px_22px_rgba(22,98,155,0.13)]",
+              ].join(" ")}
+            >
+              <div className="flex items-center gap-2 text-[#16629b]">
+                <Compass
+                  size={18}
+                  aria-hidden="true"
+                />
 
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Discover scholarship opportunities that fit your profile, goals, and study plans.
-            </p>
-
-            <div className="mt-4 rounded-xl bg-[#f3f9fd] px-3 py-2.5 text-xs font-semibold leading-5 text-[#245f88]">
-              Your dedicated Quest Tracker keeps the full expedition map — the dashboard stays focused on what matters now.
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.14em]">
+                  Current Milestone: Research Trail
+                </span>
+              </div>
             </div>
+
+            {/* Continue journey button */}
+            <button
+              type="button"
+              onClick={onContinue}
+              className={[
+                "inline-flex min-h-11",
+                "items-center justify-center gap-2",
+                "rounded-xl bg-[#16629b]",
+                "px-5 py-3",
+                "text-sm font-bold text-white",
+                "shadow-[0_4px_0_#0d4773]",
+                "transition duration-200",
+                "hover:-translate-y-0.5",
+                "hover:bg-[#115787]",
+                "hover:shadow-[0_6px_0_#0d4773]",
+                "active:translate-y-0.5",
+                "active:scale-[0.99]",
+                "active:shadow-[0_2px_0_#0d4773]",
+                "focus-visible:outline-none",
+                "focus-visible:ring-4",
+                "focus-visible:ring-[#9bcaff]",
+              ].join(" ")}
+            >
+              Continue Journey
+
+              <ArrowRight
+                size={17}
+                aria-hidden="true"
+              />
+            </button>
           </div>
         </div>
       </div>
@@ -308,18 +492,16 @@ export default function DashboardPage() {
   const {
     user,
     status,
-  } =
-    useAuth();
+  } = useAuth();
 
   const [
     readiness,
     setReadiness,
-  ] =
-    useState<ReadinessState>({
-      loading: true,
-      score: null,
-      unavailable: false,
-    });
+  ] = useState<ReadinessState>({
+    loading: true,
+    score: null,
+    unavailable: false,
+  });
 
   useEffect(
     () => {
@@ -353,10 +535,12 @@ export default function DashboardPage() {
 
           setReadiness({
             loading: false,
+
             score:
               validScore
                 ? score
                 : null,
+
             unavailable:
               !validScore,
           });
@@ -403,6 +587,180 @@ export default function DashboardPage() {
     ],
   );
 
+  useEffect(
+    () => {
+      let active =
+        true;
+
+      if (
+        status !==
+          "authenticated" ||
+        !user
+      ) {
+        return () => {
+          active =
+            false;
+        };
+      }
+
+      // Capture the narrowed user so TypeScript preserves non-null
+      // status inside the asynchronous reminder callback.
+      const authenticatedUser =
+        user;
+
+      async function showMentorDeadlineAlert():
+        Promise<void> {
+        try {
+          const reminders =
+            await getH1MentorReminders(
+              authenticatedUser.id,
+            );
+
+          if (
+            !active ||
+            reminders.length ===
+              0
+          ) {
+            return;
+          }
+
+          const unseen =
+            reminders.filter(
+              (
+                reminder,
+              ) =>
+                window.localStorage.getItem(
+                  reminderAlertStorageKey(
+                    authenticatedUser.id,
+                    reminder,
+                  ),
+                ) !==
+                "shown",
+            );
+
+          if (
+            unseen.length ===
+            0
+          ) {
+            return;
+          }
+
+          /*
+           * The supplied backend exposes the reminder feed, but no
+           * read/unread mutation endpoint. This local flag prevents
+           * the dashboard alert from repeating all day without
+           * pretending to mark a backend notification as read.
+           */
+          unseen.forEach(
+            (
+              reminder,
+            ) => {
+              window.localStorage.setItem(
+                reminderAlertStorageKey(
+                  authenticatedUser.id,
+                  reminder,
+                ),
+                "shown",
+              );
+            },
+          );
+
+          const first =
+            unseen[0];
+
+          const dateLabel =
+            formattedReminderDeadline(
+              first.deadline,
+            );
+
+          const message =
+            unseen.length ===
+            1
+              ? `Your mentor task "${first.title}" is due tomorrow${
+                  dateLabel
+                    ? ` (${dateLabel})`
+                    : ""
+                }.`
+              : `You have ${unseen.length} mentor tasks due tomorrow: ${unseen
+                  .map(
+                    (
+                      reminder,
+                    ) =>
+                      reminder.title,
+                  )
+                  .join(
+                    ", ",
+                  )}.`;
+
+          const result =
+            await Swal.fire({
+              icon:
+                "warning",
+              title:
+                unseen.length ===
+                1
+                  ? "Mentor task due tomorrow"
+                  : `${unseen.length} mentor tasks due tomorrow`,
+              text:
+                message,
+              confirmButtonText:
+                "Open Quest Tracker",
+              cancelButtonText:
+                "Later",
+              showCancelButton:
+                true,
+              reverseButtons:
+                true,
+              confirmButtonColor:
+                "#16629b",
+              cancelButtonColor:
+                "#8a735f",
+              background:
+                "#ffffff",
+              color:
+                "#2c1607",
+              customClass: {
+                popup:
+                  "rounded-[24px]",
+                confirmButton:
+                  "rounded-xl px-5 py-2.5 font-bold",
+                cancelButton:
+                  "rounded-xl px-5 py-2.5 font-bold",
+              },
+            });
+
+          if (
+            active &&
+            result.isConfirmed
+          ) {
+            navigate(
+              "/quests",
+            );
+          }
+        } catch (
+          error
+        ) {
+          console.error(
+            "[Dashboard] Unable to check H-1 mentor-task reminders:",
+            error,
+          );
+        }
+      }
+
+      void showMentorDeadlineAlert();
+
+      return () => {
+        active =
+          false;
+      };
+    },
+    [
+      navigate,
+      status,
+      user,
+    ],
+  );
+
   function handleContinueJourney():
     void {
     navigate("/quests");
@@ -415,15 +773,9 @@ export default function DashboardPage() {
     );
   }
 
-  function handleOpenMentorSessions():
-    void {
-    navigate("/sessions");
-  }
-
   return (
-     <UserLayout title="Dashboard"
-        subtitle="Explorer Basecamp & Overview"
-      
+    <UserLayout
+      title="Dashboard"
       topbarProps={{
         showSearch: false,
       }}
@@ -445,14 +797,15 @@ export default function DashboardPage() {
         ) : (
           <div className="mx-auto w-full max-w-[1220px]">
             {/* ===============================================
-                Primary dashboard area
+                PRIMARY DASHBOARD
 
                 LEFT
-                - Profile
+                - Explorer Profile
                 - Next Expedition Step
 
                 RIGHT
-                - Streak
+                - IELTS Practice
+                - Weekly Streak
                 - Readiness Score
                 - Upcoming Deadlines
             ================================================ */}
@@ -463,7 +816,7 @@ export default function DashboardPage() {
                 "xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,0.8fr)]",
               ].join(" ")}
             >
-              {/* Primary journey column — placement intentionally preserved */}
+              {/* Main journey column */}
               <main className="min-w-0 space-y-6">
                 <ExplorerProfileCard
                   user={user}
@@ -476,17 +829,15 @@ export default function DashboardPage() {
                 />
               </main>
 
-              {/* Compact status rail */}
+              {/* Scholarship status rail */}
               <aside
                 aria-label="Scholarship journey status"
                 className="min-w-0 space-y-4"
               >
-                <StreakStatusCard
-                  count={
-                    dashboardFallback.streakCount
-                  }
-                  isFallback
-                />
+                <IELTSPracticeQuizCard />
+
+                {/* Streak card now loads its own API data */}
+                <StreakStatusCard />
 
                 <ReadinessScoreCard
                   score={
@@ -503,44 +854,12 @@ export default function DashboardPage() {
                   }
                 />
 
-                <UpcomingDeadlinesCard />
+                <UpcomingDeadlinesCard
+                  user={user}
+                />
+
               </aside>
             </div>
-
-            {/* ===============================================
-                Bottom dashboard area
-
-                - Mentor Tasks
-                - Achievements
-            ================================================ */}
-
-            <section
-              aria-label="Practice, mentor guidance, and achievements"
-              className={[
-                "mt-6 grid items-start gap-6",
-                "xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.75fr)]",
-              ].join(" ")}
-            >
-              <div className="min-w-0">
-                <MentorTasksCard
-                  tasks={[
-                    ...dashboardFallback.mentorTasks,
-                  ]}
-                  onOpenSessions={
-                    handleOpenMentorSessions
-                  }
-                  usingFallback
-                />
-              </div>
-
-              <div className="grid min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-1">
-                <IELTSPracticeQuizCard />
-
-                <AchievementsCard
-                  badges={user.badges}
-                />
-              </div>
-            </section>
           </div>
         )}
       </section>

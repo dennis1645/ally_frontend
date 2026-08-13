@@ -34,6 +34,14 @@ import {
   type RoadmapMilestone,
 } from "../../api/roadmapApi";
 
+import {
+  getDeepDiagnosticResult,
+} from "../../api/deepDiagnosticApi";
+
+import {
+  ApiError,
+} from "../../api/apiClient";
+
 import allyMascot from "../../assets/ally-assessment-mascot.png";
 
 import AscentRoadmap from "../../components/quest/AscentRoadmap";
@@ -48,8 +56,13 @@ import type {
   AuthUser,
 } from "../../types/auth";
 
+import {
+  ASSESSMENT_2_ROUTE,
+} from "../../routes/assessment2.routes";
+
 type QuestTrackerState =
   | "loading"
+  | "assessment_required"
   | "missing_scholarship"
   | "ready"
   | "error";
@@ -124,6 +137,51 @@ function getRoadmapOptions(
   };
 }
 
+
+/* =========================================================
+   Assessment 2 completion
+
+   GET /api/deep-diagnostic/my-result is the backend source
+   of truth for whether the authenticated user has completed
+   the Deep Diagnostic.
+
+   A missing result (404) means the Quest Tracker should send
+   the user to Assessment 2 instead of asking them to choose
+   a scholarship manually.
+========================================================= */
+
+async function hasCompletedAssessment2():
+  Promise<boolean> {
+  try {
+    const result =
+      await getDeepDiagnosticResult();
+
+    return Boolean(
+      result.id !==
+        null ||
+      result.revisedPercentage !==
+        null ||
+      result.recommendations.length >
+        0 ||
+      result.suggestion?.trim() ||
+      result.assessmentType?.trim(),
+    );
+  } catch (
+    caughtError
+  ) {
+    if (
+      caughtError instanceof
+        ApiError &&
+      caughtError.status ===
+        404
+    ) {
+      return false;
+    }
+
+    throw caughtError;
+  }
+}
+
 /* =========================================================
    Shared states
 ========================================================= */
@@ -153,6 +211,74 @@ function RoadmapLoadingState() {
           aria-hidden="true"
           className="mx-auto mt-5 animate-spin text-[#16629b]"
         />
+      </div>
+    </div>
+  );
+}
+
+function AssessmentRequiredState({
+  onStartAssessment,
+}: {
+  onStartAssessment: () => void;
+}) {
+  return (
+    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-ally-background px-4 py-8">
+      <div className="w-full max-w-2xl rounded-[28px] border border-[#ead8c8] bg-white p-6 shadow-[0_7px_0_#dfcdbb] sm:p-8">
+        <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+          <div className="shrink-0">
+            <img
+              src={
+                allyMascot
+              }
+              alt="Ally, your scholarship expedition guide"
+              className="h-36 w-36 object-contain drop-shadow-sm sm:h-40 sm:w-40"
+            />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="relative rounded-[22px] border border-[#d9e9f6] bg-[#f4f9fd] p-5 sm:p-6">
+              <div
+                aria-hidden="true"
+                className="absolute -left-2.5 top-10 hidden h-5 w-5 rotate-45 border-b border-l border-[#d9e9f6] bg-[#f4f9fd] sm:block"
+              />
+
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#16629b]">
+                Ally&apos;s next checkpoint
+              </p>
+
+              <h2 className="mt-2 text-xl font-extrabold leading-tight text-[#2c1607] sm:text-2xl">
+                Complete Assessment 2 before we map your expedition
+              </h2>
+
+              <button
+                type="button"
+                onClick={
+                  onStartAssessment
+                }
+                className={[
+                  "mt-5 inline-flex items-center justify-center gap-2",
+                  "rounded-xl bg-[#16629b] px-5 py-3",
+                  "text-sm font-extrabold text-white",
+                  "shadow-[0_4px_0_#0d4773]",
+                  "transition",
+                  "hover:-translate-y-0.5 hover:bg-[#115787]",
+                  "active:translate-y-0 active:shadow-none",
+                  "focus-visible:outline-none",
+                  "focus-visible:ring-4 focus-visible:ring-[#9bcaff]",
+                ].join(
+                  " ",
+                )}
+              >
+                <Sparkles
+                  size={17}
+                  aria-hidden="true"
+                />
+
+                Take Assessment 2
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -662,9 +788,34 @@ export default function QuestTrackerPage() {
             false,
           );
 
-          setPageState(
-            "missing_scholarship",
-          );
+          try {
+            const assessment2Complete =
+              await hasCompletedAssessment2();
+
+            setPageState(
+              assessment2Complete
+                ? "missing_scholarship"
+                : "assessment_required",
+            );
+          } catch (
+            assessmentError
+          ) {
+            console.error(
+              "[Quest Tracker] Unable to check Deep Diagnostic status:",
+              assessmentError,
+            );
+
+            setError(
+              assessmentError instanceof
+                Error
+                ? assessmentError.message
+                : "Ally could not verify your Assessment 2 status right now.",
+            );
+
+            setPageState(
+              "error",
+            );
+          }
 
           return;
         }
@@ -1155,6 +1306,15 @@ export default function QuestTrackerPage() {
       pageState ===
         "loading" ? (
         <RoadmapLoadingState />
+      ) : pageState ===
+        "assessment_required" ? (
+        <AssessmentRequiredState
+          onStartAssessment={() => {
+            navigate(
+              ASSESSMENT_2_ROUTE,
+            );
+          }}
+        />
       ) : pageState ===
         "missing_scholarship" ? (
         <MissingScholarshipState
