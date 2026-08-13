@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, Eye, EyeOff, Map, Globe } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Map } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { ApiError } from "../../api/apiClient";
@@ -43,51 +43,26 @@ export default function AuthCard() {
   const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>(initialSubmissionState);
 
-  // State untuk Bahasa
-  const [language, setLanguage] = useState<"en" | "id">("en");
+  const t = {
+    tabLogin: "Login",
+    tabRegister: "Register",
+    loginTitle: "Welcome Back!",
+    loginSub: "Continue your climb to the summit.",
+    emailLabel: "Email Address",
+    passwordLabel: "Password",
+    rememberMe: "Remember Me",
+    forgotPwd: "Forgot Password?",
+    signInBtn: "Sign In",
+    signingIn: "Signing in...",
+    regTitle: "Start Your Expedition",
+    regSub: "Create your Ally explorer account.",
+    nameLabel: "Full Name",
+    phoneLabel: "Phone Number",
+    confirmPwdLabel: "Confirm Password",
+    createBtn: "Create Account",
+    creatingBtn: "Creating account...",
+  } as const;
 
-  // Translasi
-  const texts = {
-    en: {
-      tabLogin: "Login",
-      tabRegister: "Register",
-      loginTitle: "Welcome Back!",
-      loginSub: "Continue your climb to the summit.",
-      emailLabel: "Email Address",
-      passwordLabel: "Password",
-      rememberMe: "Remember Me",
-      forgotPwd: "Forgot Password?",
-      signInBtn: "Sign In",
-      signingIn: "Signing in...",
-      regTitle: "Start Your Expedition",
-      regSub: "Create your Ally explorer account.",
-      nameLabel: "Full Name",
-      phoneLabel: "Phone Number",
-      confirmPwdLabel: "Confirm Password",
-      createBtn: "Create Account",
-      creatingBtn: "Creating account...",
-    },
-    id: {
-      tabLogin: "Masuk",
-      tabRegister: "Daftar",
-      loginTitle: "Selamat Datang Kembali!",
-      loginSub: "Lanjutkan pendakianmu menuju puncak.",
-      emailLabel: "Alamat Email",
-      passwordLabel: "Kata Sandi",
-      rememberMe: "Ingat Saya",
-      forgotPwd: "Lupa Kata Sandi?",
-      signInBtn: "Masuk",
-      signingIn: "Sedang masuk...",
-      regTitle: "Mulai Ekspedisimu",
-      regSub: "Buat akun penjelajah Ally kamu.",
-      nameLabel: "Nama Lengkap",
-      phoneLabel: "Nomor Telepon",
-      confirmPwdLabel: "Konfirmasi Kata Sandi",
-      createBtn: "Buat Akun",
-      creatingBtn: "Membuat akun...",
-    },
-  };
-  const t = texts[language];
 
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -157,7 +132,12 @@ export default function AuthCard() {
         password_confirmation: values.password_confirmation,
       });
 
-      navigate("/verify-email", { replace: true });
+      navigate("/verify-email", {
+        replace: true,
+        state: {
+          email: values.email.trim(),
+        },
+      });
     } catch (error) {
       if (error instanceof ApiError && error.errors) {
         const fieldMap: Record<string, keyof RegisterValues> = {
@@ -198,26 +178,8 @@ export default function AuthCard() {
     }
   };
 
-  function toggleLanguage() {
-    setLanguage((prev) => (prev === "en" ? "id" : "en"));
-  }
-
   return (
     <>
-      {/* 
-        Tombol Bahasa ditempatkan menggunakan FIXED POSITION 
-        agar statis nempel di layar pojok kanan atas, tidak peduli form besar/kecil.
-      */}
-      <div className="fixed top-6 right-6 z-50 sm:top-8 sm:right-8 lg:right-12">
-        <button
-          onClick={toggleLanguage}
-          className="flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-2.5 text-sm font-bold text-ally-primary shadow-md backdrop-blur-md transition-transform hover:scale-105 hover:bg-white"
-        >
-          <Globe size={18} />
-          {language === "en" ? "EN" : "ID"}
-        </button>
-      </div>
-
       <div
         className={[
           "auth-card-container relative w-full max-w-md",

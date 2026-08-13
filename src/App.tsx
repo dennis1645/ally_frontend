@@ -6,6 +6,7 @@ import {
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleRoute from "./components/RoleRoute";
+import EmailVerificationCallbackGate from "./components/auth/EmailVerificationCallbackGate";
 
 import {
   INITIAL_ASSESSMENT_ROUTE,
@@ -16,7 +17,6 @@ import {
   ASSESSMENT_2_ROUTE,
 } from "./routes/assessment2.routes";
 
-import "./i18n";
 import DiagnosticResultPage from "./pages/DiagnosticResultPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import BadgeAdmin from "./pages/admin/BadgeAdmin";
@@ -96,7 +96,8 @@ export default function App() {
         {/* =====================================================
             AUTHENTICATED ROUTES
         ====================================================== */}
-        <Route element={<ProtectedRoute />}>
+        <Route element={<EmailVerificationCallbackGate />}>
+          <Route element={<ProtectedRoute />}>
           
           {/* =================================================
               USER / EXPLORER ROUTES
@@ -218,6 +219,7 @@ export default function App() {
               path="/admin/settings"
               element={<EmptyPage title="Admin Settings" description="Manage platform configuration and operational settings." />}
             />
+          </Route>
           </Route>
         </Route>
 
