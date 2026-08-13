@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   ArrowRight,
@@ -7,120 +7,74 @@ import {
   Clock,
   FileCheck,
   Star,
-  TrendingUp,
   Video,
   Wallet,
-  MessageSquareQuote
+  MessageSquareQuote,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
+import {
+  getMentorDashboardStatsApi,
+  getMentorInvoicesApi,
+  type MentorDashboardStats,
+  type MentorInvoiceItem,
+} from "../../api/mentorApi";
 
-// ============================================================================
-// MOCK DATA
-// ============================================================================
-
-// Data Mentee (Dibutuhkan untuk menghitung Active Mentees & Stage)
-const allExplorersData = [
-  { id: "e1", name: "Ari Chen", stage: "Interview Prep", status: "Active" },
-  { id: "e2", name: "Jordan Lee", stage: "University Selection", status: "Active" },
-  { id: "e3", name: "Mina Alvarez", stage: "Essay Drafting", status: "Active" },
-  { id: "h1", name: "Devon Vance", stage: "Completed", status: "Inactive" },
-];
-
-const recentPayouts = [
-  { id: "po-1", period: "July 2026 (Batch 2)", amount: "Rp 2.250.000", status: "Paid", date: "01 Aug 2026" },
-  { id: "po-2", period: "August 2026 (Batch 1)", amount: "Rp 2.250.000", status: "Processing", date: "Est. 15 Aug 2026" },
-];
-
-const menteeReviews = [
-  { id: "r1", mentee: "Mina Alvarez", rating: 5, comment: "Kakaknya sangat membantu! Feedback essay-nya detail banget.", date: "10 Aug 2026" },
-  { id: "r2", mentee: "Ari Chen", rating: 5, comment: "Sesi interview prep-nya bikin aku makin pede. Thank you!", date: "08 Aug 2026" },
-  { id: "r3", mentee: "Jordan Lee", rating: 4, comment: "Bagus, tapi kadang jadwalnya agak susah match sama aku.", date: "02 Aug 2026" },
-  { id: "r4", mentee: "Siti Rahma", rating: 5, comment: "Sangat sabar membimbing dari nol buat milih kampus.", date: "25 Jul 2026" },
-  { id: "r5", mentee: "Devon Vance", rating: 3, comment: "Sesi berjalan lancar, tapi suaranya agak putus-putus kemarin.", date: "15 Jul 2026" },
-];
-
-// Data chart (Jam & Mentee) berdasarkan tahun
-const chartDataByYear: Record<string, { month: string; hours: number; mentees: number }[]> = {
-  "2026": [
-    { month: "Jan", hours: 10, mentees: 2 },
-    { month: "Feb", hours: 15, mentees: 3 },
-    { month: "Mar", hours: 12, mentees: 2 },
-    { month: "Apr", hours: 20, mentees: 4 },
-    { month: "May", hours: 18, mentees: 3 },
-    { month: "Jun", hours: 25, mentees: 5 },
-    { month: "Jul", hours: 30, mentees: 5 },
-    { month: "Aug", hours: 14, mentees: 3 }, // Bulan berjalan (Agustus)
-  ],
-  "2025": [
-    { month: "Jan", hours: 5, mentees: 1 },
-    { month: "Feb", hours: 8, mentees: 1 },
-    { month: "Mar", hours: 10, mentees: 2 },
-    { month: "Apr", hours: 15, mentees: 3 },
-    { month: "May", hours: 12, mentees: 2 },
-    { month: "Jun", hours: 18, mentees: 3 },
-    { month: "Jul", hours: 22, mentees: 4 },
-    { month: "Aug", hours: 25, mentees: 4 },
-    { month: "Sep", hours: 10, mentees: 2 },
-    { month: "Oct", hours: 14, mentees: 2 },
-    { month: "Nov", hours: 18, mentees: 3 },
-    { month: "Dec", hours: 20, mentees: 3 },
-  ]
-};
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-function getMentorBadgeText(rating: number): string {
-  if (rating >= 4.8) return "Top 10% of Mentors! 🎉";
-  if (rating >= 4.5) return "Top Tier Mentor 🌟";
-  if (rating >= 4.0) return "Great Performance 👍";
-  return "Keep up the good work! 💪";
-}
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
 export default function MentorDashboardPage() {
   const navigate = useNavigate();
 
-  // State
-  const [chartYear, setChartYear] = useState("2026");
-  const [filterStar, setFilterStar] = useState<number | null>(null);
+  // State API Data
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardData, setDashboardData] = useState<MentorDashboardStats | null>(null);
+  const [invoicesHistory, setInvoicesHistory] = useState<MentorInvoiceItem[]>([]);
+  const [currentBalance, setCurrentBalance] = useState<number>(0);
 
-  // --- COMPUTED PROPERTIES (LOGIKA DINAMIS) ---
 
-  // 1. Logika Mentee (Menghitung jumlah dan stage)
-  const activeMentees = allExplorersData.filter((e) => e.status === "Active");
-  const essayCount = activeMentees.filter((e) => e.stage.toLowerCase().includes("essay")).length;
-  const interviewCount = activeMentees.filter((e) => e.stage.toLowerCase().includes("interview")).length;
-  
-  let menteeHelperText = "New explorers assigned";
-  if (essayCount > 0 && interviewCount > 0) {
-    menteeHelperText = `${essayCount} essay phase, ${interviewCount} interview prep`;
-  } else if (essayCount > 0) {
-    menteeHelperText = `${essayCount} explorers in essay phase`;
-  } else if (interviewCount > 0) {
-    menteeHelperText = `${interviewCount} explorers in interview prep`;
-  }
 
-  // 2. Logika Rating & Review
-  const totalRatingSum = menteeReviews.reduce((sum, r) => sum + r.rating, 0);
-  const calculatedAvgRating = menteeReviews.length > 0 ? (totalRatingSum / menteeReviews.length) : 0;
-  const ratingBadgeText = getMentorBadgeText(calculatedAvgRating);
+  // Fetch Dashboard & Invoices Data from Backend
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      setError(null);
 
-  // 3. Logika Jam Mentoring (MTD & YTD)
-  const currentYearData = chartDataByYear["2026"];
-  const currentMonthData = currentYearData[currentYearData.length - 1]; 
-  
-  const mtdHours = currentMonthData.hours; // Jam bulan ini
-  const ytdHours = currentYearData.reduce((sum, data) => sum + data.hours, 0); // Total jam tahun ini
+      try {
+        const [statsRes, invoicesRes] = await Promise.allSettled([
+          getMentorDashboardStatsApi(),
+          getMentorInvoicesApi(),
+        ]);
 
-  // Data Filter
-  const currentChartData = chartDataByYear[chartYear];
-  const filteredReviews = filterStar 
-    ? menteeReviews.filter(r => r.rating === filterStar)
-    : menteeReviews;
+        if (statsRes.status === "fulfilled" && statsRes.value?.data) {
+          setDashboardData(statsRes.value.data);
+        }
+
+        if (invoicesRes.status === "fulfilled" && invoicesRes.value?.data) {
+          setInvoicesHistory(invoicesRes.value.data.history || []);
+          setCurrentBalance(invoicesRes.value.data.current_earning_balance || 0);
+        }
+      } catch (err: unknown) {
+        console.error("Failed to load mentor dashboard data", err);
+        setError(
+          err instanceof Error ? err.message : "Gagal memuat data dashboard mentor."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const stats = dashboardData?.statistics || {
+    total_mentees: 0,
+    completed_sessions: 0,
+    upcoming_sessions: 0,
+    earning_balance: currentBalance || 0,
+  };
+
+  const upcomingSchedules = dashboardData?.upcoming_schedules || [];
 
   return (
     <UserLayout
@@ -129,309 +83,321 @@ export default function MentorDashboardPage() {
       sidebarItems={mentorSidebarItems}
     >
       <section className="min-h-[calc(100vh-80px)] bg-ally-background p-6 lg:p-8">
-        
+        {loading ? (
+          <div className="flex h-64 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-ally-primary" />
+            <span className="ml-3 text-sm font-semibold text-slate-600">
+              Memuat data mentor...
+            </span>
+          </div>
+        ) : error ? (
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700 flex items-center gap-3">
+            <AlertCircle size={20} />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        ) : null}
+
         {/* ==============================================================
             1. TOP METRICS (EXECUTIVE SUMMARY)
         ============================================================== */}
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Aug Earnings</span>
-              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600"><Wallet size={18} /></div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Earning Balance
+              </span>
+              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
+                <Wallet size={18} />
+              </div>
             </div>
-            <p className="mt-3 text-2xl font-extrabold text-slate-900">Rp {(mtdHours * 150000).toLocaleString('id-ID')}</p>
+            <p className="mt-3 text-2xl font-extrabold text-slate-900">
+              Rp {(stats.earning_balance || currentBalance).toLocaleString("id-ID")}
+            </p>
             <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
-              <span className="text-xs text-slate-500">Payout Status:</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">
-                <Clock size={11} /> Admin Review
+              <span className="text-xs text-slate-500">Wallet Balance</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                <CheckCircle2 size={11} /> Active
               </span>
             </div>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Mentoring Hours</span>
-              <div className="rounded-xl bg-sky-50 p-2 text-sky-600"><Clock size={18} /></div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Completed Sessions
+              </span>
+              <div className="rounded-xl bg-sky-50 p-2 text-sky-600">
+                <Clock size={18} />
+              </div>
             </div>
             <div className="mt-3 flex items-center justify-between">
-              <p className="text-2xl font-extrabold text-slate-900">{mtdHours} <span className="text-sm font-medium text-slate-500">hrs</span></p>
-              <span className="text-[11px] font-semibold text-sky-700 bg-sky-100/70 px-2.5 py-1 rounded-lg">This Month (MTD)</span>
+              <p className="text-2xl font-extrabold text-slate-900">
+                {stats.completed_sessions}{" "}
+                <span className="text-sm font-medium text-slate-500">sessions</span>
+              </p>
+              <span className="text-[11px] font-semibold text-sky-700 bg-sky-100/70 px-2.5 py-1 rounded-lg">
+                Total Done
+              </span>
             </div>
             <p className="mt-3 text-xs text-slate-500 border-t border-slate-100 pt-2.5">
-              Total <strong className="text-slate-800">{ytdHours} h/year</strong> completed (YTD)
+              Successfully completed mentoring sessions
             </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Mentees</span>
-              <div className="rounded-xl bg-ally-surface p-2 text-ally-primary"><Calendar size={18} /></div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Total Mentees
+              </span>
+              <div className="rounded-xl bg-ally-surface p-2 text-ally-primary">
+                <Calendar size={18} />
+              </div>
             </div>
-            <p className="mt-3 text-2xl font-extrabold text-slate-900">{activeMentees.length} Explorers</p>
+            <p className="mt-3 text-2xl font-extrabold text-slate-900">
+              {stats.total_mentees} Mentees
+            </p>
             <p className="mt-3 text-xs text-slate-500 border-t border-slate-100 pt-2.5">
-              {menteeHelperText}
+              Assigned via AI matching & bookings
             </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Avg. Rating</span>
-              <div className="rounded-xl bg-amber-50 p-2 text-amber-500"><Star size={18} /></div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Upcoming Sessions
+              </span>
+              <div className="rounded-xl bg-amber-50 p-2 text-amber-500">
+                <Star size={18} />
+              </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <p className="text-2xl font-extrabold text-slate-900">{calculatedAvgRating.toFixed(1)}</p>
-              <span className="text-xs font-medium text-slate-400">/ 5.0 ({menteeReviews.length} reviews)</span>
+              <p className="text-2xl font-extrabold text-slate-900">
+                {stats.upcoming_sessions}
+              </p>
+              <span className="text-xs font-medium text-slate-400">Scheduled</span>
             </div>
             <p className="mt-3 text-xs font-medium text-ally-primary border-t border-slate-100 pt-2.5">
-              {ratingBadgeText}
+              Ready for consultation
             </p>
           </div>
         </div>
 
         {/* ==============================================================
-            2. MIDDLE ROW: URGENT ACTIONS & REVIEWS
+            2. MIDDLE ROW: UPCOMING SCHEDULES & ACTIONS
         ============================================================== */}
         <div className="mb-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
-          
-          {/* URGENT ACTION CENTER */}
+          {/* UPCOMING SCHEDULES */}
           <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Action Needed</h3>
-              <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">2 Urgent</span>
+              <h3 className="text-lg font-bold text-slate-900">Upcoming Schedules</h3>
+              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-700">
+                {upcomingSchedules.length} Sessions
+              </span>
             </div>
 
             <div className="space-y-3 flex-1">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 font-bold">
-                      <Video size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-sky-700 uppercase tracking-wider">Today's Session</p>
-                      <p className="font-bold text-slate-900">Mina Alvarez — Career Clarity</p>
-                      <p className="text-xs text-slate-500 mt-0.5">11:00 AM WIB (in 2 hours)</p>
-                    </div>
-                  </div>
-                  <button onClick={() => navigate("/mentor/availability")} className="rounded-full bg-ally-primary px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-ally-primary/90">Join</button>
+              {upcomingSchedules.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-500">
+                  Tidak ada jadwal sesi mendatang saat ini.
                 </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600 font-bold">
-                      <FileCheck size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Task Pending Approval</p>
-                      <p className="font-bold text-slate-900">Mina Alvarez submitted Essay</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Awaiting your approval to unlock next milestone</p>
-                    </div>
-                  </div>
-                  <button onClick={() => navigate("/mentor/action-plans")} className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100">Review</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <Link to="/mentor/availability" className="inline-flex items-center gap-2 text-sm font-bold text-ally-primary hover:underline">
-                See more schedule & actions <ArrowRight size={16} />
-              </Link>
-            </div>
-          </div>
-
-          {/* MENTEE REVIEWS & RATING */}
-          <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-500">
-                <MessageSquareQuote size={20} />
-                <h3 className="text-lg font-bold text-slate-900">Mentee Feedback</h3>
-              </div>
-            </div>
-
-            {/* Star Filter */}
-            <div className="mb-4 flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
-              <span className="text-xs font-bold text-slate-500 px-2">Filter:</span>
-              <button 
-                onClick={() => setFilterStar(null)} 
-                className={`text-xs font-bold px-3 py-1 rounded-lg transition-colors ${filterStar === null ? 'bg-slate-200 text-slate-800' : 'text-slate-500 hover:bg-slate-200'}`}
-              >
-                All
-              </button>
-              {[5, 4, 3, 2, 1].map(star => (
-                <button 
-                  key={star} 
-                  onClick={() => setFilterStar(star)}
-                  className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg transition-colors ${filterStar === star ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-amber-50'}`}
-                >
-                  {star} <Star size={12} className={filterStar === star ? 'fill-amber-500 text-amber-500' : 'fill-slate-400 text-slate-400'} />
-                </button>
-              ))}
-            </div>
-
-            {/* Comments List */}
-            <div className="space-y-3 flex-1 overflow-y-auto max-h-[220px] pr-2 custom-scrollbar">
-              {filteredReviews.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-6">No reviews found for this rating.</p>
               ) : (
-                filteredReviews.map(review => (
-                  <div key={review.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-900">{review.mentee}</p>
-                      <span className="text-[10px] text-slate-400 font-medium">{review.date}</span>
+                upcomingSchedules.map((schedule) => (
+                  <div
+                    key={schedule.id}
+                    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 font-bold">
+                          <Video size={18} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-sky-700 uppercase tracking-wider">
+                            Status: {schedule.session_status}
+                          </p>
+                          <p className="font-bold text-slate-900">
+                            {schedule.mentee?.name || "Mentee"} ({schedule.mentee?.email || "-"})
+                          </p>
+                          {schedule.meeting_link ? (
+                            <a
+                              href={schedule.meeting_link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-ally-primary underline mt-0.5 block truncate max-w-xs"
+                            >
+                              {schedule.meeting_link}
+                            </a>
+                          ) : (
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              Link meeting belum diatur
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {schedule.meeting_link ? (
+                        <a
+                          href={schedule.meeting_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full bg-ally-primary px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-ally-primary/90"
+                        >
+                          Join
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`/mentor/dossier?bookingId=${schedule.id}`)}
+                          className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                        >
+                          Detail
+                        </button>
+                      )}
                     </div>
-                    <div className="flex text-amber-400 my-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} size={12} className={i < review.rating ? "fill-amber-400" : "fill-slate-200 text-slate-200"} />
-                      ))}
-                    </div>
-                    <p className="text-sm text-slate-600 italic">"{review.comment}"</p>
                   </div>
                 ))
               )}
             </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <Link
+                to="/mentor/availability"
+                className="inline-flex items-center gap-2 text-sm font-bold text-ally-primary hover:underline"
+              >
+                Kelola slot ketersediaan & jadwal <ArrowRight size={16} />
+              </Link>
+            </div>
           </div>
 
+          {/* QUICK LINKS & FEEDBACK OVERVIEW */}
+          <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-500">
+                <MessageSquareQuote size={20} />
+                <h3 className="text-lg font-bold text-slate-900">Quick Portal Actions</h3>
+              </div>
+            </div>
+
+            <div className="space-y-3 flex-1">
+              <Link
+                to="/mentor/mentees"
+                className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-blue-100 text-blue-600">
+                    <Calendar size={18} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">Direct Mentee Management</p>
+                    <p className="text-xs text-slate-500">Lihat progress, tugas, dan readiness score mentee</p>
+                  </div>
+                </div>
+                <ArrowRight size={18} className="text-slate-400" />
+              </Link>
+
+              <Link
+                to="/mentor/action-plans"
+                className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-amber-100 text-amber-600">
+                    <FileCheck size={18} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">Task Audit Queue</p>
+                    <p className="text-xs text-slate-500">Audit submission tugas dan berikan feedback / XP</p>
+                  </div>
+                </div>
+                <ArrowRight size={18} className="text-slate-400" />
+              </Link>
+
+              <Link
+                to="/mentor/documents"
+                className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-100 text-emerald-600">
+                    <Wallet size={18} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">Shared Documents</p>
+                    <p className="text-xs text-slate-500">Kelola dan unggah dokumen referensi mentor</p>
+                  </div>
+                </div>
+                <ArrowRight size={18} className="text-slate-400" />
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* ==============================================================
-            3. BOTTOM ROW: CHART & PAYOUTS
+            3. BOTTOM ROW: PAYOUT / INVOICES HISTORY
         ============================================================== */}
-        <div className="grid gap-6 xl:grid-cols-[1.6fr_1.4fr]">
-          
-          {/* MENTORING HOURS & MENTEES CHART */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp size={18} className="text-ally-primary" />
-                <h3 className="text-lg font-bold text-slate-900">Mentoring Analytics</h3>
-              </div>
-              
-              {/* Year Filter */}
-              <select 
-                value={chartYear} 
-                onChange={(e) => setChartYear(e.target.value)}
-                className="appearance-none rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-sm font-bold text-slate-700 outline-none transition focus:border-ally-primary cursor-pointer"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-              </select>
-            </div>
-            
-            <p className="text-xs text-slate-500 mb-6 border-b border-slate-100 pb-4">
-              Overview of total mentoring hours and mentees handled per month.
-            </p>
-
-            {/* Custom CSS Bar Chart */}
-            <div className="flex h-48 items-end justify-between gap-2 px-2 mt-4">
-              {currentChartData.map((data, idx) => {
-                const maxHoursHeight = 140; // px
-                const hourHeight = (data.hours / 35) * maxHoursHeight; // Scale relative to 35 max hours
-                
-                return (
-                  <div key={idx} className="flex flex-1 flex-col items-center justify-end gap-2 group relative">
-                    
-                    {/* Tooltip on hover */}
-                    <div className="absolute -top-10 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                      {data.hours} hrs | {data.mentees} mentees
-                    </div>
-
-                    <div className="flex items-end gap-1 w-full justify-center">
-                      {/* Hours Bar (Blue) */}
-                      <div
-                        style={{ height: `${hourHeight}px` }}
-                        className="w-1/2 max-w-[16px] rounded-t-md bg-ally-primary/80 transition-all group-hover:bg-ally-primary"
-                      />
-                      {/* Mentees Indicator Bar (Green) */}
-                      <div
-                        style={{ height: `${data.mentees * 8}px` }} // scale mentees indicator
-                        className="w-1/3 max-w-[8px] rounded-t-md bg-emerald-400 transition-all"
-                      />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500">{data.month}</span>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="mt-6 flex items-center justify-center gap-4 text-[10px] font-bold text-slate-500 border-t border-slate-100 pt-4">
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-ally-primary block"></span> Mentoring Hours</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-400 block"></span> Total Mentees</span>
-            </div>
-          </div>
-
-          {/* ADMIN DISBURSEMENT HISTORY */}
+        <div className="grid gap-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Payout History</h3>
-              <p className="text-xs text-slate-500 mt-1">Track disbursements from admin.</p>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Invoices & Pendapatan Mentor</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Daftar transaksi fee konsultasi yang diselesaikan.
+                </p>
+              </div>
+              <span className="text-sm font-extrabold text-emerald-600">
+                Saldo: Rp {(currentBalance || stats.earning_balance).toLocaleString("id-ID")}
+              </span>
             </div>
 
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    <th className="py-3 px-2">Period</th>
-                    <th className="py-3 px-2">Amount</th>
+                    <th className="py-3 px-2">Invoice ID</th>
+                    <th className="py-3 px-2">Mentee</th>
+                    <th className="py-3 px-2">Tanggal</th>
+                    <th className="py-3 px-2">Slot Waktu</th>
+                    <th className="py-3 px-2">Earned Fee</th>
                     <th className="py-3 px-2 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {recentPayouts.map((payout) => (
-                    <tr key={payout.id} className="hover:bg-slate-50/50">
-                      <td className="py-3.5 px-2">
-                        <p className="font-bold text-slate-900">{payout.period}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{payout.date}</p>
-                      </td>
-                      <td className="py-3.5 px-2 font-bold text-slate-900">{payout.amount}</td>
-                      <td className="py-3.5 px-2 text-right">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                            payout.status === "Paid"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {payout.status === "Paid" ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                          {payout.status}
-                        </span>
+                  {invoicesHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-slate-400 text-xs">
+                        Belum ada riwayat invoice pendapatan.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    invoicesHistory.map((invoice) => (
+                      <tr key={invoice.invoice_id} className="hover:bg-slate-50/50">
+                        <td className="py-3.5 px-2 font-mono text-xs font-bold text-slate-700">
+                          {invoice.invoice_id}
+                        </td>
+                        <td className="py-3.5 px-2 font-bold text-slate-900">
+                          {invoice.mentee_name}
+                        </td>
+                        <td className="py-3.5 px-2 text-slate-600 text-xs">
+                          {invoice.consultation_date}
+                        </td>
+                        <td className="py-3.5 px-2 text-slate-600 text-xs">
+                          {invoice.time_slot}
+                        </td>
+                        <td className="py-3.5 px-2 font-bold text-emerald-600">
+                          Rp {(invoice.earned_fee || 0).toLocaleString("id-ID")}
+                        </td>
+                        <td className="py-3.5 px-2 text-right">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                            <CheckCircle2 size={12} />
+                            {invoice.payment_status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
-
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <button className="text-sm font-bold text-ally-primary hover:underline w-full text-center">
-                Download Invoice Statement
-              </button>
-            </div>
           </div>
-
         </div>
-
       </section>
-
-      {/* CSS untuk Scrollbar Custom di Reviews */}
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
     </UserLayout>
   );
 }

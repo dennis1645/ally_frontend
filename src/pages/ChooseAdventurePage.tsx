@@ -112,7 +112,7 @@ export default function ChooseAdventurePage() {
   function handleStartFreeAssessment(): void {
     setIsNavigating(true);
     resetAssessmentProgress();
-    const guestToken = createNewGuestToken();
+    createNewGuestToken();
     setTimeout(() => {
       navigate(INITIAL_ASSESSMENT_ROUTE);
     }, 900);

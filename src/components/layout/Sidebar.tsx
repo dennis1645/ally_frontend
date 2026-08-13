@@ -67,8 +67,8 @@ export const defaultUserSidebarItems: SidebarItem[] = [
 export default function Sidebar({
   isOpen = false,
   onClose,
-  userName,
-  userEmail,
+  userName: _userName,
+  userEmail: _userEmail,
   items = defaultUserSidebarItems,
   collapsed = false,
   onToggleCollapse,

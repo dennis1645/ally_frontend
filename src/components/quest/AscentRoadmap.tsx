@@ -59,10 +59,7 @@ type MilestoneIconProps = {
 };
 
 
-type MilestoneWithAccess = QuestMilestone & {
-  requiresSubscription?: boolean;
-  isDiscovered?: boolean;
-};
+
 
 
 const desktopPositions: Record<
@@ -1031,7 +1028,7 @@ export default function AscentRoadmap({
   );
 
   const [
-    revealedMilestones,
+    _revealedMilestones,
     setRevealedMilestones,
   ] = useState<
     Set<number>
@@ -1092,8 +1089,7 @@ export default function AscentRoadmap({
   function handleMilestoneClick(
     milestone: QuestMilestone,
   ): void {
-    const milestoneWithAccess =
-      milestone as MilestoneWithAccess;
+
 
     if (
       milestone.status ===

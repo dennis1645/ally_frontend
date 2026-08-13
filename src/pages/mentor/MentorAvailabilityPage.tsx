@@ -1,529 +1,761 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useState } from "react";
 import {
   Calendar as CalendarIcon,
-  CalendarDays,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Video,
-  XCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  Check,
+  Layers,
+  Sliders,
+  CalendarDays,
+  Sparkles,
 } from "lucide-react";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
+import {
+  getMentorAvailabilitiesApi,
+  createMentorAvailabilitiesApi,
+  type MentorAvailabilitySlot,
+} from "../../api/mentorApi";
 
-// --- TYPES ---
-type SessionEvent = {
-  id: string;
-  mentee: string;
-  topic: string;
-  dateStr: string; // e.g., "2026-08-14"
-  time: string; // e.g., "11:00 AM"
-  status: "Pending" | "Confirmed" | "Completed" | "Rejected" | "Rescheduled";
-};
-
-// --- CONSTANTS & MOCK DATA ---
-const TODAY_STR = "2026-08-12"; // Simulasi hari ini: Rabu, 12 Agustus 2026
-
-const HOURS = [
-  "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", 
-  "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", 
-  "04:00 PM", "05:00 PM"
+// Preset slot waktu umum untuk kemudahan mentor
+const DEFAULT_PRESET_SLOTS = [
+  { start: "08:00", end: "09:00", label: "08:00 - 09:00 WIB" },
+  { start: "09:00", end: "10:00", label: "09:00 - 10:00 WIB" },
+  { start: "10:00", end: "11:00", label: "10:00 - 11:00 WIB" },
+  { start: "11:00", end: "12:00", label: "11:00 - 12:00 WIB" },
+  { start: "13:00", end: "14:00", label: "13:00 - 14:00 WIB" },
+  { start: "14:00", end: "15:00", label: "14:00 - 15:00 WIB" },
+  { start: "15:30", end: "16:30", label: "15:30 - 16:30 WIB" },
+  { start: "19:00", end: "20:00", label: "19:00 - 20:00 WIB" },
 ];
 
-// Data Sesi Mentor
-const initialSessions: SessionEvent[] = [
-  { id: "s1", mentee: "Mina Alvarez", topic: "Career clarity session", dateStr: "2026-08-14", time: "11:00 AM", status: "Confirmed" },
-  { id: "s2", mentee: "Devon Vance", topic: "Final Essay Review", dateStr: "2026-08-11", time: "02:00 PM", status: "Confirmed" },
-  { id: "b1", mentee: "Ari Chen", topic: "Scholarship interview prep", dateStr: "2026-08-13", time: "04:00 PM", status: "Pending" },
-  { id: "b2", mentee: "Jordan Lee", topic: "Goal-setting roadmap", dateStr: "2026-08-10", time: "10:00 AM", status: "Pending" },
-];
-
-// Mock Available Slots (Format: YYYY-MM-DD-Time)
-const initialAvailableSlots = [
-  "2026-08-13-04:00 PM", "2026-08-14-11:00 AM", "2026-08-14-12:00 PM", 
-  "2026-08-11-02:00 PM", "2026-08-10-10:00 AM"
-];
-
-// --- MAIN COMPONENT ---
 export function MentorAvailabilityPage() {
-  const navigate = useNavigate();
+  const [slots, setSlots] = useState<MentorAvailabilitySlot[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // State Data
-  const [sessions, setSessions] = useState<SessionEvent[]>(initialSessions);
-  const [availableSlots, setAvailableSlots] = useState<string[]>(initialAvailableSlots);
-  const [calendarMode, setCalendarMode] = useState<"availability" | "booked">("availability");
-  
-  // State Tanggal Dinamis
-  const [weekOffset, setWeekOffset] = useState(0);
+  // Calendar State
+  const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
+  const [selectedDates, setSelectedDates] = useState<string[]>([
+    new Date().toISOString().split("T")[0],
+  ]);
 
-  // State Modals
-  const [confirmModalId, setConfirmModalId] = useState<string | null>(null);
-  const [rejectModalId, setRejectModalId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [joinModalId, setJoinModalId] = useState<string | null>(null);
-  const [warningToast, setWarningToast] = useState<string | null>(null);
+  // Mode Pengaturan Jam: "uniform" (sama semua) vs "custom" (beda per tanggal)
+  const [timeMode, setTimeMode] = useState<"uniform" | "custom">("uniform");
 
-  // Mouse Drag State
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragAction, setDragAction] = useState<"add" | "remove" | null>(null);
+  // State untuk Mode Uniform (Jam sama untuk seluruh tanggal yang dipilih)
+  const [uniformTimeSlots, setUniformTimeSlots] = useState<
+    { start_time: string; end_time: string }[]
+  >([{ start_time: "14:00", end_time: "15:00" }]);
 
-  // --- LOGIKA TANGGAL & KALENDER ---
-  const getWeekDays = (offset: number) => {
-    // Mulai dari Senin minggu ini (10 Agustus 2026)
-    const start = new Date("2026-08-10T00:00:00"); 
-    start.setDate(start.getDate() + (offset * 7));
-    
-    return Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
-      return {
-        id: dateStr,
-        day: d.toLocaleDateString("en-US", { weekday: "short" }),
-        dateStr: dateStr,
-        displayDate: d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-        isPast: dateStr < TODAY_STR
-      };
-    });
-  };
+  // State untuk Mode Custom (Jam berbeda per tanggal)
+  const [customTimeSlots, setCustomTimeSlots] = useState<
+    Record<string, { start_time: string; end_time: string }[]>
+  >({});
 
-  const weekDays = getWeekDays(weekOffset);
-  const dateRangeStr = `${weekDays[0].displayDate} - ${weekDays[6].displayDate}`;
+  // Input Custom Slot Tambahan
+  const [customStart, setCustomStart] = useState("09:00");
+  const [customEnd, setCustomEnd] = useState("10:00");
 
-  // Membersihkan Toast Warning otomatis
-  useEffect(() => {
-    if (warningToast) {
-      const timer = setTimeout(() => setWarningToast(null), 3000);
-      return () => clearTimeout(timer);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Filter Tanggal di Daftar Ketersediaan Samping
+  const [filterDate, setFilterDate] = useState<string>("all");
+
+  async function fetchSlots() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await getMentorAvailabilitiesApi();
+      if (response?.data) {
+        setSlots(response.data);
+      }
+    } catch (err: unknown) {
+      console.error("Failed to load availability slots", err);
+      setError(
+        err instanceof Error ? err.message : "Gagal memuat ketersediaan slot dari server."
+      );
+    } finally {
+      setLoading(false);
     }
-  }, [warningToast]);
-
-  // --- LOGIKA DRAG TO SELECT ---
-  const handleMouseDown = (cellId: string, isPast: boolean, isBooked: boolean) => {
-    if (calendarMode !== "availability") return;
-    if (isPast) return;
-    if (isBooked) {
-      setWarningToast("You cannot remove this slot because a mentee has already booked it.");
-      return;
-    }
-    
-    setIsDragging(true);
-    const isCurrentlyAvailable = availableSlots.includes(cellId);
-    const action = isCurrentlyAvailable ? "remove" : "add";
-    setDragAction(action);
-    updateSlot(cellId, action);
-  };
-
-  const handleMouseEnter = (cellId: string, isPast: boolean, isBooked: boolean) => {
-    if (calendarMode !== "availability") return;
-    if (isDragging && dragAction && !isPast && !isBooked) {
-      updateSlot(cellId, dragAction);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setDragAction(null);
-  };
-
-  const updateSlot = (cellId: string, action: "add" | "remove") => {
-    setAvailableSlots((prev) => {
-      if (action === "add" && !prev.includes(cellId)) return [...prev, cellId];
-      if (action === "remove") return prev.filter((id) => id !== cellId);
-      return prev;
-    });
-  };
-
-  // --- LOGIKA AKSI SESSIONS & MODALS ---
-  
-  // Fungsi yang sempat hilang dikembalikan ke sini
-  function updateSessionStatus(id: string, newStatus: SessionEvent["status"]) {
-    setSessions((current) =>
-      current.map((session) => (session.id === id ? { ...session, status: newStatus } : session))
-    );
   }
 
-  const handleConfirmRequest = () => {
-    if (!confirmModalId) return;
-    setSessions(s => s.map(session => session.id === confirmModalId ? { ...session, status: "Confirmed" } : session));
-    setConfirmModalId(null);
-  };
+  useEffect(() => {
+    fetchSlots();
+  }, []);
 
-  const handleRejectRequest = () => {
-    if (!rejectModalId) return;
-    console.log("Reject reason sent to admin:", rejectReason);
-    setSessions(s => s.map(session => session.id === rejectModalId ? { ...session, status: "Rejected" } : session));
-    setRejectModalId(null);
-    setRejectReason("");
-  };
+  // --- LOGIKA HELPER KALENDER ---
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
 
-  const handleCompleteSession = (id: string, menteeName: string) => {
-    setSessions(s => s.map(session => session.id === id ? { ...session, status: "Completed" } : session));
-    navigate("/mentor/action-plans", { state: { autoSelectMentee: menteeName } });
-  };
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
 
-  const upcomingSessions = sessions.filter((s) => s.status === "Confirmed");
-  const pendingRequests = sessions.filter((s) => s.status === "Pending");
+  const daysInMonth = lastDayOfMonth.getDate();
+  const startDayOfWeek = firstDayOfMonth.getDay(); // 0 = Sun
+
+  const monthNames = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
+
+  function handlePrevMonth() {
+    setCurrentMonthDate(new Date(year, month - 1, 1));
+  }
+
+  function handleNextMonth() {
+    setCurrentMonthDate(new Date(year, month + 1, 1));
+  }
+
+  function toggleDateSelection(dateStr: string) {
+    if (selectedDates.includes(dateStr)) {
+      if (selectedDates.length > 1) {
+        setSelectedDates(selectedDates.filter((d) => d !== dateStr));
+      }
+    } else {
+      setSelectedDates([...selectedDates, dateStr]);
+
+      // Inisialisasi slot custom jika di mode custom
+      if (!customTimeSlots[dateStr]) {
+        setCustomTimeSlots((prev) => ({
+          ...prev,
+          [dateStr]: [{ start_time: "14:00", end_time: "15:00" }],
+        }));
+      }
+    }
+  }
+
+  function handlePresetToggle(start: string, end: string, dateStr?: string) {
+    if (timeMode === "uniform") {
+      const exists = uniformTimeSlots.some(
+        (s) => s.start_time === start && s.end_time === end
+      );
+      if (exists) {
+        setUniformTimeSlots(
+          uniformTimeSlots.filter(
+            (s) => !(s.start_time === start && s.end_time === end)
+          )
+        );
+      } else {
+        setUniformTimeSlots([
+          ...uniformTimeSlots,
+          { start_time: start, end_time: end },
+        ]);
+      }
+    } else if (dateStr) {
+      const currentList = customTimeSlots[dateStr] || [];
+      const exists = currentList.some(
+        (s) => s.start_time === start && s.end_time === end
+      );
+      const updated = exists
+        ? currentList.filter(
+            (s) => !(s.start_time === start && s.end_time === end)
+          )
+        : [...currentList, { start_time: start, end_time: end }];
+
+      setCustomTimeSlots({
+        ...customTimeSlots,
+        [dateStr]: updated,
+      });
+    }
+  }
+
+  function addCustomTimeRange(dateStr?: string) {
+    if (!customStart || !customEnd) return;
+    if (customStart >= customEnd) {
+      setError("Jam mulai harus lebih awal dari jam selesai.");
+      return;
+    }
+
+    if (timeMode === "uniform") {
+      const exists = uniformTimeSlots.some(
+        (s) => s.start_time === customStart && s.end_time === customEnd
+      );
+      if (!exists) {
+        setUniformTimeSlots([
+          ...uniformTimeSlots,
+          { start_time: customStart, end_time: customEnd },
+        ]);
+      }
+    } else if (dateStr) {
+      const currentList = customTimeSlots[dateStr] || [];
+      const exists = currentList.some(
+        (s) => s.start_time === customStart && s.end_time === customEnd
+      );
+      if (!exists) {
+        setCustomTimeSlots({
+          ...customTimeSlots,
+          [dateStr]: [
+            ...currentList,
+            { start_time: customStart, end_time: customEnd },
+          ],
+        });
+      }
+    }
+  }
+
+  async function handleSaveAvailabilities() {
+    if (selectedDates.length === 0) {
+      setError("Silakan pilih minimal satu tanggal di kalender.");
+      return;
+    }
+
+    const payloadList: {
+      available_date: string;
+      start_time: string;
+      end_time: string;
+    }[] = [];
+
+    if (timeMode === "uniform") {
+      if (uniformTimeSlots.length === 0) {
+        setError("Silakan atur atau pilih minimal satu slot jam.");
+        return;
+      }
+      for (const d of selectedDates) {
+        for (const t of uniformTimeSlots) {
+          payloadList.push({
+            available_date: d,
+            start_time: t.start_time,
+            end_time: t.end_time,
+          });
+        }
+      }
+    } else {
+      for (const d of selectedDates) {
+        const slotsForDate = customTimeSlots[d] || [];
+        for (const t of slotsForDate) {
+          payloadList.push({
+            available_date: d,
+            start_time: t.start_time,
+            end_time: t.end_time,
+          });
+        }
+      }
+
+      if (payloadList.length === 0) {
+        setError("Silakan pilih minimal satu slot jam pada tanggal yang dipilih.");
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await createMentorAvailabilitiesApi(payloadList);
+      setSuccessMsg(
+        res.message || `${payloadList.length} slot ketersediaan berhasil disimpan!`
+      );
+      fetchSlots();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Gagal menyimpan slot ketersediaan."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // Menghitung jumlah slot yang sudah ada per tanggal
+  const existingSlotCounts = slots.reduce((acc, slot) => {
+    acc[slot.available_date] = (acc[slot.available_date] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const filteredSlots =
+    filterDate === "all"
+      ? slots
+      : slots.filter((s) => s.available_date === filterDate);
 
   return (
-    <UserLayout 
-      title="Availability & Scheduling" 
-      subtitle="Schedule and meet your mentees" 
+    <UserLayout
+      title="Availability Management"
+      subtitle="Atur Jadwal & Slot Waktu Luang Konsultasi Mentor"
       sidebarItems={mentorSidebarItems}
     >
-      
-      {/* GLOBAL MOUSE UP HANDLER */}
-      <section onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} className="min-h-[calc(100vh-80px)] bg-ally-background p-6 lg:p-8 select-none relative">
-        
-        {/* WARNING TOAST */}
-        {warningToast && (
-          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-slate-900 text-white px-5 py-3 rounded-full shadow-xl animate-fade-in-down">
-            <AlertCircle size={18} className="text-amber-400" />
-            <span className="text-sm font-medium">{warningToast}</span>
+      <section className="min-h-[calc(100vh-80px)] bg-ally-background p-6 lg:p-8">
+        {error && (
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700 flex items-center gap-3 shadow-xs">
+            <AlertCircle size={20} />
+            <p className="text-sm font-medium">{error}</p>
           </div>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-[1.8fr_1fr] items-start">
-          
-          {/* =======================================
-              KOLOM KIRI: INTERACTIVE CALENDAR
-          ======================================= */}
-          <div className="flex flex-col rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden h-fit">
-            
-            {/* Calendar Header & Controls */}
-            <div className="flex flex-wrap items-center justify-between border-b border-slate-200 p-5 bg-slate-50/50">
-              <div className="flex items-center gap-4">
-                <div className="flex rounded-full bg-slate-200/80 p-1">
-                  <button
-                    onClick={() => setCalendarMode("availability")}
-                    className={`rounded-full px-4 py-1.5 text-sm font-bold transition-all ${
-                      calendarMode === "availability" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Edit Availability
-                  </button>
-                  <button
-                    onClick={() => setCalendarMode("booked")}
-                    className={`rounded-full px-4 py-1.5 text-sm font-bold transition-all ${
-                      calendarMode === "booked" ? "bg-ally-primary text-white shadow-sm" : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    View Booked
-                  </button>
-                </div>
-              </div>
+        {successMsg && (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 flex items-center gap-3 shadow-xs">
+            <CheckCircle size={20} />
+            <p className="text-sm font-medium">{successMsg}</p>
+          </div>
+        )}
 
-              <div className="mt-3 flex items-center gap-3 sm:mt-0">
-                <button onClick={() => setWeekOffset(w => w - 1)} className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-100">
-                  <ChevronLeft size={18} />
-                </button>
-                <span className="text-sm font-bold text-slate-700 min-w-[150px] text-center">{dateRangeStr}</span>
-                <button onClick={() => setWeekOffset(w => w + 1)} className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-100">
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* Hint Text */}
-            <div className="px-6 pt-4 pb-2 border-b border-slate-100">
-              <p className="text-sm text-slate-500 flex items-center gap-2">
-                {calendarMode === "availability" ? (
-                  <>💡 <strong className="text-emerald-600">Tip:</strong> Click and drag to mark available hours. <span className="text-slate-400 font-medium">(Past dates are grayed out)</span></>
-                ) : (
-                  <>💡 <strong className="text-ally-primary">Tip:</strong> Hover over the booked slots (Blue) to quickly join the meeting.</>
-                )}
-              </p>
-            </div>
-
-            {/* Calendar Grid Layout */}
-            <div className="p-4 overflow-x-auto bg-slate-50/50">
-              <div className="min-w-[650px] border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-                
-                {/* Header Row (Days & Dates) */}
-                <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50">
-                  <div className="p-3 text-center text-xs font-bold text-slate-400 border-r border-slate-200 flex items-center justify-center bg-slate-100/50">
-                    GMT+7
+        <div className="grid gap-8 xl:grid-cols-[1.3fr_1fr]">
+          {/* ==============================================================
+              KIRI: KALENDER INTERAKTIF & PENGATURAN JAM
+          ============================================================== */}
+          <div className="space-y-6">
+            {/* KALENDER BULANAN INTERAKTIF */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-ally-surface text-ally-primary">
+                    <CalendarDays size={20} />
                   </div>
-                  {weekDays.map((d) => (
-                    <div key={d.id} className={`p-2 text-center border-r border-slate-200 last:border-0 ${d.isPast ? "bg-slate-100/50" : ""}`}>
-                      <p className={`text-sm font-bold ${d.isPast ? "text-slate-400" : "text-slate-800"}`}>{d.day}</p>
-                      <p className={`mt-0.5 text-[10px] font-medium ${d.isPast ? "text-slate-400" : "text-slate-500"}`}>{d.displayDate}</p>
-                    </div>
-                  ))}
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">
+                      1. Pilih Tanggal di Kalender
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Klik tanggal untuk memilih/membatalkan. Bisa memilih beberapa tanggal sekaligus.
+                    </p>
+                  </div>
                 </div>
 
-                {/* Time Rows */}
-                <div className="bg-white">
-                  {HOURS.map((hour) => (
-                    <div key={hour} className="grid grid-cols-8 border-b border-slate-100 last:border-0">
-                      {/* Hour Label */}
-                      <div className="p-2 text-right text-xs font-medium text-slate-400 border-r border-slate-200 flex items-start justify-end bg-slate-50/30">
-                        <span className="-mt-1.5">{hour}</span>
-                      </div>
+                {/* Navigasi Bulan */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePrevMonth}
+                    className="p-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="text-sm font-bold text-slate-800 min-w-[120px] text-center">
+                    {monthNames[month]} {year}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="p-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
 
-                      {/* Day Cells */}
-                      {weekDays.map((d) => {
-                        const cellId = `${d.dateStr}-${hour}`;
-                        const isAvailable = availableSlots.includes(cellId);
-                        
-                        // Cek apakah ada booking di sel ini (Pending atau Confirmed)
-                        const bookedSession = sessions.find((s) => s.dateStr === d.dateStr && s.time === hour && (s.status === "Confirmed" || s.status === "Pending"));
+              {/* Grid Hari Kalender */}
+              <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <div>Min</div>
+                <div>Sen</div>
+                <div>Sel</div>
+                <div>Rab</div>
+                <div>Kam</div>
+                <div>Jum</div>
+                <div>Sab</div>
+              </div>
 
-                        let cellClass = "border-r border-slate-100 last:border-0 h-14 transition-colors duration-75 relative ";
-                        
-                        if (d.isPast) {
-                          cellClass += "bg-slate-100/70 cursor-not-allowed patterned-bg opacity-70";
-                        } else if (calendarMode === "availability") {
-                          if (bookedSession) {
-                            cellClass += "bg-emerald-500 border-emerald-600 cursor-not-allowed"; // Hijau pekat, gabisa diganti
-                          } else {
-                            cellClass += isAvailable ? "bg-emerald-300 cursor-pointer" : "bg-white hover:bg-slate-50 cursor-pointer";
-                          }
-                        } else {
-                          // View Booked Mode
-                          cellClass += bookedSession?.status === "Confirmed" ? "bg-ally-primary text-white group" : "bg-white opacity-50 cursor-default";
-                        }
+              <div className="grid grid-cols-7 gap-2">
+                {/* Empty cells for starting day offset */}
+                {Array.from({ length: startDayOfWeek }).map((_, i) => (
+                  <div key={`empty-${i}`} className="h-12 rounded-2xl bg-slate-50/40" />
+                ))}
+
+                {/* Days of month */}
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const dayNum = i + 1;
+                  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+                    dayNum
+                  ).padStart(2, "0")}`;
+
+                  const isSelected = selectedDates.includes(dateStr);
+                  const activeCount = existingSlotCounts[dateStr] || 0;
+
+                  return (
+                    <button
+                      key={dateStr}
+                      type="button"
+                      onClick={() => toggleDateSelection(dateStr)}
+                      className={`relative h-14 rounded-2xl p-1.5 flex flex-col justify-between items-center transition-all cursor-pointer border ${
+                        isSelected
+                          ? "bg-ally-primary text-white border-ally-primary shadow-md scale-102"
+                          : activeCount > 0
+                          ? "bg-emerald-50 text-slate-900 border-emerald-300 hover:border-emerald-400"
+                          : "bg-slate-50/70 text-slate-800 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <span className={`text-xs font-bold ${isSelected ? "text-white" : "text-slate-900"}`}>
+                        {dayNum}
+                      </span>
+
+                      {activeCount > 0 && (
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                            isSelected
+                              ? "bg-white/20 text-white"
+                              : "bg-emerald-200 text-emerald-800"
+                          }`}
+                        >
+                          {activeCount} slot
+                        </span>
+                      )}
+
+                      {isSelected && (
+                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500">
+                <span className="font-semibold text-slate-700">
+                  {selectedDates.length} Tanggal Dipilih: {selectedDates.join(", ")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDates([new Date().toISOString().split("T")[0]])}
+                  className="text-ally-primary hover:underline font-bold"
+                >
+                  Reset Tanggal
+                </button>
+              </div>
+            </div>
+
+            {/* PENGATURAN JAM & MENU MODE */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                    <Clock size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">
+                      2. Pilih & Atur Jam Ketersediaan
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Tentukan jam luang konsultasi untuk tanggal yang telah dipilih.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tab Menu Mode Jam (Sama Semua vs Beda per Tanggal) */}
+                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/60 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setTimeMode("uniform")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      timeMode === "uniform"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Layers size={13} /> Jam Sama Semua
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeMode("custom")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      timeMode === "custom"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Sliders size={13} /> Beda per Tanggal
+                  </button>
+                </div>
+              </div>
+
+              {/* MODE 1: UNIFORM (Jam Sama Untuk Semua Tanggal) */}
+              {timeMode === "uniform" ? (
+                <div className="space-y-5">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                      Pilihan Slot Waktu Cepat (Preset):
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {DEFAULT_PRESET_SLOTS.map((preset, idx) => {
+                        const isSelected = uniformTimeSlots.some(
+                          (s) =>
+                            s.start_time === preset.start &&
+                            s.end_time === preset.end
+                        );
 
                         return (
-                          <div
-                            key={cellId}
-                            onMouseDown={() => handleMouseDown(cellId, d.isPast, !!bookedSession)}
-                            onMouseEnter={() => handleMouseEnter(cellId, d.isPast, !!bookedSession)}
-                            className={cellClass}
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() =>
+                              handlePresetToggle(preset.start, preset.end)
+                            }
+                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-between ${
+                              isSelected
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-400 font-extrabold"
+                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
                           >
-                            {/* Render Nama Mentee jika di mode Booked, ATAU icon lock jika di mode availability dan sudah dibooked */}
-                            {calendarMode === "booked" && bookedSession?.status === "Confirmed" && (
-                              <div className="absolute inset-0 p-1.5 overflow-hidden">
-                                <div className="bg-white/20 rounded p-1.5 h-full flex flex-col justify-center relative">
-                                  <p className="text-[10px] leading-tight font-bold truncate group-hover:opacity-0 transition-opacity">
-                                    {bookedSession.mentee}
-                                  </p>
-                                  
-                                  {/* Hover Button */}
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setJoinModalId(bookedSession.id);
-                                      }}
-                                      className="flex items-center gap-1 bg-white text-ally-primary px-2 py-1 rounded-md text-[10px] font-bold shadow-sm transition hover:scale-105"
-                                    >
-                                      <Video size={12} /> Join
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {calendarMode === "availability" && bookedSession && !d.isPast && (
-                               <div className="absolute top-1 right-1 opacity-50"><CheckCircle size={12} className="text-white"/></div>
-                            )}
-                          </div>
+                            <span>{preset.start} - {preset.end}</span>
+                            {isSelected && <Check size={14} className="text-emerald-600" />}
+                          </button>
                         );
                       })}
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Range Jam Kustom Tambahan */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                    <p className="text-xs font-bold text-slate-700 mb-2">
+                      + Tambah Rentang Jam Kustom:
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <input
+                        type="time"
+                        value={customStart}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                        className="rounded-xl border border-slate-200 bg-white p-2 text-xs font-bold outline-none"
+                      />
+                      <span className="text-xs text-slate-500 font-bold">s/d</span>
+                      <input
+                        type="time"
+                        value={customEnd}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                        className="rounded-xl border border-slate-200 bg-white p-2 text-xs font-bold outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addCustomTimeRange()}
+                        className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800"
+                      >
+                        Tambah Slot
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Slot Aktif di Mode Uniform */}
+                  <div className="pt-2">
+                    <p className="text-xs font-bold text-slate-500 mb-1">
+                      Slot Jam Aktif ({uniformTimeSlots.length} slot per tanggal):
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {uniformTimeSlots.map((s, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800"
+                        >
+                          <Clock size={12} />
+                          {s.start_time} - {s.end_time}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUniformTimeSlots(
+                                uniformTimeSlots.filter((_, i) => i !== idx)
+                              )
+                            }
+                            className="ml-1 text-emerald-600 hover:text-emerald-900"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                /* MODE 2: CUSTOM (Jam Berbeda per Tanggal) */
+                <div className="space-y-6 max-h-[380px] overflow-y-auto pr-1">
+                  {selectedDates.map((dateStr) => {
+                    const currentSlots = customTimeSlots[dateStr] || [];
+
+                    return (
+                      <div
+                        key={dateStr}
+                        className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3"
+                      >
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                          <span className="text-sm font-bold text-slate-900">
+                            🗓️ Tanggal: {dateStr}
+                          </span>
+                          <span className="text-xs text-slate-500 font-semibold">
+                            {currentSlots.length} Slot Jam
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {DEFAULT_PRESET_SLOTS.map((preset, idx) => {
+                            const isSelected = currentSlots.some(
+                              (s) =>
+                                s.start_time === preset.start &&
+                                s.end_time === preset.end
+                            );
+
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() =>
+                                  handlePresetToggle(
+                                    preset.start,
+                                    preset.end,
+                                    dateStr
+                                  )
+                                }
+                                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center justify-between ${
+                                  isSelected
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-400"
+                                    : "bg-white text-slate-700 border-slate-200"
+                                }`}
+                              >
+                                <span>{preset.start} - {preset.end}</span>
+                                {isSelected && (
+                                  <Check size={12} className="text-emerald-600" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* TOMBOL UTAMA SIMPAN KETERSEDIAAN */}
+              <div className="mt-6 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleSaveAvailabilities}
+                  disabled={isSubmitting}
+                  className="w-full rounded-full bg-ally-primary py-3 text-sm font-bold text-white transition hover:bg-ally-primary/90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Sparkles size={18} />
+                  )}
+                  {isSubmitting
+                    ? "Menyimpan Slot ke Server..."
+                    : `Simpan ${
+                        timeMode === "uniform"
+                          ? selectedDates.length * uniformTimeSlots.length
+                          : Object.values(customTimeSlots).flat().length
+                      } Slot Ketersediaan`}
+                </button>
               </div>
             </div>
           </div>
 
-          {/* =======================================
-              KOLOM KANAN: LIST SESSIONS & REQUESTS
-          ======================================= */}
-          <div className="space-y-6 sticky top-6 self-start max-h-[calc(100vh-100px)] overflow-y-auto no-scrollbar pb-6">
-            
-            {/* 1. UPCOMING SESSIONS */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-2 text-slate-900">
-                <CalendarIcon size={20} className="text-ally-primary" />
-                <h3 className="text-lg font-bold">Upcoming Sessions</h3>
+          {/* ==============================================================
+              KANAN: DAFTAR SLOT KETERSEDIAAN AKTIF (SCROLLABLE FEED)
+          ============================================================== */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col h-[calc(100vh-140px)] sticky top-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  Daftar Slot Ketersediaan Server
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Slot luang aktif di sistem yang dapat di-booking mentee.
+                </p>
               </div>
-              
-              <div className="space-y-3">
-                {upcomingSessions.length === 0 ? (
-                  <p className="text-sm text-slate-500 py-4 text-center">No upcoming sessions.</p>
-                ) : (
-                  upcomingSessions.map((session) => {
-                    const isPastSession = session.dateStr < TODAY_STR;
-                    return (
-                      <div key={session.id} className={`rounded-2xl border ${isPastSession ? 'border-amber-200 bg-amber-50/50' : 'border-slate-100 bg-slate-50/50'} p-4 transition hover:border-slate-300`}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-bold text-slate-900">{session.mentee}</p>
-                            <p className="text-xs font-medium text-slate-500 mt-0.5">{session.topic}</p>
-                          </div>
-                          {isPastSession && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md uppercase tracking-wider">Overdue</span>}
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-xs font-medium text-slate-600">
-                          <span className="flex items-center gap-1.5"><CalendarDays size={14}/> {session.dateStr} · {session.time}</span>
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                          <button onClick={() => setJoinModalId(session.id)} className="flex-1 inline-flex justify-center items-center gap-1.5 rounded-full bg-ally-primary px-3 py-2 text-xs font-bold text-white transition hover:bg-ally-primary/90">
-                            <Video size={14} /> Join
-                          </button>
-                          <button onClick={() => handleCompleteSession(session.id, session.mentee)} className="flex-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50">
-                            Complete
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
+              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-700">
+                {slots.length} Slot Total
+              </span>
             </div>
 
-            {/* 2. BOOKING REQUESTS */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-900">Booking Requests</h3>
-                {pendingRequests.length > 0 && (
-                  <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{pendingRequests.length} New</span>
+            {/* Filter Tanggal */}
+            <div className="mb-4">
+              <select
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs font-bold text-slate-800 outline-none cursor-pointer"
+              >
+                <option value="all">Semua Tanggal ({slots.length} Slot)</option>
+                {Array.from(new Set(slots.map((s) => s.available_date))).map(
+                  (d) => (
+                    <option key={d} value={d}>
+                      Tanggal: {d} (
+                      {slots.filter((s) => s.available_date === d).length} slot)
+                    </option>
+                  )
                 )}
-              </div>
+              </select>
+            </div>
 
-              <div className="space-y-3">
-                {pendingRequests.length === 0 ? (
-                  <p className="text-sm text-slate-500 py-4 text-center">No pending requests.</p>
-                ) : (
-                  pendingRequests.map((booking) => {
-                    const isPastRequest = booking.dateStr < TODAY_STR;
-                    return (
-                      <div key={booking.id} className="rounded-2xl border border-amber-100 bg-amber-50/30 p-4">
-                        <p className="font-bold text-slate-900">{booking.mentee}</p>
-                        <p className="text-xs text-slate-600 mt-0.5">{booking.topic}</p>
-                        <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-amber-700">
-                          <Clock size={14} /> {booking.dateStr} · {booking.time}
-                        </p>
-                        
-                        {isPastRequest ? (
-                          <div className="mt-3 flex flex-col gap-2">
-                            <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1">
-                              <AlertCircle size={12} /> Date passed. Must reschedule or reject.
-                            </p>
-                            <div className="grid grid-cols-2 gap-2">
-                              <button onClick={() => updateSessionStatus(booking.id, "Rescheduled")} className="inline-flex justify-center items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50">
-                                <Clock size={13} /> Reschedule
-                              </button>
-                              <button onClick={() => setRejectModalId(booking.id)} className="inline-flex justify-center items-center gap-1.5 rounded-full border border-rose-200 bg-white px-2 py-1.5 text-[11px] font-bold text-rose-700 transition hover:bg-rose-50">
-                                <XCircle size={13} /> Reject
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 grid grid-cols-2 gap-2">
-                            <button onClick={() => setConfirmModalId(booking.id)} className="inline-flex justify-center items-center gap-1.5 rounded-full bg-emerald-600 px-2 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-700">
-                              <CheckCircle size={13} /> Confirm
-                            </button>
-                            <button onClick={() => setRejectModalId(booking.id)} className="inline-flex justify-center items-center gap-1.5 rounded-full border border-rose-200 bg-white px-2 py-1.5 text-[11px] font-bold text-rose-700 transition hover:bg-rose-50">
-                              <XCircle size={13} /> Reject
-                            </button>
-                          </div>
-                        )}
+            {/* List Feed Scrollable */}
+            <div className="overflow-y-auto flex-1 space-y-3 pr-1 custom-scrollbar">
+              {loading ? (
+                <div className="flex h-48 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-ally-primary" />
+                  <span className="ml-3 text-sm font-semibold text-slate-600">
+                    Memuat slot ketersediaan...
+                  </span>
+                </div>
+              ) : filteredSlots.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-500">
+                  Belum ada slot ketersediaan pada filter tanggal ini.
+                </div>
+              ) : (
+                filteredSlots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-xl bg-slate-100 p-2.5 text-slate-600">
+                        <CalendarIcon size={18} />
                       </div>
-                    )
-                  })
-                )}
-              </div>
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">
+                          {slot.available_date}
+                        </p>
+                        <p className="text-xs text-slate-500 font-mono">
+                          {slot.start_time} - {slot.end_time} WIB
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      {slot.is_booked ? (
+                        <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700">
+                          Di-booking
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                          Tersedia
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* =======================================
-          MODALS / POP-UPS
-      ======================================= */}
-      
-      {/* 1. CONFIRM BOOKING MODAL */}
-      {confirmModalId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl animate-fade-in-up">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-4">
-              <CheckCircle size={24} />
-            </div>
-            <h3 className="text-xl font-bold text-center text-slate-900">Confirm Booking?</h3>
-            <p className="mt-2 text-sm text-center text-slate-500">This will lock the schedule and send an invitation link to the explorer.</p>
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => setConfirmModalId(null)} className="flex-1 rounded-full border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-              <button onClick={handleConfirmRequest} className="flex-1 rounded-full bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Yes, Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. REJECT BOOKING MODAL */}
-      {rejectModalId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-xl animate-fade-in-up">
-            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <XCircle className="text-rose-600" /> Reject Booking
-            </h3>
-            <p className="mt-2 text-sm text-slate-600">Please provide a reason. This will be sent directly to the Admin for review.</p>
-            
-            <textarea
-              className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none focus:border-rose-300 focus:bg-white min-h-[100px]"
-              placeholder="e.g., I have an urgent meeting at this time..."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-            ></textarea>
-            
-            <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => {setRejectModalId(null); setRejectReason("");}} className="rounded-full px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">Cancel</button>
-              <button onClick={handleRejectRequest} disabled={!rejectReason.trim()} className="rounded-full bg-rose-600 px-6 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                Submit Rejection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. JOIN MEETING MODAL */}
-      {joinModalId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl animate-fade-in-up text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100 text-sky-600 mb-4">
-              <Video size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900">Joining Meeting...</h3>
-            <p className="mt-2 text-sm text-slate-500">We will direct you to the Zoom/Google Meet link for this session.</p>
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => setJoinModalId(null)} className="flex-1 rounded-full border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-              <button onClick={() => {setJoinModalId(null); alert("Redirecting to Zoom...");}} className="flex-1 rounded-full bg-ally-primary py-2.5 text-sm font-bold text-white hover:bg-ally-primary/90">Go to Meeting</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CSS Styles tambahan untuk pattern background past date & no-scrollbar */}
+      {/* Custom Scrollbar Styling */}
       <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
         }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
         }
-        .patterned-bg {
-          background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px);
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
         }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.3s ease-out forwards;
-        }
-        .animate-fade-in-down {
-          animation: fadeInDown 0.3s ease-out forwards;
-        }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(10px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes fadeInDown {
-          from { opacity: 0; transform: translate(-50%, -20px); }
-          to { opacity: 1; transform: translate(-50%, 0); }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
         }
       `}</style>
     </UserLayout>
   );
 }
+
+export default MentorAvailabilityPage;
