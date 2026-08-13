@@ -1,11 +1,11 @@
-const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL as
-  | string
-  | undefined;
+const rawApiBaseUrl =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+  "http://127.0.0.1:8000";
 
 /**
  * The API base URL must be declared in the project-root .env file:
  *
- * VITE_API_BASE_URL=https://all-api.my.id
+ * VITE_API_BASE_URL=http://127.0.0.1:8000
  */
 if (!rawApiBaseUrl) {
   throw new Error(
