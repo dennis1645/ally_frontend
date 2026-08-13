@@ -50,6 +50,7 @@ import MentorMatchModal, {
   type MentorMatchModalState,
 } from "../../components/quest/MentorMatchModal";
 import RoadmapTaskPanel from "../../components/quest/RoadmapTaskPanel";
+import MentorBookingPopup from "../../components/coaching/MentorBookingPopup";
 
 import UserLayout from "../../components/layout/UserLayout";
 
@@ -1214,6 +1215,14 @@ export default function DashboardPage() {
   ] =
     useState<RoadmapEntityId | null>(
       null,
+    );
+
+  const [
+    mentorBookingPopupOpen,
+    setMentorBookingPopupOpen,
+  ] =
+    useState(
+      false,
     );
 
   /* =======================================================
@@ -2417,8 +2426,8 @@ export default function DashboardPage() {
 
   function handleBookMentor():
     void {
-    navigate(
-      "/sessions",
+    setMentorBookingPopupOpen(
+      true,
     );
   }
 
@@ -2621,6 +2630,21 @@ export default function DashboardPage() {
         onStartAssessment={() => {
           navigate(
             ASSESSMENT_2_ROUTE,
+          );
+        }}
+      />
+
+      <MentorBookingPopup
+        isOpen={
+          mentorBookingPopupOpen
+        }
+        user={
+          roadmapActiveProfile ??
+          user
+        }
+        onClose={() => {
+          setMentorBookingPopupOpen(
+            false,
           );
         }}
       />
