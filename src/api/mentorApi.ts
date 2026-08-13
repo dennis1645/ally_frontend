@@ -47,6 +47,7 @@ export type MentorInvoicesData = {
 // 2. Mentees & Dossier
 export type MenteeItem = {
   mentee_id: number;
+  booking_id?: number | string;
   name: string;
   email: string;
   phone_number: string;
