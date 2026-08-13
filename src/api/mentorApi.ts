@@ -69,6 +69,15 @@ export type MentorDossierDocument = {
   preview_url: string;
 };
 
+export type MenteeMilestoneProgressItem = {
+  milestone_id: number;
+  parent_id: number | null;
+  task_name: string;
+  description?: string;
+  status: string;
+  target_date?: string;
+};
+
 export type MentorDossierData = {
   booking_id: number;
   session_status: string;
@@ -81,6 +90,7 @@ export type MentorDossierData = {
     target_scholarship: string;
   };
   document_vault_pre_read: MentorDossierDocument[];
+  milestones_progress?: MenteeMilestoneProgressItem[];
 };
 
 // 3. Availability

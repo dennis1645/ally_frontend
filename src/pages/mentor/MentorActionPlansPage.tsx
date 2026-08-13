@@ -12,6 +12,8 @@ import {
   Award,
   Layers,
   CalendarCheck,
+  CheckCircle2,
+  Info,
 } from "lucide-react";
 import { mentorSidebarItems } from "../../components/layout/MentorSidebar";
 import UserLayout from "../../components/layout/UserLayout";
@@ -22,24 +24,19 @@ import {
   getMentorMenteesApi,
   getMentorDashboardStatsApi,
   getMentorInvoicesApi,
+  getMentorDossierApi,
   type MenteeSubmission,
   type MenteeItem,
   type ActionPlanItemInput,
+  type MentorDossierData,
+  type MenteeMilestoneProgressItem,
 } from "../../api/mentorApi";
-
-// Predefined milestones for selection context
-const MILESTONE_OPTIONS = [
-  { id: 1, label: "Milestone 1: Profiling & Readiness Assessment" },
-  { id: 2, label: "Milestone 2: Persiapan Berkas & Legalisir" },
-  { id: 3, label: "Milestone 3: Draft Esai & Proposal Riset" },
-  { id: 4, label: "Milestone 4: Surat Rekomendasi & Interview Mock" },
-  { id: 5, label: "Milestone 5: Final Submission & Submisi Portofolio" },
-];
 
 export type BookingOption = {
   booking_id: number | string;
   label: string;
   mentee_name?: string;
+  mentee_id?: number;
 };
 
 export function MentorActionPlansPage() {
@@ -68,7 +65,6 @@ export function MentorActionPlansPage() {
 
   // Mentees & Bookings Data State
   const [mentees, setMentees] = useState<MenteeItem[]>([]);
-  const [loadingMentees, setLoadingMentees] = useState<boolean>(true);
   const [selectedMenteeId, setSelectedMenteeId] = useState<string>("");
 
   const [bookingsList, setBookingsList] = useState<BookingOption[]>([
@@ -78,6 +74,14 @@ export function MentorActionPlansPage() {
   ]);
   const [selectedBookingId, setSelectedBookingId] = useState<string>("1");
   const [customBookingId, setCustomBookingId] = useState<string>("");
+
+  // Mentee Dossier & Database Milestones State
+  const [dossier, setDossier] = useState<MentorDossierData | null>(null);
+  const [loadingDossier, setLoadingDossier] = useState<boolean>(false);
+  const [hasBooking, setHasBooking] = useState<boolean>(true);
+  const [menteeMilestones, setMenteeMilestones] = useState<
+    MenteeMilestoneProgressItem[]
+  >([]);
 
   // Action Plan Creation State
   const [parentMilestoneId, setParentMilestoneId] = useState<number>(3);
@@ -122,7 +126,6 @@ export function MentorActionPlansPage() {
 
   // Fetch mentees list & available bookings
   async function fetchMenteesAndBookings() {
-    setLoadingMentees(true);
     try {
       const [menteesRes, statsRes, invoicesRes] = await Promise.allSettled([
         getMentorMenteesApi(),
@@ -145,6 +148,7 @@ export function MentorActionPlansPage() {
             booking_id: String(sch.id),
             label: `Booking #${sch.id} — ${sch.mentee?.name || "Mentee"} (${sch.session_status})`,
             mentee_name: sch.mentee?.name,
+            mentee_id: sch.mentee?.id,
           });
         });
       }
@@ -167,10 +171,54 @@ export function MentorActionPlansPage() {
       }
     } catch (err: unknown) {
       console.error("Failed to fetch mentees & bookings data", err);
-    } finally {
-      setLoadingMentees(false);
     }
   }
+
+  // Active target Booking ID
+  const activeBookingId = customBookingId.trim()
+    ? customBookingId.trim()
+    : selectedBookingId;
+
+  // Fetch dossier for active booking to load user milestones from database
+  useEffect(() => {
+    if (!activeBookingId) return;
+
+    async function loadMenteeDossierAndMilestones() {
+      setLoadingDossier(true);
+      try {
+        const response = await getMentorDossierApi(activeBookingId);
+        if (response?.data) {
+          setDossier(response.data);
+          setHasBooking(true);
+
+          // Extract milestones from dossier
+          const fetchedMilestones = response.data.milestones_progress || [];
+          setMenteeMilestones(fetchedMilestones);
+
+          if (fetchedMilestones.length > 0) {
+            setParentMilestoneId(fetchedMilestones[0].milestone_id);
+          }
+
+          if (response.data.mentee_profile?.id) {
+            setSelectedMenteeId(String(response.data.mentee_profile.id));
+          }
+        } else {
+          setDossier(null);
+          setHasBooking(false);
+          setMenteeMilestones([]);
+        }
+      } catch (err) {
+        console.warn(`No active booking/dossier found for booking ID #${activeBookingId}`, err);
+        setDossier(null);
+        setHasBooking(false);
+        setMenteeMilestones([]);
+      } finally {
+        setLoadingDossier(false);
+      }
+    }
+
+    loadMenteeDossierAndMilestones();
+  }, [activeBookingId]);
 
   useEffect(() => {
     fetchSubmissions();
@@ -244,11 +292,6 @@ export function MentorActionPlansPage() {
   async function handleCreateActionPlan(e: React.FormEvent) {
     e.preventDefault();
 
-    // Determine target bookingId for backend API route: /api/mentor/bookings/{bookingId}/action-plans
-    const activeBookingId = customBookingId.trim()
-      ? customBookingId.trim()
-      : selectedBookingId;
-
     if (!activeBookingId) {
       setError("Booking ID wajib dipilih atau diisi.");
       return;
@@ -302,15 +345,29 @@ export function MentorActionPlansPage() {
     }
   }
 
-  // Find currently selected mentee details
-  const selectedMentee = mentees.find(
-    (m) => String(m.mentee_id) === selectedMenteeId
-  );
+  // Find currently selected mentee details (from dossier or mentee list)
+  const activeMenteeProfile = dossier?.mentee_profile;
+  const selectedMentee =
+    mentees.find((m) => String(m.mentee_id) === selectedMenteeId) ||
+    (activeMenteeProfile
+      ? {
+          mentee_id: activeMenteeProfile.id,
+          name: activeMenteeProfile.name,
+          email: activeMenteeProfile.email,
+          readiness_score: activeMenteeProfile.readiness_score,
+          target_scholarship: activeMenteeProfile.target_scholarship,
+          target_country: "ID",
+          phone_number: "-",
+          total_xp: 0,
+          progress_summary: { total_tasks: 0, completed_tasks: 0, progress_percentage: "0%" },
+          uploaded_documents_count: 0,
+        }
+      : null);
 
   return (
     <UserLayout
       title="Task & Action Plan Audit"
-      subtitle="Audit Tugas Mentee & Berikan Penugasan Action Plan Berbasis Milestone"
+      subtitle="Audit Tugas Mentee & Berikan Penugasan Action Plan Berbasis Milestone Database"
       sidebarItems={mentorSidebarItems}
     >
       <section className="min-h-[calc(100vh-80px)] bg-ally-background p-6 lg:p-8">
@@ -490,75 +547,26 @@ export function MentorActionPlansPage() {
                 <Compass className="text-ally-primary" size={22} />
                 <h3 className="text-lg font-bold text-slate-900">Buat Action Plan Mentee</h3>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                Branching Penugasan
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  hasBooking
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-rose-100 text-rose-700"
+                }`}
+              >
+                {hasBooking ? "Booking Ada" : "Tidak Ada Booking"}
               </span>
             </div>
             <p className="text-xs text-slate-500 mb-6">
-              Pilih Mentee, Booking ID Sesi, dan Parent Milestone ID (<code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700">parent_milestone_id</code>) tempat tugas-tugas baru ini akan di-branching.
+              Pilih Booking Sesi, lalu tentukan Milestone Induk Mentee dari database (<code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700">user_milestones</code>) untuk mencabangkan Action Plan baru.
             </p>
 
             <form onSubmit={handleCreateActionPlan} className="space-y-5">
-              {/* Mentee Selector */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                  <UserCheck size={14} className="text-ally-primary" />
-                  1. Pilih Mentee Bimbingan
-                </label>
-                {loadingMentees ? (
-                  <div className="flex items-center text-xs text-slate-500 py-2">
-                    <Loader2 className="animate-spin mr-2" size={14} /> Memuat daftar mentee...
-                  </div>
-                ) : mentees.length > 0 ? (
-                  <select
-                    value={selectedMenteeId}
-                    onChange={(e) => setSelectedMenteeId(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none"
-                  >
-                    {mentees.map((m) => (
-                      <option key={m.mentee_id} value={m.mentee_id}>
-                        {m.name} ({m.email}) — {m.target_scholarship || "Beasiswa Umum"}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="Masukkan ID Mentee"
-                    value={selectedMenteeId}
-                    onChange={(e) => setSelectedMenteeId(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold"
-                  />
-                )}
-
-                {/* Progress Mentee Preview */}
-                {selectedMentee && (
-                  <div className="mt-3 grid grid-cols-2 gap-2 pt-3 border-t border-slate-200/80 text-xs">
-                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
-                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
-                        Readiness Score
-                      </span>
-                      <span className="font-bold text-emerald-600 text-sm flex items-center gap-1">
-                        <Award size={14} /> {selectedMentee.readiness_score || 0}%
-                      </span>
-                    </div>
-                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
-                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
-                        Target Beasiswa
-                      </span>
-                      <span className="font-bold text-slate-800 truncate block">
-                        {selectedMentee.target_scholarship || "Umum"} ({selectedMentee.target_country || "ID"})
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* Booking ID Selector */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
                   <CalendarCheck size={14} className="text-ally-primary" />
-                  2. Pilih Booking ID Sesi Konsultasi
+                  1. Pilih Booking Sesi Konsultasi
                 </label>
 
                 <select
@@ -586,44 +594,104 @@ export function MentorActionPlansPage() {
                     className="w-28 rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold outline-none"
                   />
                   <span className="text-[10px] text-slate-400">
-                    (ID aktif dipanggil: <code className="font-bold text-slate-700">{customBookingId.trim() || selectedBookingId}</code>)
+                    (ID aktif dipanggil: <code className="font-bold text-slate-700">{activeBookingId}</code>)
                   </span>
                 </div>
+
+                {/* Status Indicator Booking Status */}
+                {loadingDossier ? (
+                  <div className="mt-3 flex items-center text-xs text-slate-500">
+                    <Loader2 className="animate-spin mr-2" size={14} /> Memuat data dossier & milestone mentee dari database...
+                  </div>
+                ) : !hasBooking ? (
+                  <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700 flex items-center gap-2">
+                    <AlertCircle size={15} />
+                    <span>Tidak ada booking / dossier ditemukan untuk Booking ID #{activeBookingId}</span>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs text-emerald-800 flex items-center gap-2 font-medium">
+                    <CheckCircle2 size={15} className="text-emerald-600" />
+                    <span>Booking #{activeBookingId} Aktif • Mentee: <strong>{selectedMentee?.name || "Mentee"}</strong></span>
+                  </div>
+                )}
               </div>
 
-              {/* Milestone Target Selector */}
+              {/* Mentee Profile Preview */}
+              {selectedMentee && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
+                    <UserCheck size={14} className="text-ally-primary" />
+                    Profil & Status Mentee
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
+                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
+                        Mentee
+                      </span>
+                      <span className="font-bold text-slate-800 truncate block">
+                        {selectedMentee.name}
+                      </span>
+                    </div>
+                    <div className="rounded-xl bg-white p-2.5 border border-slate-200/60">
+                      <span className="text-slate-400 text-[10px] block font-semibold uppercase">
+                        Readiness Score
+                      </span>
+                      <span className="font-bold text-emerald-600 text-sm flex items-center gap-1">
+                        <Award size={14} /> {selectedMentee.readiness_score || 0}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Milestone Target Selector dari Database Dossier */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
                   <Layers size={14} className="text-ally-primary" />
-                  3. Parent Milestone ID Target (`parent_milestone_id`)
+                  Parent Milestone ID (`user_milestones` Database Mentee)
                 </label>
 
-                <select
-                  value={parentMilestoneId}
-                  onChange={(e) => {
-                    setParentMilestoneId(Number(e.target.value));
-                    setCustomMilestoneId("");
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none mb-2"
-                >
-                  {MILESTONE_OPTIONS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      [{m.id}] {m.label}
-                    </option>
-                  ))}
-                </select>
+                {loadingDossier ? (
+                  <div className="flex items-center text-xs text-slate-500 py-2">
+                    <Loader2 className="animate-spin mr-2" size={14} /> Memuat daftar milestone mentee...
+                  </div>
+                ) : menteeMilestones.length > 0 ? (
+                  <select
+                    value={parentMilestoneId}
+                    onChange={(e) => {
+                      setParentMilestoneId(Number(e.target.value));
+                      setCustomMilestoneId("");
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-800 outline-none mb-2"
+                  >
+                    {menteeMilestones.map((m) => (
+                      <option key={m.milestone_id} value={m.milestone_id}>
+                        [ID #{m.milestone_id}] {m.task_name} {m.status ? `(${m.status})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 flex items-center gap-2">
+                    <Info size={15} />
+                    <span>
+                      {!hasBooking
+                        ? "Tidak ada booking aktif untuk mentee ini."
+                        : "Mentee ini belum memiliki milestone utama di database."}
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] text-slate-500 font-medium">Atau ID Milestone Kustom:</span>
+                  <span className="text-[11px] text-slate-500 font-medium">Atau ID Milestone Manual:</span>
                   <input
                     type="number"
-                    placeholder="Misal: 3"
+                    placeholder="Misal: 12"
                     value={customMilestoneId}
                     onChange={(e) => setCustomMilestoneId(e.target.value)}
                     className="w-24 rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold outline-none"
                   />
                   <span className="text-[10px] text-slate-400">
-                    (Default payload: {customMilestoneId || parentMilestoneId})
+                    (ID parent dikirim: <code className="font-bold text-slate-700">{customMilestoneId || parentMilestoneId}</code>)
                   </span>
                 </div>
               </div>
@@ -725,7 +793,7 @@ export function MentorActionPlansPage() {
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={isCreatingPlan}
+                  disabled={isCreatingPlan || !hasBooking}
                   className="w-full rounded-full bg-slate-900 py-3 text-xs font-bold text-white transition hover:bg-slate-800 disabled:opacity-50 shadow-md flex items-center justify-center gap-2"
                 >
                   {isCreatingPlan ? (
