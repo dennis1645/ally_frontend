@@ -748,14 +748,8 @@ export default function IELTSPracticeQuizCard({
                 <div className="grid min-h-[320px] place-items-center text-center">
                   <div className="max-w-md">
                     <h3 className="text-xl font-extrabold text-[#2c1607]">
-                      The practice trail is a little foggy.
+                      You have finished your daily drill
                     </h3>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      {
-                        errorMessage
-                      }
-                    </p>
 
                     <button
                       type="button"
@@ -768,7 +762,7 @@ export default function IELTSPracticeQuizCard({
                         size={16}
                         aria-hidden="true"
                       />
-                      Try Again
+                      Try Again Tomorrow!
                     </button>
                   </div>
                 </div>
