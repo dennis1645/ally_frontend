@@ -6,7 +6,11 @@ import {
   Loader2,
   Play,
   RefreshCcw,
+  Sparkles,
+  Trophy,
   X,
+  XCircle,
+  Zap,
 } from "lucide-react";
 
 import {
@@ -16,16 +20,21 @@ import {
 
 import {
   generateDailyDrill,
+  getDailyDrillDetail,
+  submitDailyDrill,
 } from "../../api/dailyDrillApi";
 
 import type {
+  DailyDrillDetail,
   DailyDrillQuestion,
+  DailyDrillSubmitResult,
 } from "../../api/dailyDrillApi";
 
 type QuizState =
   | "idle"
   | "loading"
   | "active"
+  | "submitting"
   | "complete"
   | "error";
 
@@ -34,6 +43,15 @@ export type IELTSPracticeQuizCardProps = {
     | "default"
     | "compact";
 };
+
+function formatStat(
+  value: number | null,
+  fallback = "—",
+): string {
+  return value === null
+    ? fallback
+    : String(value);
+}
 
 export default function IELTSPracticeQuizCard({
   variant = "default",
@@ -72,6 +90,34 @@ export default function IELTSPracticeQuizCard({
         number
       >
     >({});
+
+  const [
+    result,
+    setResult,
+  ] =
+    useState<
+      DailyDrillSubmitResult | null
+    >(
+      null,
+    );
+
+  const [
+    detail,
+    setDetail,
+  ] =
+    useState<
+      DailyDrillDetail | null
+    >(
+      null,
+    );
+
+  const [
+    showReview,
+    setShowReview,
+  ] =
+    useState(
+      false,
+    );
 
   const [
     errorMessage,
@@ -129,6 +175,30 @@ export default function IELTSPracticeQuizCard({
       ],
     );
 
+  const totalQuestions =
+    result?.total_questions ??
+    detail?.total_questions ??
+    questions.length;
+
+  const correctAnswers =
+    result?.correct_answers ??
+    detail?.correct_answers ??
+    null;
+
+  const totalScore =
+    result?.total_score ??
+    detail?.total_score ??
+    null;
+
+  const xpEarned =
+    result?.xp_earned ??
+    detail?.xp_earned ??
+    null;
+
+  const reviewQuestions =
+    detail?.questions ??
+    [];
+
   async function startPractice():
     Promise<void> {
     setIsOpen(
@@ -147,13 +217,32 @@ export default function IELTSPracticeQuizCard({
       {},
     );
 
+    setResult(
+      null,
+    );
+
+    setDetail(
+      null,
+    );
+
+    setShowReview(
+      false,
+    );
+
     setCurrentIndex(
       0,
     );
 
     try {
+      /*
+       * The newest backend supports an optional section query.
+       * This card is currently presented as IELTS/English reading
+       * practice, so request reading when the backend supports it.
+       */
       const nextQuestions =
-        await generateDailyDrill();
+        await generateDailyDrill(
+          "reading",
+        );
 
       setQuestions(
         nextQuestions,
@@ -175,7 +264,9 @@ export default function IELTSPracticeQuizCard({
       );
 
       setErrorMessage(
-        "The practice trail is unavailable right now. Please try again.",
+        error instanceof Error
+          ? error.message
+          : "The practice trail is unavailable right now. Please try again.",
       );
 
       setState(
@@ -197,6 +288,13 @@ export default function IELTSPracticeQuizCard({
     optionId:
       number,
   ): void {
+    if (
+      state !==
+      "active"
+    ) {
+      return;
+    }
+
     setAnswers(
       (
         current,
@@ -208,6 +306,131 @@ export default function IELTSPracticeQuizCard({
           optionId,
       }),
     );
+  }
+
+  async function finishPractice():
+    Promise<void> {
+    if (
+      questions.length ===
+      0
+    ) {
+      return;
+    }
+
+    const submissionAnswers =
+      questions.map(
+        (
+          question,
+        ) => ({
+          question_id:
+            question.id,
+          selected_option_id:
+            answers[
+              question.id
+            ],
+        }),
+      );
+
+    if (
+      submissionAnswers.some(
+        (
+          answer,
+        ) =>
+          typeof answer
+            .selected_option_id !==
+          "number",
+      )
+    ) {
+      setErrorMessage(
+        "Please answer every question before submitting.",
+      );
+
+      return;
+    }
+
+    setState(
+      "submitting",
+    );
+
+    setErrorMessage(
+      null,
+    );
+
+    try {
+      const submitResult =
+        await submitDailyDrill(
+          {
+            answers:
+              submissionAnswers as Array<{
+                question_id: number;
+                selected_option_id: number;
+              }>,
+          },
+        );
+
+      setResult(
+        submitResult,
+      );
+
+      /*
+       * The backend detail endpoint is the source of truth for
+       * per-question correctness and explanations.
+       *
+       * A missing ID or a failed detail request should not erase
+       * a successful score submission.
+       */
+      if (
+        submitResult.id !==
+        null
+      ) {
+        try {
+          const drillDetail =
+            await getDailyDrillDetail(
+              submitResult.id,
+            );
+
+          setDetail(
+            drillDetail,
+          );
+        } catch (
+          detailError
+        ) {
+          console.error(
+            "[IELTS Practice] Score submitted, but review detail could not be loaded:",
+            detailError,
+          );
+
+          setDetail(
+            null,
+          );
+        }
+      }
+
+      setState(
+        "complete",
+      );
+    } catch (
+      error
+    ) {
+      console.error(
+        "[IELTS Practice] Unable to submit daily drill:",
+        error,
+      );
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Your answers could not be submitted. Please try again.",
+      );
+
+      /*
+       * Keep the quiz and answers intact so the user can retry
+       * without re-answering every question.
+       */
+      setState(
+        "active",
+      );
+    }
   }
 
   function goNext():
@@ -225,10 +448,7 @@ export default function IELTSPracticeQuizCard({
       questions.length -
         1
     ) {
-      setState(
-        "complete",
-      );
-
+      void finishPractice();
       return;
     }
 
@@ -503,6 +723,27 @@ export default function IELTSPracticeQuizCard({
               )}
 
               {state ===
+                "submitting" && (
+                <div className="grid min-h-[320px] place-items-center text-center">
+                  <div>
+                    <Loader2
+                      size={32}
+                      className="mx-auto animate-spin text-[#16629b]"
+                      aria-hidden="true"
+                    />
+
+                    <h3 className="mt-5 text-lg font-extrabold text-[#2c1607]">
+                      Checking your answers...
+                    </h3>
+
+                    <p className="mt-2 text-sm text-slate-500">
+                      Ally is calculating your score and XP.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {state ===
                 "error" && (
                 <div className="grid min-h-[320px] place-items-center text-center">
                   <div className="max-w-md">
@@ -570,6 +811,14 @@ export default function IELTSPracticeQuizCard({
                       }}
                     />
                   </div>
+
+                  {errorMessage && (
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                      {
+                        errorMessage
+                      }
+                    </div>
+                  )}
 
                   {currentQuestion.category && (
                     <span className="mt-5 inline-flex rounded-full bg-[#eef6fb] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#16629b]">
@@ -704,8 +953,8 @@ export default function IELTSPracticeQuizCard({
 
               {state ===
                 "complete" && (
-                <div className="grid min-h-[320px] place-items-center text-center">
-                  <div className="max-w-md">
+                <div>
+                  <div className="text-center">
                     <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
                       <CheckCircle2
                         size={32}
@@ -717,39 +966,289 @@ export default function IELTSPracticeQuizCard({
                       Practice complete! 🎉
                     </h3>
 
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      You completed{" "}
-                      {
-                        questions.length
-                      }{" "}
-                      practice questions. Keep building your language confidence one drill at a time.
+                    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+                      Your answers were submitted and scored by Ally.
                     </p>
+                  </div>
 
-                    <div className="mt-5 flex flex-wrap justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={
-                          closeModal
+                  <div className="mt-6 grid grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-[#dce8ef] bg-white p-4 text-center">
+                      <Trophy
+                        size={19}
+                        className="mx-auto text-[#16629b]"
+                        aria-hidden="true"
+                      />
+
+                      <p className="mt-2 text-xl font-extrabold text-[#2c1607]">
+                        {
+                          correctAnswers ===
+                          null
+                            ? "—"
+                            : `${correctAnswers}/${formatStat(
+                                totalQuestions,
+                              )}`
                         }
-                        className="rounded-xl border border-[#d7e0e6] bg-white px-4 py-2.5 text-sm font-bold text-slate-600"
-                      >
-                        Close
-                      </button>
+                      </p>
 
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Correct
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#dce8ef] bg-white p-4 text-center">
+                      <Sparkles
+                        size={19}
+                        className="mx-auto text-[#16629b]"
+                        aria-hidden="true"
+                      />
+
+                      <p className="mt-2 text-xl font-extrabold text-[#2c1607]">
+                        {
+                          formatStat(
+                            totalScore,
+                          )
+                        }
+                      </p>
+
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Score
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#f0dfbf] bg-[#fff9ef] p-4 text-center">
+                      <Zap
+                        size={19}
+                        className="mx-auto text-[#a66a16]"
+                        aria-hidden="true"
+                      />
+
+                      <p className="mt-2 text-xl font-extrabold text-[#2c1607]">
+                        {xpEarned ===
+                        null
+                          ? "—"
+                          : `+${xpEarned}`}
+                      </p>
+
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#9a7341]">
+                        XP Earned
+                      </p>
+                    </div>
+                  </div>
+
+                  {result?.new_badges &&
+                    result.new_badges.length >
+                      0 && (
+                      <div className="mt-5 rounded-2xl border border-[#f0dfbf] bg-[#fff9ef] p-4">
+                        <div className="flex items-center gap-2 text-[#8a5b17]">
+                          <Trophy
+                            size={18}
+                            aria-hidden="true"
+                          />
+
+                          <p className="text-sm font-extrabold">
+                            New badge unlocked!
+                          </p>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {result.new_badges.map(
+                            (
+                              badge,
+                              index,
+                            ) => (
+                              <span
+                                key={
+                                  badge.id ??
+                                  `${badge.name}-${index}`
+                                }
+                                className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#6e4a1c]"
+                              >
+                                {
+                                  badge.name
+                                }
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  {reviewQuestions.length >
+                    0 && (
+                    <div className="mt-6 border-t border-[#e8edf0] pt-5">
                       <button
                         type="button"
-                        onClick={() => {
-                          void startPractice();
-                        }}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#16629b] px-4 py-2.5 text-sm font-bold text-white"
+                        onClick={() =>
+                          setShowReview(
+                            (
+                              current,
+                            ) =>
+                              !current,
+                          )
+                        }
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#cbdce7] bg-white px-4 py-3 text-sm font-extrabold text-[#16629b] transition hover:bg-[#f5fbff]"
                       >
-                        <RefreshCcw
+                        <BookOpen
                           size={16}
                           aria-hidden="true"
                         />
-                        New Practice
+                        {showReview
+                          ? "Hide Answer Review"
+                          : "Review Answers"}
                       </button>
+
+                      {showReview && (
+                        <div className="mt-4 space-y-4">
+                          {reviewQuestions.map(
+                            (
+                              review,
+                              index,
+                            ) => (
+                              <article
+                                key={
+                                  review.question_id
+                                }
+                                className={[
+                                  "rounded-2xl border p-4",
+                                  review.is_correct ===
+                                  true
+                                    ? "border-emerald-200 bg-emerald-50/60"
+                                    : review.is_correct ===
+                                        false
+                                      ? "border-red-200 bg-red-50/60"
+                                      : "border-[#dce5ea] bg-white",
+                                ].join(
+                                  " ",
+                                )}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div
+                                    className={[
+                                      "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl",
+                                      review.is_correct ===
+                                      true
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : review.is_correct ===
+                                            false
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-slate-100 text-slate-500",
+                                    ].join(
+                                      " ",
+                                    )}
+                                  >
+                                    {review.is_correct ===
+                                    true ? (
+                                      <CheckCircle2
+                                        size={17}
+                                        aria-hidden="true"
+                                      />
+                                    ) : review.is_correct ===
+                                      false ? (
+                                      <XCircle
+                                        size={17}
+                                        aria-hidden="true"
+                                      />
+                                    ) : (
+                                      <span className="text-xs font-extrabold">
+                                        {
+                                          index +
+                                          1
+                                        }
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                      Question{" "}
+                                      {
+                                        index +
+                                        1
+                                      }
+                                    </p>
+
+                                    <h4 className="mt-1 text-sm font-extrabold leading-6 text-[#2c1607]">
+                                      {
+                                        review.question_text
+                                      }
+                                    </h4>
+
+                                    <div className="mt-3 space-y-2 text-sm leading-6">
+                                      <p>
+                                        <span className="font-bold text-slate-500">
+                                          Your answer:
+                                        </span>{" "}
+                                        <span className="font-semibold text-slate-700">
+                                          {
+                                            review.selected_option_text ??
+                                            "Not available"
+                                          }
+                                        </span>
+                                      </p>
+
+                                      {review.is_correct ===
+                                        false && (
+                                        <p>
+                                          <span className="font-bold text-slate-500">
+                                            Correct answer:
+                                          </span>{" "}
+                                          <span className="font-semibold text-emerald-700">
+                                            {
+                                              review.correct_option_text ??
+                                              "Not available"
+                                            }
+                                          </span>
+                                        </p>
+                                      )}
+
+                                      {review.explanation && (
+                                        <div className="mt-3 rounded-xl bg-white/80 px-3 py-3">
+                                          <p className="text-xs font-extrabold uppercase tracking-wider text-[#16629b]">
+                                            Explanation
+                                          </p>
+
+                                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                                            {
+                                              review.explanation
+                                            }
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </article>
+                            ),
+                          )}
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  <div className="mt-6 flex flex-wrap justify-center gap-3 border-t border-[#e8edf0] pt-5">
+                    <button
+                      type="button"
+                      onClick={
+                        closeModal
+                      }
+                      className="rounded-xl border border-[#d7e0e6] bg-white px-4 py-2.5 text-sm font-bold text-slate-600"
+                    >
+                      Close
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void startPractice();
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#16629b] px-4 py-2.5 text-sm font-bold text-white"
+                    >
+                      <RefreshCcw
+                        size={16}
+                        aria-hidden="true"
+                      />
+                      New Practice
+                    </button>
                   </div>
                 </div>
               )}
