@@ -6,7 +6,6 @@ import {
   Link as Linkedin,
   LockKeyhole,
   Mail,
-  MapPinned,
   Phone,
   ShieldCheck,
   Star,
@@ -197,24 +196,6 @@ function formatText(
       (character) =>
         character.toUpperCase(),
     );
-}
-
-function formatOptionalValue(
-  value:
-    | string
-    | number
-    | null
-    | undefined,
-): string {
-  if (
-    value === null ||
-    value === undefined ||
-    String(value).trim() === ""
-  ) {
-    return "Not provided";
-  }
-
-  return String(value);
 }
 
 function getRoleName(
@@ -899,7 +880,7 @@ export default function ProfilePage() {
                     currentUser.expedition_level !==
                       undefined
                       ? `Level ${currentUser.expedition_level} Explorer`
-                      : "Not calculated yet"}
+                      : "Your Progress"}
                   </h3>
                 </div>
 
@@ -934,18 +915,6 @@ export default function ProfilePage() {
                     currentUser,
                   )
                 }
-              />
-
-              <InformationItem
-                icon={
-                  <MapPinned
-                    size={18}
-                  />
-                }
-                label="Target Major"
-                value={formatOptionalValue(
-                  currentUser.target_major,
-                )}
               />
 
               <InformationItem

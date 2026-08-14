@@ -305,9 +305,9 @@ export default function SecuritySpread() {
           </div>
 
           <div className="mt-8 rotate-[-1deg] rounded-2xl border-2 border-dashed border-[#c69c6e] bg-[#fff8e8] p-5">
-            <p className="passport-handwritten">
+            <h2 className="text-lg font-extrabold tracking-tight text-[#2c1607]">
               Guide&apos;s note
-            </p>
+            </h2>
 
             <p className="mt-2 text-sm leading-relaxed text-slate-600">
               A strong key keeps every

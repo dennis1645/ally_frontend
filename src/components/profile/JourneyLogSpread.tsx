@@ -1677,9 +1677,9 @@ export default function JourneyLogSpread() {
         </div>
 
         <div className="mt-6 rounded-2xl border-2 border-dashed border-[#c69c6e] bg-[#fff8e8] p-4">
-          <p className="passport-handwritten">
+          <h2 className="font-sans text-lg font-extrabold tracking-tight text-[#2c1607]">
             Explorer&apos;s calendar
-          </p>
+          </h2>
 
           <p className="mt-1 text-sm leading-relaxed text-slate-500">
             Select any past date to
