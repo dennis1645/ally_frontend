@@ -1,10 +1,5 @@
 import {
   AlertTriangle,
-  BookmarkCheck,
-  Clock3,
-  Lightbulb,
-  MessageCircle,
-  Trash2,
 } from "lucide-react";
 
 import {
@@ -93,39 +88,6 @@ function getFirstName(
     .split(/\s+/)[0];
 }
 
-function formatSessionDate(
-  dateString: string,
-): string {
-  const date =
-    new Date(
-      dateString,
-    );
-
-  const now =
-    new Date();
-
-  if (
-    date.toDateString() ===
-    now.toDateString()
-  ) {
-    return `Today · ${date.toLocaleTimeString(
-      [],
-      {
-        hour: "numeric",
-        minute: "2-digit",
-      },
-    )}`;
-  }
-
-  return date.toLocaleDateString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-    },
-  );
-}
-
 function createConversationTitle(
   message: string,
 ): string {
@@ -153,7 +115,7 @@ export default function AIMentorPage() {
   } = useAuth();
 
   const [
-    selectedSessionId,
+    ,
     setSelectedSessionId,
   ] =
     useState<number | null>(
@@ -419,7 +381,7 @@ export default function AIMentorPage() {
             </div>
           )}
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="w-full">
             <main className="min-w-0 space-y-5">
               <section className="rounded-[22px] border border-[#efccb8] bg-[#fff1ea] p-5 shadow-sm">
                 <div className="flex items-center gap-4">
@@ -459,164 +421,6 @@ export default function AIMentorPage() {
               />
             </main>
 
-            <aside className="space-y-6">
-              <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-3 flex items-center gap-2">
-                  <Clock3
-                    size={18}
-                    className="text-blue-500"
-                  />
-
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Recent Conversations
-                  </h2>
-                </div>
-
-                <div className="space-y-2">
-                  {recentConversations.length ===
-                  0 ? (
-                    <p className="py-4 text-center text-sm text-slate-500">
-                      No recent conversations yet.
-                    </p>
-                  ) : (
-                    recentConversations
-                      .slice(0, 3)
-                      .map(
-                        (
-                          session,
-                        ) => (
-                          <button
-                            key={
-                              session.id
-                            }
-                            type="button"
-                            onClick={() =>
-                              setSelectedSessionId(
-                                session.id,
-                              )
-                            }
-                            className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left ${
-                              selectedSessionId ===
-                              session.id
-                                ? "border-[#76b5e8] bg-[#eef7ff]"
-                                : "border-transparent bg-[#fff8f4] hover:border-[#efccb8]"
-                            }`}
-                          >
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm">
-                              <MessageCircle
-                                size={17}
-                              />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-slate-800">
-                                {
-                                  session.title
-                                }
-                              </p>
-
-                              <p className="text-xs text-slate-500">
-                                {formatSessionDate(
-                                  session.date,
-                                )}
-                              </p>
-                            </div>
-                          </button>
-                        ),
-                      )
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookmarkCheck
-                      size={18}
-                      className="text-[#b17a39]"
-                    />
-
-                    <h2 className="text-lg font-bold text-slate-900">
-                      Saved Insights
-                    </h2>
-                  </div>
-
-                  {savedInsights.length >
-                    0 && (
-                    <span className="rounded-full bg-[#fff1ea] px-2.5 py-1 text-xs font-bold text-[#9a6735]">
-                      {
-                        savedInsights.length
-                      }
-                    </span>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {savedInsights.length ===
-                  0 ? (
-                    <p className="py-4 text-center text-sm text-slate-500">
-                      No saved insights yet.
-                    </p>
-                  ) : (
-                    savedInsights.map(
-                      (
-                        insight,
-                      ) => (
-                        <div
-                          key={
-                            insight.id
-                          }
-                          className="group relative rounded-xl border border-transparent bg-[#fff8f4] p-3 hover:border-[#efccb8]"
-                        >
-                          <p className="text-xs font-bold uppercase text-[#9a6735]">
-                            {
-                              insight.category
-                            }
-                          </p>
-
-                          <p className="mt-1 text-sm text-slate-700">
-                            {
-                              insight.content
-                            }
-                          </p>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDeleteConfirmationId(
-                                insight.id,
-                              )
-                            }
-                            className="absolute right-2 top-2 p-1.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:text-red-500"
-                          >
-                            <Trash2
-                              size={16}
-                            />
-                          </button>
-                        </div>
-                      ),
-                    )
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[20px] border border-blue-100 bg-blue-50 p-5 shadow-sm">
-                <div className="mb-2 flex items-center gap-2">
-                  <Lightbulb
-                    size={18}
-                    className="text-blue-600"
-                  />
-
-                  <h2 className="font-bold text-blue-800">
-                    Pro Tips
-                  </h2>
-                </div>
-
-                <p className="text-sm text-slate-600">
-                  Save important chat bubbles by clicking the bookmark icon next to Ally&apos;s messages.
-                </p>
-              </section>
-            </aside>
           </div>
         </div>
 

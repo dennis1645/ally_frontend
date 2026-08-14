@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Coins,
+  X,
   Mountain,
   Package,
   RefreshCcw,
@@ -37,70 +38,81 @@ import {
 ========================================================= */
 
 type FeatureItemProps = {
-  children:
-    string;
-
-  light?:
-    boolean;
+  children: string;
+  light?: boolean;
 };
 
 /* =========================================================
    Static free-plan features
 ========================================================= */
 
-const freeFeatures:
-  string[] = [
-    "Initial Assessment",
-    "Scholarship Finder",
-    "Basic Profile Builder",
-    "Estimated Preparation Time",
-    "Ally Coaching with AI",
-  ];
+const freeIncludedFeatures: string[] = [
+  "Initial Assessment",
+  "Scholarship matching",
+  "Basic Profile Builder",
+  "Estimated Preparation Time",
+];
+
+const freeExcludedFeatures: string[] = [
+  "Ally Coaching with AI",
+  "Mentor matching",
+  "Full roadmap",
+];
 
 /* =========================================================
    Helpers
 ========================================================= */
 
-function formatRupiah(
-  value:
-    string | number,
+/**
+ * Compact Rupiah format.
+ *
+ * Used for Premium subscription cards.
+ *
+ * Examples:
+ * 450000  -> Rp450k
+ * 600000  -> Rp600k
+ * 750000  -> Rp750k
+ * 1000000 -> Rp1jt
+ * 1500000 -> Rp1,5jt
+ */
+function formatCompactRupiah(
+  value: string | number,
 ): string {
-  const parsed =
-    Number(
-      value,
-    );
+  const parsed = Number(value);
 
-  if (
-    !Number.isFinite(
-      parsed,
-    )
-  ) {
+  if (!Number.isFinite(parsed)) {
     return "Rp0";
   }
 
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style:
-        "currency",
+  if (parsed >= 1_000_000) {
+    const millions =
+      parsed / 1_000_000;
 
-      currency:
-        "IDR",
+    const formattedMillions =
+      Number.isInteger(millions)
+        ? millions.toString()
+        : millions
+          .toFixed(1)
+          .replace(".", ",");
 
-      minimumFractionDigits:
-        0,
+    return `Rp${formattedMillions}jt`;
+  }
 
-      maximumFractionDigits:
-        0,
-    },
-  )
-    .format(
-      parsed,
-    )
-    .replace(
-      /\s/g,
-      "",
-    );
+  if (parsed >= 1_000) {
+    const thousands =
+      parsed / 1_000;
+
+    const formattedThousands =
+      Number.isInteger(thousands)
+        ? thousands.toString()
+        : thousands
+          .toFixed(1)
+          .replace(".", ",");
+
+    return `Rp${formattedThousands}k`;
+  }
+
+  return `Rp${parsed}`;
 }
 
 function formatPremiumDate(
@@ -109,16 +121,12 @@ function formatPremiumDate(
     | null
     | undefined,
 ): string | null {
-  if (
-    !value
-  ) {
+  if (!value) {
     return null;
   }
 
   const date =
-    new Date(
-      value,
-    );
+    new Date(value);
 
   if (
     Number.isNaN(
@@ -131,41 +139,30 @@ function formatPremiumDate(
   return new Intl.DateTimeFormat(
     "en-US",
     {
-      month:
-        "short",
-
-      day:
-        "numeric",
-
-      year:
-        "numeric",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     },
-  ).format(
-    date,
-  );
+  ).format(date);
 }
 
 function getSubscriptionBenefits(
-  item:
-    ShopItem,
+  item: ShopItem,
 ): string[] {
-  const benefits:
-    string[] = [];
+  const benefits: string[] = [];
 
-  if (
-    item.duration_days
-  ) {
+  if (item.duration_days) {
     benefits.push(
       `${item.duration_days} days of premium access`,
     );
   }
 
-  if (
-    item.token_reward >
-    0
-  ) {
+  if (item.token_reward > 0) {
     benefits.push(
-      `${item.token_reward} Mentor Tokens included`,
+      `${item.token_reward} Mentor ${item.token_reward === 1
+        ? "Token"
+        : "Tokens"
+      } included`,
     );
   }
 
@@ -177,22 +174,15 @@ function getSubscriptionBenefits(
 }
 
 function getTokenBenefits(
-  item:
-    ShopItem,
+  item: ShopItem,
 ): string[] {
-  const benefits:
-    string[] = [];
+  const benefits: string[] = [];
 
-  if (
-    item.token_reward >
-    0
-  ) {
+  if (item.token_reward > 0) {
     benefits.push(
-      `${item.token_reward} Mentor ${
-        item.token_reward ===
-        1
-          ? "Token"
-          : "Tokens"
+      `${item.token_reward} Mentor ${item.token_reward === 1
+        ? "Token"
+        : "Tokens"
       }`,
     );
   }
@@ -251,9 +241,9 @@ export default function BillingPage() {
   /* =======================================================
      Midtrans return safety
 
-     If the Midtrans finish URL is configured to /billing instead
-     of /checkout, forward the return parameters to CheckoutPage,
-     which owns the payment-result handling and success popup.
+     If the Midtrans finish URL is configured to /billing
+     instead of /checkout, forward the return parameters
+     to CheckoutPage.
   ======================================================= */
 
   useEffect(
@@ -295,9 +285,7 @@ export default function BillingPage() {
     items,
     setItems,
   ] =
-    useState<
-      ShopItem[]
-    >(
+    useState<ShopItem[]>(
       [],
     );
 
@@ -305,17 +293,13 @@ export default function BillingPage() {
     isLoading,
     setIsLoading,
   ] =
-    useState(
-      true,
-    );
+    useState(true);
 
   const [
     loadError,
     setLoadError,
   ] =
-    useState<
-      string | null
-    >(
+    useState<string | null>(
       null,
     );
 
@@ -323,27 +307,20 @@ export default function BillingPage() {
     reloadVersion,
     setReloadVersion,
   ] =
-    useState(
-      0,
-    );
+    useState(0);
 
   const [
     plansVisible,
     setPlansVisible,
   ] =
-    useState(
-      false,
-    );
+    useState(false);
 
   /*
    * Billing content may scroll inside UserLayout rather than
-   * on window itself. These refs track the user's downward
-   * scroll intent independent of which element owns scrolling.
+   * on window itself.
    */
   const scrollIntentRef =
-    useRef(
-      0,
-    );
+    useRef(0);
 
   const touchStartYRef =
     useRef<number | null>(
@@ -352,27 +329,11 @@ export default function BillingPage() {
 
   /* =======================================================
      Reveal plans on downward scroll
-
-     IMPORTANT:
-     UserLayout can own scrolling through an internal
-     overflow-y-auto container. Listening only to
-     window.scrollY therefore misses real user scrolling.
-
-     This listener supports:
-     - browser/window scrolling
-     - nested scroll containers
-     - mouse wheel / trackpad
-     - touch swipe
-     - keyboard page scrolling
-
-     The plans reveal once and remain visible afterward.
   ======================================================= */
 
   useEffect(
     () => {
-      if (
-        plansVisible
-      ) {
+      if (plansVisible) {
         return;
       }
 
@@ -387,9 +348,7 @@ export default function BillingPage() {
 
       function revealPlans():
         void {
-        setPlansVisible(
-          true,
-        );
+        setPlansVisible(true);
       }
 
       function getScrollTop(
@@ -417,13 +376,8 @@ export default function BillingPage() {
         return window.scrollY;
       }
 
-      /*
-       * Scroll does not normally bubble, therefore use capture=true.
-       * This catches scrolling from UserLayout's internal scroll area.
-       */
       function handleAnyScroll(
-        event:
-          Event,
+        event: Event,
       ): void {
         if (
           getScrollTop(
@@ -435,17 +389,11 @@ export default function BillingPage() {
         }
       }
 
-      /*
-       * Wheel/trackpad intent is also tracked. This makes the reveal
-       * reliable even when the current page is only barely scrollable.
-       */
       function handleWheel(
-        event:
-          WheelEvent,
+        event: WheelEvent,
       ): void {
         if (
-          event.deltaY <=
-          0
+          event.deltaY <= 0
         ) {
           return;
         }
@@ -462,8 +410,7 @@ export default function BillingPage() {
       }
 
       function handleTouchStart(
-        event:
-          TouchEvent,
+        event: TouchEvent,
       ): void {
         touchStartYRef.current =
           event.touches[0]
@@ -472,8 +419,7 @@ export default function BillingPage() {
       }
 
       function handleTouchMove(
-        event:
-          TouchEvent,
+        event: TouchEvent,
       ): void {
         const startY =
           touchStartYRef.current;
@@ -483,20 +429,15 @@ export default function BillingPage() {
             ?.clientY;
 
         if (
-          startY ===
-            null ||
-          currentY ===
-            undefined
+          startY === null ||
+          currentY === undefined
         ) {
           return;
         }
 
-        /*
-         * Finger moving upward means the page is being scrolled down.
-         */
         if (
           startY -
-            currentY >=
+          currentY >=
           revealTouchDistance
         ) {
           revealPlans();
@@ -504,8 +445,7 @@ export default function BillingPage() {
       }
 
       function handleKeyDown(
-        event:
-          KeyboardEvent,
+        event: KeyboardEvent,
       ): void {
         if (
           [
@@ -531,8 +471,7 @@ export default function BillingPage() {
         "wheel",
         handleWheel,
         {
-          passive:
-            true,
+          passive: true,
         },
       );
 
@@ -540,8 +479,7 @@ export default function BillingPage() {
         "touchstart",
         handleTouchStart,
         {
-          passive:
-            true,
+          passive: true,
         },
       );
 
@@ -549,8 +487,7 @@ export default function BillingPage() {
         "touchmove",
         handleTouchMove,
         {
-          passive:
-            true,
+          passive: true,
         },
       );
 
@@ -603,21 +540,14 @@ export default function BillingPage() {
 
       async function loadShopItems():
         Promise<void> {
-        setIsLoading(
-          true,
-        );
-
-        setLoadError(
-          null,
-        );
+        setIsLoading(true);
+        setLoadError(null);
 
         try {
           const responseItems =
             await getShopItemsApi();
 
-          if (
-            !active
-          ) {
+          if (!active) {
             return;
           }
 
@@ -630,18 +560,13 @@ export default function BillingPage() {
             ),
           );
         } catch (
-          error:
-            unknown
+        error: unknown
         ) {
-          if (
-            !active
-          ) {
+          if (!active) {
             return;
           }
 
-          setItems(
-            [],
-          );
+          setItems([]);
 
           setLoadError(
             error instanceof
@@ -650,9 +575,7 @@ export default function BillingPage() {
               : "Unable to load expedition shop items.",
           );
         } finally {
-          if (
-            active
-          ) {
+          if (active) {
             setIsLoading(
               false,
             );
@@ -671,6 +594,10 @@ export default function BillingPage() {
       reloadVersion,
     ],
   );
+
+  /* =======================================================
+     Separate subscription and token products
+  ======================================================= */
 
   const subscriptionItems =
     useMemo(
@@ -737,8 +664,7 @@ export default function BillingPage() {
   ======================================================= */
 
   function handleChooseItem(
-    itemId:
-      number,
+    itemId: number,
   ): void {
     navigate(
       `/checkout?item=${itemId}`,
@@ -751,8 +677,7 @@ export default function BillingPage() {
       (
         current,
       ) =>
-        current +
-        1,
+        current + 1,
     );
   }
 
@@ -765,8 +690,7 @@ export default function BillingPage() {
       title="Billing"
       subtitle="Expedition Plans"
       topbarProps={{
-        showSearch:
-          false,
+        showSearch: false,
       }}
     >
       <section className="min-h-[calc(100vh-80px)] bg-[#fff8f5]">
@@ -782,10 +706,8 @@ export default function BillingPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-[#6b6670] sm:text-base">
-              Available plans and mentor
-              token packages are loaded
-              directly from the Ally
-              shop.
+              Available plans and mentor token packages are
+              loaded directly from the Ally shop.
             </p>
           </div>
 
@@ -833,8 +755,13 @@ export default function BillingPage() {
             aria-hidden="true"
             className="mt-5 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#8a7a6d]"
           >
-            <span>Keep scrolling to reveal plans &amp; mentor tokens</span>
-            <span className="text-base leading-none">↓</span>
+            <span>
+              Keep scrolling to reveal plans &amp; mentor tokens
+            </span>
+
+            <span className="text-base leading-none">
+              ↓
+            </span>
           </div>
 
           {/* =================================================
@@ -885,9 +812,7 @@ export default function BillingPage() {
               className={[
                 "pt-14",
                 "animate-[allyPlansReveal_420ms_ease-out]",
-              ].join(
-                " ",
-              )}
+              ].join(" ")}
             >
               <div className="mb-8">
                 <h2 className="text-2xl font-extrabold text-[#2c1607] sm:text-3xl">
@@ -916,13 +841,16 @@ export default function BillingPage() {
                 </div>
               ) : (
                 <>
+
                   {/* =========================================
                       FREE PLAN
                   ========================================== */}
 
                   {!isPremium && (
                     <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
+
                       <article className="flex min-h-[480px] flex-col rounded-[28px] bg-[#8b5e3c] p-7 text-white shadow-sm sm:p-8">
+
                         <div className="mb-8">
                           <h3 className="text-3xl font-extrabold">
                             Free
@@ -939,22 +867,50 @@ export default function BillingPage() {
                           </span>
                         </div>
 
-                        <ul className="mb-10 flex-1 space-y-4 text-sm leading-6 sm:text-base">
-                          {freeFeatures.map(
-                            (
-                              feature,
-                            ) => (
-                              <FeatureItem
-                                key={
-                                  feature
-                                }
-                                light
-                              >
-                                {feature}
-                              </FeatureItem>
-                            ),
-                          )}
-                        </ul>
+                        <div className="mb-10 flex-1 space-y-4 text-sm leading-6 sm:text-base">
+                          <ul className="space-y-4">
+                            {freeIncludedFeatures.map(
+                              (
+                                feature,
+                              ) => (
+                                <FeatureItem
+                                  key={
+                                    feature
+                                  }
+                                  light
+                                >
+                                  {feature}
+                                </FeatureItem>
+                              ),
+                            )}
+                          </ul>
+
+                          <ul className="space-y-4 pt-1">
+                            {freeExcludedFeatures.map(
+                              (
+                                feature,
+                              ) => (
+                                <li
+                                  key={
+                                    feature
+                                  }
+                                  className="flex items-start gap-3 text-white/55"
+                                >
+                                  <X
+                                    size={21}
+                                    strokeWidth={2.5}
+                                    className="mt-0.5 shrink-0 text-white/45"
+                                    aria-hidden="true"
+                                  />
+
+                                  <span>
+                                    {feature}
+                                  </span>
+                                </li>
+                              ),
+                            )}
+                          </ul>
+                        </div>
 
                         <button
                           type="button"
@@ -963,7 +919,21 @@ export default function BillingPage() {
                         >
                           Current Plan
                         </button>
+
                       </article>
+
+                      {/* =====================================
+                          PREMIUM SUBSCRIPTION
+
+                          Everything here remains backend-driven.
+
+                          Layout:
+                          Plan name
+                          Price
+                          Description
+                          Benefits
+                          Button
+                      ====================================== */}
 
                       {subscriptionItems.map(
                         (
@@ -975,29 +945,40 @@ export default function BillingPage() {
                             }
                             className="relative flex min-h-[480px] flex-col rounded-[28px] border-2 border-[#16629b] bg-white p-7 shadow-[0_8px_24px_rgba(22,98,155,0.12)] transition duration-200 hover:-translate-y-1 hover:shadow-xl sm:p-8"
                           >
+
+                            {/* Premium badge */}
+
                             <span className="absolute right-5 top-5 rounded-full bg-[#16629b] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
                               Premium
                             </span>
 
-                            <div className="mb-7 pr-20">
-                              <h3 className="text-2xl font-extrabold text-[#2c1607] sm:text-3xl">
+                            {/* Plan name */}
+
+                            <div className="pr-20">
+                              <h3 className="text-2xl font-extrabold leading-tight text-[#2c1607] sm:text-3xl">
                                 {item.name}
                               </h3>
-
-                              <p className="mt-2 text-sm leading-6 text-[#6b6670]">
-                                {item.description}
-                              </p>
                             </div>
 
-                            <div className="mb-8">
-                              <span className="text-4xl font-extrabold text-[#2c1607] sm:text-5xl">
-                                {formatRupiah(
+                            {/* Price */}
+
+                            <div className="mt-6">
+                              <span className="text-4xl font-extrabold tracking-tight text-[#2c1607] sm:text-5xl">
+                                {formatCompactRupiah(
                                   item.price_rupiah,
                                 )}
                               </span>
                             </div>
 
-                            <ul className="mb-9 flex-1 space-y-4 text-sm leading-6 text-[#4c5159] sm:text-base">
+                            {/* Description */}
+
+                            <p className="mt-6 text-sm leading-7 text-[#6b6670] sm:text-base">
+                              {item.description}
+                            </p>
+
+                            {/* Benefits */}
+
+                            <ul className="mb-9 mt-8 flex-1 space-y-4 text-sm leading-6 text-[#4c5159] sm:text-base">
                               {getSubscriptionBenefits(
                                 item,
                               ).map(
@@ -1015,6 +996,8 @@ export default function BillingPage() {
                               )}
                             </ul>
 
+                            {/* CTA */}
+
                             <button
                               type="button"
                               onClick={() => {
@@ -1026,6 +1009,7 @@ export default function BillingPage() {
                             >
                               Choose This Plan
                             </button>
+
                           </article>
                         ),
                       )}
@@ -1038,15 +1022,11 @@ export default function BillingPage() {
 
                   {isPremium &&
                     subscriptionItems.length >
-                      0 && (
+                    0 && (
                       <div className="mb-12 rounded-2xl border border-blue-100 bg-blue-50 p-5 text-sm leading-6 text-[#315b78]">
-                        Your Premium
-                        subscription is
-                        already active.
-                        Subscription
-                        products are hidden
-                        to avoid accidental
-                        duplicate purchases.
+                        Your Premium subscription is already
+                        active. Subscription products are hidden
+                        to avoid accidental duplicate purchases.
                       </div>
                     )}
 
@@ -1054,124 +1034,128 @@ export default function BillingPage() {
                       Mentor token packages
                   ========================================== */}
 
-                  {tokenItems.length >
-                    0 && (
-                    <div
-                      className={
-                        !isPremium
-                          ? "mt-12"
-                          : ""
-                      }
-                    >
-                      <div className="mb-6">
-                        <div className="flex items-center gap-3">
-                          <Coins
-                            size={25}
-                            className="text-[#16629b]"
-                          />
+                  {isPremium &&
+                    tokenItems.length >
+                      0 && (
+                      <div>
 
-                          <h3 className="text-2xl font-extrabold text-[#2c1607]">
-                            Mentor Token Packs
-                          </h3>
+                        <div className="mb-6">
+                          <div className="flex items-center gap-3">
+                            <Coins
+                              size={25}
+                              className="text-[#16629b]"
+                            />
+
+                            <h3 className="text-2xl font-extrabold text-[#2c1607]">
+                              Mentor Token Packs
+                            </h3>
+                          </div>
+
+                          <p className="mt-2 text-[#6b6670]">
+                            Add mentor consultation tokens to your account.
+                          </p>
                         </div>
 
-                        <p className="mt-2 text-[#6b6670]">
-                          Add mentor
-                          consultation tokens
-                          to your account.
-                        </p>
-                      </div>
+                        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                          {tokenItems.map(
+                            (
+                              item,
+                            ) => (
+                              <article
+                                key={
+                                  item.id
+                                }
+                                className="flex min-h-[320px] flex-col rounded-[24px] border border-[#ead3bd] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                              >
 
-                      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                        {tokenItems.map(
-                          (
-                            item,
-                          ) => (
-                            <article
-                              key={
-                                item.id
-                              }
-                              className="flex min-h-[320px] flex-col rounded-[24px] border border-[#ead3bd] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                            >
-                              <div className="mb-5 flex items-start justify-between gap-4">
-                                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#fff0e7] text-[#16629b]">
-                                  <Package
-                                    size={23}
-                                  />
+                                <div className="mb-5 flex items-start justify-between gap-4">
+
+                                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#fff0e7] text-[#16629b]">
+                                    <Package
+                                      size={23}
+                                    />
+                                  </div>
+
+                                  {item.token_reward >
+                                    0 && (
+                                      <span className="rounded-full bg-[#eef7ff] px-3 py-1 text-xs font-bold text-[#16629b]">
+                                        +{item.token_reward} token
+                                        {item.token_reward ===
+                                          1
+                                          ? ""
+                                          : "s"}
+                                      </span>
+                                    )}
                                 </div>
 
-                                {item.token_reward >
-                                  0 && (
-                                  <span className="rounded-full bg-[#eef7ff] px-3 py-1 text-xs font-bold text-[#16629b]">
-                                    +{item.token_reward} token
-                                    {item.token_reward ===
-                                    1
-                                      ? ""
-                                      : "s"}
-                                  </span>
-                                )}
-                              </div>
+                                <h4 className="text-xl font-bold text-[#2c1607]">
+                                  {item.name}
+                                </h4>
 
-                              <h4 className="text-xl font-bold text-[#2c1607]">
-                                {item.name}
-                              </h4>
+                                <p className="mt-2 flex-1 text-sm leading-6 text-[#6b6670]">
+                                  {item.description}
+                                </p>
 
-                              <p className="mt-2 flex-1 text-sm leading-6 text-[#6b6670]">
-                                {item.description}
-                              </p>
-
-                              <ul className="mt-5 space-y-3 text-sm text-[#4c5159]">
-                                {getTokenBenefits(
-                                  item,
-                                ).map(
-                                  (
-                                    benefit,
-                                  ) => (
-                                    <FeatureItem
-                                      key={
-                                        benefit
-                                      }
-                                    >
-                                      {benefit}
-                                    </FeatureItem>
-                                  ),
-                                )}
-                              </ul>
-
-                              <div className="mt-6 flex items-end justify-between gap-4">
-                                <span className="text-2xl font-extrabold text-[#2c1607]">
-                                  {formatRupiah(
-                                    item.price_rupiah,
+                                <ul className="mt-5 space-y-3 text-sm text-[#4c5159]">
+                                  {getTokenBenefits(
+                                    item,
+                                  ).map(
+                                    (
+                                      benefit,
+                                    ) => (
+                                      <FeatureItem
+                                        key={
+                                          benefit
+                                        }
+                                      >
+                                        {benefit}
+                                      </FeatureItem>
+                                    ),
                                   )}
-                                </span>
+                                </ul>
 
-                                <button
-                                  type="button"
-                                  disabled={
-                                    item.stock_quantity <=
-                                    0
-                                  }
-                                  onClick={() => {
-                                    handleChooseItem(
-                                      item.id,
-                                    );
-                                  }}
-                                  className="rounded-xl border-2 border-[#16629b] bg-white px-4 py-2.5 text-sm font-bold text-[#16629b] transition hover:bg-[#edf6fc] disabled:cursor-not-allowed disabled:border-[#cbd0d5] disabled:text-[#92979b]"
-                                >
-                                  Buy
-                                </button>
-                              </div>
-                            </article>
-                          ),
-                        )}
+                                <div className="mt-6 flex items-end justify-between gap-4">
+
+                                  {/* Token pack price keeps full format */}
+
+                                  <span className="text-2xl font-extrabold text-[#2c1607]">
+                                    {formatCompactRupiah(
+                                      item.price_rupiah,
+                                    )}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      item.stock_quantity <=
+                                      0
+                                    }
+                                    onClick={() => {
+                                      handleChooseItem(
+                                        item.id,
+                                      );
+                                    }}
+                                    className="rounded-xl border-2 border-[#16629b] bg-white px-4 py-2.5 text-sm font-bold text-[#16629b] transition hover:bg-[#edf6fc] disabled:cursor-not-allowed disabled:border-[#cbd0d5] disabled:text-[#92979b]"
+                                  >
+                                    Buy
+                                  </button>
+
+                                </div>
+                              </article>
+                            ),
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+
+                  {/* =========================================
+                      Empty shop
+                  ========================================== */}
 
                   {subscriptionItems.length ===
                     0 &&
                     tokenItems.length ===
-                      0 &&
+                    0 &&
                     !loadError && (
                       <div className="rounded-2xl border border-[#ead3bd] bg-white p-8 text-center">
                         <CalendarDays
@@ -1180,13 +1164,11 @@ export default function BillingPage() {
                         />
 
                         <h3 className="mt-4 text-xl font-bold text-[#2c1607]">
-                          No shop items are
-                          currently available
+                          No shop items are currently available
                         </h3>
 
                         <p className="mt-2 text-[#6b6670]">
-                          Please check again
-                          later.
+                          Please check again later.
                         </p>
                       </div>
                     )}

@@ -43,7 +43,7 @@ type DashboardQuestHeroProps = {
   nextDeadline?: Reminder | null;
   deadlineLoading?: boolean;
   selectedMilestoneId?: RoadmapEntityId | null;
-  onOpenQuestTracker: () => void;
+  onOpenQuestTracker?: () => void;
   onMilestoneSelect: (
     milestone: RoadmapMilestone,
   ) => void;
@@ -735,7 +735,7 @@ function DashboardDeadlineOverlay({
 function EmptyQuestMap({
   onOpenQuestTracker,
 }: {
-  onOpenQuestTracker: () => void;
+  onOpenQuestTracker?: () => void;
 }) {
   return (
     <section
@@ -778,28 +778,30 @@ function EmptyQuestMap({
             Open Quest Tracker to finish setting up your scholarship timeline.
           </p>
 
-          <button
-            type="button"
-            onClick={
-              onOpenQuestTracker
-            }
-            className={[
-              "mt-5 inline-flex min-h-11 items-center justify-center gap-2",
-              "rounded-xl bg-[#16629b] px-5 py-3",
-              "text-sm font-extrabold text-white",
-              "shadow-[0_4px_0_#0d4773]",
-              "transition hover:-translate-y-0.5 hover:bg-[#115787]",
-            ].join(
-              " ",
-            )}
-          >
-            Open Quest Tracker
+          {onOpenQuestTracker && (
+            <button
+              type="button"
+              onClick={
+                onOpenQuestTracker
+              }
+              className={[
+                "mt-5 inline-flex min-h-11 items-center justify-center gap-2",
+                "rounded-xl bg-[#16629b] px-5 py-3",
+                "text-sm font-extrabold text-white",
+                "shadow-[0_4px_0_#0d4773]",
+                "transition hover:-translate-y-0.5 hover:bg-[#115787]",
+              ].join(
+                " ",
+              )}
+            >
+              Open Quest Tracker
 
-            <ArrowRight
-              size={16}
-              aria-hidden="true"
-            />
-          </button>
+              <ArrowRight
+                size={16}
+                aria-hidden="true"
+              />
+            </button>
+          )}
         </div>
       </div>
     </section>
@@ -935,27 +937,6 @@ export default function DashboardQuestHero({
             </h1>
           </div>
 
-          <button
-            type="button"
-            onClick={
-              onOpenQuestTracker
-            }
-            className={[
-              "inline-flex min-h-10 w-fit items-center justify-center gap-2",
-              "rounded-xl border border-[#bfd8e8] bg-white px-4 py-2.5",
-              "text-xs font-extrabold text-[#16629b]",
-              "shadow-sm transition hover:-translate-y-0.5 hover:bg-[#f4faff]",
-            ].join(
-              " ",
-            )}
-          >
-            Open Full Quest Tracker
-
-            <ArrowRight
-              size={14}
-              aria-hidden="true"
-            />
-          </button>
         </header>
 
         <div className="relative">

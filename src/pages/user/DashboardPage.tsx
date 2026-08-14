@@ -2583,9 +2583,6 @@ export default function DashboardPage() {
             selectedMilestoneId={
               selectedMilestoneId
             }
-            onOpenQuestTracker={
-              handleContinueJourney
-            }
             onMilestoneSelect={
               handleMilestoneSelect
             }
