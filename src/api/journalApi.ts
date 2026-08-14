@@ -75,7 +75,12 @@ function normalizeJournal(
 
   return {
     id,
-    date: date.slice(0, 10),
+
+    // IMPORTANT:
+    // Keep the complete backend date.
+    // JourneyLogSpread will normalize it
+    // to Asia/Jakarta correctly.
+    date,
 
     reflection: toNullableString(
       value.reflection,

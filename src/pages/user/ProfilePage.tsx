@@ -3,7 +3,6 @@ import {
   Compass,
   Edit3,
   Globe2,
-  GraduationCap,
   Link as Linkedin,
   LockKeyhole,
   Mail,
@@ -316,6 +315,201 @@ function getLinkedInUrl(
 }
 
 /* =========================================================
+   Backend compatibility helpers
+
+   The newest backend collection documents GET /api/profile
+   as the canonical profile source, but it does not include a
+   sample response body. These helpers therefore prefer the
+   newest documented/canonical fields while keeping safe
+   fallbacks for older profile payloads.
+========================================================= */
+
+type BackendRecord =
+  Record<string, unknown>;
+
+function isBackendRecord(
+  value: unknown,
+): value is BackendRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function getNonEmptyString(
+  value: unknown,
+): string | null {
+  if (
+    typeof value !== "string"
+  ) {
+    return null;
+  }
+
+  const normalized =
+    value.trim();
+
+  return normalized || null;
+}
+
+function getNestedString(
+  value: unknown,
+  keys: string[],
+): string | null {
+  if (!isBackendRecord(value)) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const candidate =
+      getNonEmptyString(
+        value[key],
+      );
+
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function getProfilePictureValue(
+  user: AuthUser,
+): string | null {
+  return (
+    getNonEmptyString(
+      user.profile_picture_url,
+    ) ??
+    getNonEmptyString(
+      user.profile_picture,
+    )
+  );
+}
+
+function getScholarshipDisplayName(
+  user: AuthUser,
+): string {
+  const userRecord =
+    user as BackendRecord;
+
+  const canonicalScholarshipData =
+    userRecord.target_scholarship_data;
+
+  const nestedName =
+    getNestedString(
+      canonicalScholarshipData,
+      [
+        "name",
+        "title",
+      ],
+    );
+
+  if (nestedName) {
+    return nestedName;
+  }
+
+  const primaryTarget =
+    getNonEmptyString(
+      userRecord.primary_scholarship_target,
+    );
+
+  if (primaryTarget) {
+    return primaryTarget;
+  }
+
+  const legacyTarget =
+    getNonEmptyString(
+      userRecord.target_scholarship,
+    );
+
+  return (
+    legacyTarget ??
+    "Not provided"
+  );
+}
+
+function getTargetDegreeDisplay(
+  user: AuthUser,
+): string {
+  const userRecord =
+    user as BackendRecord;
+
+  const directTargetDegree =
+    getNonEmptyString(
+      userRecord.target_degree,
+    );
+
+  if (directTargetDegree) {
+    return formatText(
+      directTargetDegree,
+    );
+  }
+
+  const scholarshipDegree =
+    getNestedString(
+      userRecord.target_scholarship_data,
+      [
+        "degree_level",
+        "degree",
+        "target_degree",
+      ],
+    );
+
+  return scholarshipDegree
+    ? formatText(
+        scholarshipDegree,
+      )
+    : "Not provided";
+}
+
+function getTargetCountryDisplay(
+  user: AuthUser,
+): string {
+  const userRecord =
+    user as BackendRecord;
+
+  const directTargetCountry =
+    getNonEmptyString(
+      userRecord.target_country,
+    );
+
+  if (directTargetCountry) {
+    return directTargetCountry;
+  }
+
+  const scholarshipCountry =
+    getNestedString(
+      userRecord.target_scholarship_data,
+      [
+        "provider_country",
+        "country",
+        "target_country",
+      ],
+    );
+
+  return (
+    scholarshipCountry ??
+    "Not provided"
+  );
+}
+
+function normalizeReadinessScore(
+  value: unknown,
+): number {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.min(
+    100,
+    Math.max(0, parsed),
+  );
+}
+
+/* =========================================================
    Main page
 ========================================================= */
 
@@ -359,7 +553,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setImageFailed(false);
-  }, [user?.profile_picture_url]);
+  }, [
+    user?.profile_picture_url,
+    user?.profile_picture,
+  ]);
 
   if (status === "loading") {
     return (
@@ -392,7 +589,9 @@ export default function ProfilePage() {
 
   const profilePictureUrl =
     getProfilePictureUrl(
-      currentUser.profile_picture_url,
+      getProfilePictureValue(
+        currentUser,
+      ),
     );
 
   const linkedInUrl =
@@ -405,14 +604,10 @@ export default function ProfilePage() {
       currentUser.role,
     );
 
-  const readinessScore = Math.min(
-    100,
-    Math.max(
-      0,
-      currentUser.readiness_score ??
-        0,
-    ),
-  );
+  const readinessScore =
+    normalizeReadinessScore(
+      currentUser.readiness_score,
+    );
 
   // Formatting Phone Number to display with +62
   let rawPhone = currentUser.phone_number?.trim() || "";
@@ -731,36 +926,14 @@ export default function ProfilePage() {
             <div className="mt-7 grid gap-4 sm:grid-cols-2">
               <InformationItem
                 icon={
-                  <GraduationCap
-                    size={18}
-                  />
-                }
-                label="Institution"
-                value={formatOptionalValue(
-                  currentUser.institution_name,
-                )}
-              />
-
-              <InformationItem
-                icon={
-                  <GraduationCap
-                    size={18}
-                  />
-                }
-                label="Education"
-                value={formatText(
-                  currentUser.education_level,
-                )}
-              />
-
-              <InformationItem
-                icon={
                   <Target size={18} />
                 }
                 label="Target Degree"
-                value={formatText(
-                  currentUser.target_degree,
-                )}
+                value={
+                  getTargetDegreeDisplay(
+                    currentUser,
+                  )
+                }
               />
 
               <InformationItem
@@ -780,9 +953,11 @@ export default function ProfilePage() {
                   <Globe2 size={18} />
                 }
                 label="Target Country"
-                value={formatOptionalValue(
-                  currentUser.target_country,
-                )}
+                value={
+                  getTargetCountryDisplay(
+                    currentUser,
+                  )
+                }
               />
 
               <InformationItem
@@ -790,9 +965,11 @@ export default function ProfilePage() {
                   <Compass size={18} />
                 }
                 label="Scholarship"
-                value={formatOptionalValue(
-                  currentUser.target_scholarship,
-                )}
+                value={
+                  getScholarshipDisplayName(
+                    currentUser,
+                  )
+                }
               />
             </div>
 

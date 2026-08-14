@@ -212,13 +212,13 @@ export default function AIMentorChat({
     }, [messages, searchQuery]);
 
   // Daftar Pertanyaan Bantuan (Prompt Starters)
-  const suggestedQuestions = [
-    "Can you review my motivation letter?",
-    "How to ask for a recommendation letter?",
-    "Tips for TOEFL iBT speaking section?",
-    "What are common scholarship interview questions?",
-    "Help me build a study plan for this month.",
-  ];
+const suggestedQuestions = [
+  "How do I know which scholarships I'm eligible for?",
+  "What documents are usually required for a scholarship application?",
+  "How do I write a strong personal statement or motivation letter?",
+  "How should I ask for a recommendation letter?",
+  "What should I prepare for a scholarship interview?",
+];
 
   return (
     <div className="flex h-[600px] flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">

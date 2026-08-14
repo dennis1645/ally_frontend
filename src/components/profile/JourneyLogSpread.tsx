@@ -173,6 +173,9 @@ const weekDays = [
   "Sat",
 ];
 
+const JOURNAL_TIME_ZONE =
+  "Asia/Jakarta";
+
 /* =========================================================
    Date helpers
 ========================================================= */
@@ -190,6 +193,100 @@ function getLocalDateKey(
   const day = String(
     date.getDate(),
   ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getJournalDateKey(
+  value: string,
+): string {
+  const trimmedValue =
+    value.trim();
+
+  /*
+   * The journal API logically stores a calendar date.
+   * If the backend already returns YYYY-MM-DD, preserve it
+   * exactly and do not run it through Date/timezone parsing.
+   */
+  const dateOnlyMatch =
+    trimmedValue.match(
+      /^(\d{4}-\d{2}-\d{2})$/,
+    );
+
+  if (dateOnlyMatch) {
+    return dateOnlyMatch[1];
+  }
+
+  /*
+   * Some backend serializers can return the same database
+   * date as a UTC timestamp. For example:
+   *
+   * 2026-08-14 00:00 Asia/Jakarta
+   * -> 2026-08-13T17:00:00Z
+   *
+   * Convert timestamps back to the journal's calendar
+   * timezone before creating the YYYY-MM-DD lookup key.
+   */
+  const parsedDate =
+    new Date(trimmedValue);
+
+  if (
+    Number.isNaN(
+      parsedDate.getTime(),
+    )
+  ) {
+    /*
+     * Defensive fallback for an unexpected backend value.
+     * This preserves the old behavior rather than crashing.
+     */
+    return trimmedValue.slice(
+      0,
+      10,
+    );
+  }
+
+  const dateParts =
+    new Intl.DateTimeFormat(
+      "en-US",
+      {
+        timeZone:
+          JOURNAL_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      },
+    ).formatToParts(
+      parsedDate,
+    );
+
+  const year =
+    dateParts.find(
+      (part) =>
+        part.type === "year",
+    )?.value;
+
+  const month =
+    dateParts.find(
+      (part) =>
+        part.type === "month",
+    )?.value;
+
+  const day =
+    dateParts.find(
+      (part) =>
+        part.type === "day",
+    )?.value;
+
+  if (
+    !year ||
+    !month ||
+    !day
+  ) {
+    return trimmedValue.slice(
+      0,
+      10,
+    );
+  }
 
   return `${year}-${month}-${day}`;
 }
@@ -571,9 +668,8 @@ export default function JourneyLogSpread() {
       >(
         journals.map(
           (journal) => [
-            journal.date.slice(
-              0,
-              10,
+            getJournalDateKey(
+              journal.date,
             ),
             journal,
           ],
@@ -897,7 +993,9 @@ export default function JourneyLogSpread() {
 
       setSuccess(
         `Journal entry for ${formatDate(
-          deleteTarget.date,
+          getJournalDateKey(
+            deleteTarget.date,
+          ),
         )} was deleted.`,
       );
     } catch (deleteError) {
@@ -1258,7 +1356,9 @@ export default function JourneyLogSpread() {
 
             <h2 className="mt-1 text-2xl font-extrabold">
               {formatDate(
-                selectedJournal.date,
+                getJournalDateKey(
+                  selectedJournal.date,
+                ),
               )}
             </h2>
           </div>
